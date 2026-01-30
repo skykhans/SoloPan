@@ -1,9 +1,10 @@
 :root {
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
   --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
-  
+
   /* Trae Brand Palette */
-  --pan-primary: #10b981; /* Trae Green */
+  --pan-primary: #10b981;
+  /* Trae Green */
   --pan-primary-hover: #059669;
   --pan-bg: #000000;
   --pan-sidebar-bg: #000000;
@@ -13,7 +14,7 @@
   --pan-text-muted: #52525b;
   --pan-border: #1a1a1a;
   --pan-border-strong: #262626;
-  
+
   /* Trae-style Design Tokens */
   --pan-radius-xs: 2px;
   --pan-radius-sm: 4px;
@@ -22,7 +23,8 @@
   --pan-transition: all 0.15s ease;
 }
 
-html, body {
+html,
+body {
   margin: 0;
   padding: 0;
   width: 100vw;
@@ -90,7 +92,7 @@ html, body {
   background-color: #050505 !important;
 }
 
-.el-table__row:hover > td.el-table__cell {
+.el-table__row:hover>td.el-table__cell {
   background-color: #0a0a0a !important;
 }
 
@@ -227,8 +229,8 @@ html, body {
   background-color: #000000 !important;
 }
 
-.el-table__body, 
-.el-table__header, 
+.el-table__body,
+.el-table__header,
 .el-table__footer {
   background-color: #000000 !important;
 }
@@ -248,8 +250,8 @@ html, body {
 }
 
 /* Fix for row background during transition/loading */
-.el-table tr, 
-.el-table th, 
+.el-table tr,
+.el-table th,
 .el-table td {
   background-color: #000000 !important;
 }
@@ -287,6 +289,7 @@ html, body {
 .el-table__empty-text {
   color: var(--pan-text-muted) !important;
 }
+
 .el-button {
   border-radius: var(--pan-radius-sm) !important;
   font-weight: 600 !important;
@@ -295,7 +298,8 @@ html, body {
   padding: 0 16px !important;
   transition: var(--pan-transition) !important;
   border: 1px solid var(--pan-border-strong) !important;
-  background: #000000 !important; /* Force black background for default buttons */
+  background: #000000 !important;
+  /* Force black background for default buttons */
   color: var(--pan-text-main) !important;
   text-transform: none !important;
 }
@@ -317,7 +321,7 @@ html, body {
 }
 
 /* Link and Text buttons should be transparent */
-.el-button.is-link, 
+.el-button.is-link,
 .el-button.is-text,
 .el-button.view-switch-btn,
 .el-button.view-switch-btn-grid {
@@ -335,35 +339,15 @@ html, body {
   background: rgba(255, 255, 255, 0.05) !important;
 }
 
-/* Navigation Style: Minimalist */
+/* Navigation Style: Base Reset */
 .el-menu {
   background: transparent !important;
   border: none !important;
 }
 
-.el-menu-item {
-  height: 40px !important;
-  line-height: 40px !important;
-  color: var(--pan-text-body) !important;
-  font-size: 13px !important;
-  padding: 0 20px !important;
-  margin: 0 !important;
-  border-radius: 0 !important;
-}
-
-.el-menu-item:hover {
-  background: transparent !important;
-  color: var(--pan-text-main) !important;
-}
-
-.el-menu-item.is-active {
-  color: var(--pan-text-main) !important;
-  font-weight: 700 !important;
-  background: transparent !important;
-}
-
 /* Element Plus Global Table Overrides */
-.el-table, .el-table__inner-wrapper {
+.el-table,
+.el-table__inner-wrapper {
   background-color: #000000 !important;
 }
 

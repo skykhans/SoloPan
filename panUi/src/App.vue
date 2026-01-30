@@ -197,6 +197,12 @@ onMounted(() => {
           padding: 0 !important;
           display: flex;
           justify-content: center;
+          padding-left: 0 !important;
+          
+          // 折叠时激活指示器保持可见
+          &.is-active::before {
+            left: 0;
+          }
           
           .el-icon {
             margin: 0;
@@ -258,22 +264,54 @@ onMounted(() => {
     padding: 0 12px;
 
     :deep(.el-menu-item) {
-      height: 40px;
-      line-height: 40px;
+      height: 42px;
+      line-height: 42px;
       border-radius: var(--pan-radius-sm);
-      margin-bottom: 2px;
+      margin-bottom: 4px;
       color: var(--pan-text-body);
       font-size: 13px;
+      font-weight: 500;
+      position: relative;
+      transition: all 0.2s ease;
+      padding-left: 14px !important;
+      
+      // 左侧激活指示器
+      &::before {
+        content: '';
+        position: absolute;
+        left: 0;
+        top: 50%;
+        transform: translateY(-50%);
+        width: 3px;
+        height: 0;
+        background: var(--pan-primary);
+        border-radius: 0 2px 2px 0;
+        transition: height 0.2s ease;
+      }
       
       &:hover {
-        background-color: rgba(255, 255, 255, 0.03);
+        background-color: rgba(255, 255, 255, 0.04);
         color: var(--pan-text-main);
+        
+        .el-icon {
+          color: var(--pan-primary);
+          transform: scale(1.05);
+        }
       }
 
       &.is-active {
-        background: rgba(255, 255, 255, 0.05);
+        background: linear-gradient(90deg, rgba(16, 185, 129, 0.08) 0%, transparent 100%);
         color: var(--pan-text-main);
-        font-weight: 500;
+        font-weight: 600;
+        
+        &::before {
+          height: 20px;
+        }
+        
+        .el-icon {
+          color: var(--pan-primary);
+          filter: drop-shadow(0 0 6px rgba(16, 185, 129, 0.4));
+        }
       }
 
       white-space: nowrap;
@@ -281,7 +319,9 @@ onMounted(() => {
 
       .el-icon {
         font-size: 18px;
-        margin-right: 10px;
+        margin-right: 12px;
+        transition: all 0.2s ease;
+        color: var(--pan-text-muted);
       }
     }
   }

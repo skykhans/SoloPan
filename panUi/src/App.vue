@@ -159,39 +159,44 @@ onMounted(() => {
 }
 
 .sidebar {
-  width: 240px;
-  background-color: #f5f7fa;
-  border-right: 1px solid #e4e7ed;
+  width: 260px;
+  background-color: var(--pan-sidebar-bg);
+  border-right: 1px solid var(--pan-border-strong);
   display: flex;
   flex-direction: column;
-  padding: 20px 0;
-  transition: width 0.3s;
+  padding: 24px 0;
+  transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   position: relative;
+  z-index: 100;
 
   &.collapsed {
-    width: 64px;
+    width: 80px;
 
     .logo {
       padding: 0;
       justify-content: center;
+      margin-bottom: 32px;
     }
   }
 
   .logo {
     display: flex;
     align-items: center;
-    gap: 10px;
-    padding: 0 20px 20px;
-    font-size: 18px;
-    font-weight: bold;
-    color: var(--pan-primary);
+    gap: 12px;
+    padding: 0 24px;
+    margin-bottom: 32px;
+    font-size: 20px;
+    font-weight: 800;
+    color: var(--pan-text-main);
+    letter-spacing: -0.5px;
     overflow: hidden;
     white-space: nowrap;
     
     img {
-      width: 32px;
-      height: 32px;
-      min-width: 32px;
+      width: 36px;
+      height: 36px;
+      min-width: 36px;
+      filter: drop-shadow(0 4px 6px rgba(99, 102, 241, 0.2));
     }
   }
 
@@ -199,16 +204,49 @@ onMounted(() => {
     border-right: none;
     background-color: transparent;
     flex: 1;
+    padding: 0 12px;
+
+    :deep(.el-menu-item) {
+      height: 48px;
+      line-height: 48px;
+      border-radius: var(--pan-radius-sm);
+      margin-bottom: 4px;
+      color: var(--pan-text-body);
+      
+      &:hover {
+        background-color: var(--pan-primary-light);
+        color: var(--pan-primary);
+      }
+
+      &.is-active {
+        background-color: var(--pan-primary-light);
+        color: var(--pan-primary);
+        font-weight: 600;
+      }
+
+      .el-icon {
+        font-size: 20px;
+        margin-right: 12px;
+      }
+    }
   }
 
   .storage-info {
-    padding: 20px;
+    padding: 24px;
+    margin: 12px;
+    background: var(--pan-bg);
+    border-radius: var(--pan-radius-md);
     
+    :deep(.el-progress-bar__inner) {
+      background-color: var(--pan-primary);
+    }
+
     p {
       font-size: 12px;
-      color: #909399;
-      margin-top: 5px;
+      color: var(--pan-text-muted);
+      margin-top: 8px;
       text-align: center;
+      font-weight: 500;
     }
 
     .usage-text {
@@ -217,17 +255,20 @@ onMounted(() => {
   }
 
   .user-profile {
-    padding: 20px;
+    padding: 16px 24px;
     cursor: pointer;
-    border-top: 1px solid #e4e7ed;
+    border-top: 1px solid var(--pan-border);
     display: flex;
     justify-content: center;
+    margin-top: 8px;
 
     .el-dropdown-link {
       display: flex;
       align-items: center;
-      gap: 5px;
-      color: #606266;
+      gap: 8px;
+      color: var(--pan-text-main);
+      font-weight: 600;
+      font-size: 14px;
       
       .collapsed-icon {
         margin: 0;
@@ -242,22 +283,41 @@ onMounted(() => {
   position: relative;
   display: flex;
   flex-direction: column;
-  padding: 20px;
+  padding: 0; /* Changed to 0 to allow header to span full width */
+  background-color: var(--pan-bg);
 
   .collapse-btn {
     position: absolute;
     left: 20px;
-    top: 22px;
+    top: 13px; /* Adjusted for new header height */
     z-index: 1000;
     cursor: pointer;
-    color: #606266;
-    transition: color 0.3s;
+    color: var(--pan-text-muted);
+    transition: var(--pan-transition);
     display: flex;
     align-items: center;
+    padding: 8px;
+    border-radius: var(--pan-radius-sm);
 
     &:hover {
       color: var(--pan-primary);
+      background-color: var(--pan-primary-light);
     }
+  }
+
+  /* We need a header-like area to keep the button consistent */
+  &::before {
+    content: '';
+    height: 64px;
+    background: transparent;
+    width: 100%;
+    pointer-events: none;
+  }
+
+  & > :not(.collapse-btn) {
+    flex: 1;
+    padding: 0 24px 24px; /* Internal content padding */
+    overflow: auto;
   }
 }
 </style>

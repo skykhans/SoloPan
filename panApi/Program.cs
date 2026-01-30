@@ -93,7 +93,7 @@ builder.Services.AddAuthentication(x =>
             var accessToken = context.Request.Query["access_token"];
             var path = context.HttpContext.Request.Path;
             if (!string.IsNullOrEmpty(accessToken) && 
-                (path.StartsWithSegments("/api/file/download") || path.StartsWithSegments("/api/file/thumbnail")))
+                (path.Value.Contains("/file/download") || path.Value.Contains("/file/thumbnail")))
             {
                 context.Token = accessToken;
             }

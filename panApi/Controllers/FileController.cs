@@ -244,7 +244,8 @@ namespace PanSystem.Controllers
         {
             var userId = GetUserId();
             var item = await _db.Queryable<StorageItem>()
-                .FirstAsync(f => f.Id == id && f.UserId == userId && !f.IsFolder && !f.IsDeleted);
+                .DisableQueryFilter()
+                .FirstAsync(f => f.Id == id && f.UserId == userId && !f.IsFolder);
 
             if (item == null) return NotFound("文件不存在");
 
@@ -302,7 +303,8 @@ namespace PanSystem.Controllers
         {
             var userId = GetUserId();
             var item = await _db.Queryable<StorageItem>()
-                .FirstAsync(f => f.Id == id && f.UserId == userId && !f.IsFolder && !f.IsDeleted);
+                .DisableQueryFilter()
+                .FirstAsync(f => f.Id == id && f.UserId == userId && !f.IsFolder);
 
             if (item == null) return NotFound("文件不存在");
 
@@ -314,8 +316,9 @@ namespace PanSystem.Controllers
             if (!new[] { ".jpg", ".jpeg", ".png", ".bmp", ".webp", ".heic", ".heif" }.Contains(ext))
             {
                 // 不是图片，返回默认图标或原文件?
-                // 暂时重定向到下载
-                return RedirectToAction(nameof(Download), new { id = id });
+                // 暂时重定向到下载，携带 token
+                var token = Request.Query["access_token"];
+                return RedirectToAction(nameof(Download), new { id = id, access_token = token });
             }
 
             // 特殊处理 HEIC/HEIF
@@ -336,7 +339,8 @@ namespace PanSystem.Controllers
                 }
                 catch
                 {
-                     return RedirectToAction(nameof(Download), new { id = id });
+                     var token = Request.Query["access_token"];
+                     return RedirectToAction(nameof(Download), new { id = id, access_token = token });
                 }
             }
 
@@ -358,7 +362,8 @@ namespace PanSystem.Controllers
             catch
             {
                 // 生成失败，返回原图
-                return RedirectToAction(nameof(Download), new { id = id });
+                var token = Request.Query["access_token"];
+                return RedirectToAction(nameof(Download), new { id = id, access_token = token });
             }
         }
 

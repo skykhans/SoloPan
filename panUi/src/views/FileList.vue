@@ -894,12 +894,14 @@ const getFileIcon = (name: string) => {
 
 const getThumbnailUrl = (id: number) => {
   const token = localStorage.getItem('token')
-  return `http://localhost:5080/api/file/thumbnail/${id}?access_token=${token}`
+  const baseURL = request.defaults.baseURL || '/api'
+  return `${baseURL}/file/thumbnail/${id}?access_token=${token}`
 }
 
 const getDownloadUrl = (id: number) => {
   const token = localStorage.getItem('token')
-  return `http://localhost:5080/api/file/download/${id}?access_token=${token}`
+  const baseURL = request.defaults.baseURL || '/api'
+  return `${baseURL}/file/download/${id}?access_token=${token}`
 }
 
 const handleDownload = async (row: any) => {
@@ -984,38 +986,49 @@ onMounted(() => {
   justify-content: space-between;
   align-items: center;
   flex-shrink: 0;
-  padding-left: 35px; // 为左侧绝对定位的折叠按钮留出空间
+  padding-left: 48px;
+  height: 64px;
+  margin: 0 -24px 16px;
+  padding-right: 24px;
+  background: white;
+  border-bottom: 1px solid var(--pan-border-strong);
 
   .buttons {
     display: flex;
-    gap: 12px;
+    gap: 8px;
   }
 }
 
 .table-container {
-  padding: 10px;
+  padding: 0;
   flex: 1;
   overflow: hidden;
   display: flex;
   flex-direction: column;
+  background: white;
+  border-radius: var(--pan-radius-lg);
+  border: 1px solid var(--pan-border-strong);
+  box-shadow: var(--pan-shadow-sm);
 }
 
 .file-name-cell {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 14px;
   cursor: pointer;
+  padding: 4px 0;
   
   &:hover .name {
     color: var(--pan-primary);
   }
 
   .image-preview-wrapper {
-    width: 32px;
-    height: 32px;
-    border-radius: 4px;
+    width: 36px;
+    height: 36px;
+    border-radius: var(--pan-radius-sm);
     overflow: hidden;
     flex-shrink: 0;
+    border: 1px solid var(--pan-border);
 
     .thumbnail {
       width: 100%;
@@ -1024,20 +1037,23 @@ onMounted(() => {
   }
 
   .folder-icon {
-    color: #ffd04b;
+    color: #fbbf24; /* Amber 400 */
   }
 
   .file-icon {
-    color: #76c893;
+    color: #10b981; /* Emerald 500 */
   }
 
   .share-status-icon {
-    color: #67c23a;
-    font-size: 16px;
+    color: var(--pan-primary);
+    font-size: 14px;
+    margin-left: 4px;
   }
 
   .name {
-    transition: color 0.3s;
+    font-weight: 500;
+    color: var(--pan-text-main);
+    transition: var(--pan-transition);
   }
 }
 
@@ -1246,38 +1262,44 @@ onMounted(() => {
 
   .grid-container {
   flex: 1;
-  padding: 20px;
+  padding: 24px;
   overflow-y: auto;
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 140px));
   gap: 20px;
-  align-content: flex-start;
-  
+  justify-content: center;
+  background: white;
+  border-radius: var(--pan-radius-lg);
+  border: 1px solid var(--pan-border-strong);
+  box-shadow: var(--pan-shadow-sm);
+
   .empty-tip {
-    width: 100%;
+    grid-column: 1 / -1;
     display: flex;
     justify-content: center;
     padding-top: 100px;
   }
   
   .grid-item {
-     width: 120px;
-     height: 150px;
+     width: 140px;
+     height: 160px;
      cursor: pointer;
      
      .grid-item-inner {
       width: 100%;
       height: 100%;
-      border-radius: 8px;
-      padding: 10px;
+      border-radius: var(--pan-radius-md);
+      padding: 16px;
       display: flex;
       flex-direction: column;
       align-items: center;
       position: relative;
-      transition: background-color 0.2s;
+      transition: var(--pan-transition);
+      border: 1px solid transparent;
       
       &:hover {
-        background-color: #f0f4f8;
+        background-color: var(--pan-primary-light);
+        border-color: var(--pan-primary);
         
         .grid-actions {
           opacity: 1;
@@ -1286,37 +1308,39 @@ onMounted(() => {
     }
     
     .grid-preview {
-      width: 80px;
-      height: 80px;
+      width: 64px;
+      height: 64px;
       display: flex;
       justify-content: center;
       align-items: center;
-      margin-bottom: 10px;
+      margin-bottom: 12px;
       
       .grid-thumbnail {
         width: 100%;
         height: 100%;
-        border-radius: 6px;
+        border-radius: var(--pan-radius-sm);
+        box-shadow: var(--pan-shadow-sm);
       }
       
       .folder-icon {
-        color: #ffd04b;
+        color: #fbbf24;
       }
 
       .file-icon {
-        color: #76c893;
+        color: #10b981;
       }
     }
     
     .grid-name {
       font-size: 13px;
+      font-weight: 500;
       text-align: center;
       width: 100%;
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
       line-height: 1.4;
-      color: #606266;
+      color: var(--pan-text-main);
     }
     
     .grid-actions {
@@ -1334,21 +1358,21 @@ onMounted(() => {
 }
 
 .breadcrumb-link {
-  font-weight: normal;
+  font-weight: 600;
+  color: var(--pan-text-body);
   cursor: pointer;
-  transition: color 0.2s;
+  transition: var(--pan-transition);
   
   &:hover {
     color: var(--pan-primary);
   }
 
   &.is-last {
-    color: var(--el-text-color-regular);
+    color: var(--pan-text-main);
     cursor: default;
-    font-weight: bold;
     
     &:hover {
-      color: var(--el-text-color-regular);
+      color: var(--pan-text-main);
     }
   }
 }

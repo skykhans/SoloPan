@@ -1,10 +1,18 @@
 <template>
   <div class="login-container">
+    <div class="brand">
+      <img src="../assets/vue.svg" alt="logo" />
+      <h1>我的网盘</h1>
+      <p>安全、便捷、现代的文件管理专家</p>
+    </div>
     <div class="login-box">
-      <h2>{{ isLogin ? '登录网盘' : '注册账号' }}</h2>
+      <div class="box-header">
+        <h2>{{ isLogin ? '欢迎回来' : '创建账号' }}</h2>
+        <p>{{ isLogin ? '请登录您的账号以继续' : '注册一个新账号开始使用' }}</p>
+      </div>
       <el-form :model="form" label-width="0">
         <el-form-item>
-          <el-input v-model="form.username" placeholder="用户名" :prefix-icon="User" />
+          <el-input v-model="form.username" placeholder="用户名" :prefix-icon="User" size="large" />
         </el-form-item>
         <el-form-item>
           <el-input 
@@ -13,16 +21,24 @@
             placeholder="密码" 
             :prefix-icon="Lock" 
             show-password
+            size="large"
             @keyup.enter="handleSubmit"
           />
         </el-form-item>
-        <el-button type="primary" class="submit-btn" :loading="loading" @click="handleSubmit">
-          {{ isLogin ? '登录' : '注册' }}
+        <el-button type="primary" class="submit-btn" :loading="loading" @click="handleSubmit" size="large">
+          {{ isLogin ? '登录' : '立即注册' }}
         </el-button>
-        <div class="toggle-mode">
-          <span @click="toggleMode">{{ isLogin ? '没有账号？去注册' : '已有账号？去登录' }}</span>
+        <div class="toggle-mode" @click="toggleMode">
+          {{ isLogin ? '还没有账号？立即注册' : '已有账号？返回登录' }}
         </div>
       </el-form>
+    </div>
+    <div class="footer-links">
+      <span>隐私政策</span>
+      <span class="divider">·</span>
+      <span>服务条款</span>
+      <span class="divider">·</span>
+      <span>帮助中心</span>
     </div>
   </div>
 </template>
@@ -82,38 +98,119 @@ const handleSubmit = async () => {
 .login-container {
   height: 100vh;
   display: flex;
+  flex-direction: column;
   justify-content: center;
   align-items: center;
-  background-color: #f0f2f5;
-  background-image: url('https://gw.alipayobjects.com/zos/rmsportal/TVYTbAXWheQpRcWDaDMu.svg');
+  background-color: var(--pan-bg);
+  background-image: 
+    radial-gradient(at 0% 0%, rgba(99, 102, 241, 0.05) 0px, transparent 50%),
+    radial-gradient(at 100% 100%, rgba(99, 102, 241, 0.05) 0px, transparent 50%);
   
-  .login-box {
-    width: 360px;
-    padding: 40px;
-    background: white;
-    border-radius: 8px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  .brand {
     text-align: center;
+    margin-bottom: 40px;
+    
+    img {
+      width: 64px;
+      height: 64px;
+      margin-bottom: 16px;
+      filter: drop-shadow(0 10px 15px rgba(99, 102, 241, 0.2));
+    }
+    
+    h1 {
+      font-size: 32px;
+      font-weight: 800;
+      color: var(--pan-text-main);
+      margin: 0 0 8px;
+      letter-spacing: -1px;
+    }
+    
+    p {
+      color: var(--pan-text-muted);
+      font-size: 16px;
+      margin: 0;
+    }
+  }
 
-    h2 {
-      margin-bottom: 30px;
-      color: #333;
+  .login-box {
+    width: 400px;
+    padding: 48px;
+    background: white;
+    border-radius: var(--pan-radius-lg);
+    box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+    border: 1px solid var(--pan-border-strong);
+
+    .box-header {
+      margin-bottom: 32px;
+      text-align: center;
+      
+      h2 {
+        font-size: 24px;
+        font-weight: 700;
+        color: var(--pan-text-main);
+        margin: 0 0 8px;
+      }
+      
+      p {
+        font-size: 14px;
+        color: var(--pan-text-muted);
+        margin: 0;
+      }
+    }
+
+    .el-form-item {
+      margin-bottom: 20px;
     }
 
     .submit-btn {
       width: 100%;
-      margin-top: 10px;
-      height: 40px;
+      margin-top: 8px;
+      height: 48px;
+      font-size: 16px;
+      font-weight: 600;
+      border-radius: var(--pan-radius-md);
+      box-shadow: 0 4px 6px -1px rgba(99, 102, 241, 0.3);
+      
+      &:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 10px 15px -3px rgba(99, 102, 241, 0.4);
+      }
     }
 
     .toggle-mode {
-      margin-top: 20px;
+      margin-top: 24px;
       font-size: 14px;
-      color: #666;
+      color: var(--pan-text-body);
       cursor: pointer;
+      text-align: center;
+      font-weight: 500;
+      transition: var(--pan-transition);
       
       &:hover {
         color: var(--pan-primary);
+      }
+    }
+  }
+
+  .footer-links {
+    margin-top: 48px;
+    font-size: 13px;
+    color: var(--pan-text-muted);
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    
+    span {
+      cursor: pointer;
+      &:hover {
+        color: var(--pan-text-body);
+      }
+    }
+    
+    .divider {
+      cursor: default;
+      &:hover {
+        color: var(--pan-text-muted);
       }
     }
   }

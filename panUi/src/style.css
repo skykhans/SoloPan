@@ -1,10 +1,25 @@
 :root {
-  font-family: 'Helvetica Neue', Helvetica, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', '微软雅黑', Arial, sans-serif;
-  --pan-primary: #409eff;
-  --pan-bg: #f5f7fa;
-  --pan-text: #303133;
-  --pan-text-secondary: #909399;
-  --pan-border: #e4e7ed;
+  font-family: 'Plus Jakarta Sans', 'Inter', system-ui, -apple-system, sans-serif;
+  
+  /* Modern Flat Palette */
+  --pan-primary: #6366f1; /* Modern Indigo */
+  --pan-primary-light: #eef2ff;
+  --pan-bg: #f8fafc; /* Slate 50 */
+  --pan-sidebar-bg: #ffffff;
+  --pan-card-bg: #ffffff;
+  --pan-text-main: #0f172a; /* Slate 900 */
+  --pan-text-body: #475569; /* Slate 600 */
+  --pan-text-muted: #94a3b8; /* Slate 400 */
+  --pan-border: #f1f5f9; /* Slate 100 */
+  --pan-border-strong: #e2e8f0; /* Slate 200 */
+  
+  /* Design Tokens */
+  --pan-radius-sm: 8px;
+  --pan-radius-md: 12px;
+  --pan-radius-lg: 16px;
+  --pan-shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --pan-shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+  --pan-transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 body {
@@ -14,8 +29,9 @@ body {
   height: 100vh;
   overflow: hidden;
   background-color: var(--pan-bg);
-  color: var(--pan-text);
+  color: var(--pan-text-body);
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 #app {
@@ -29,8 +45,8 @@ body {
 
 /* 滚动条美化 */
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
 }
 
 ::-webkit-scrollbar-track {
@@ -38,10 +54,45 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #dcdfe6;
-  border-radius: 4px;
+  background: var(--pan-border-strong);
+  border-radius: 10px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #c0c4cc;
+  background: var(--pan-text-muted);
+}
+
+/* Element Plus Global Modernization */
+.el-button {
+  border-radius: var(--pan-radius-sm);
+  font-weight: 500;
+  transition: var(--pan-transition);
+}
+
+.el-button--primary {
+  --el-button-bg-color: var(--pan-primary);
+  --el-button-border-color: var(--pan-primary);
+  --el-button-hover-bg-color: #4f46e5;
+  --el-button-hover-border-color: #4f46e5;
+}
+
+.el-card {
+  border-radius: var(--pan-radius-md);
+  border: 1px solid var(--pan-border);
+  box-shadow: var(--pan-shadow-sm);
+  transition: var(--pan-transition);
+}
+
+.el-card:hover {
+  box-shadow: var(--pan-shadow-md);
+}
+
+.el-input__wrapper {
+  border-radius: var(--pan-radius-sm);
+  box-shadow: 0 0 0 1px var(--pan-border-strong) inset;
+}
+
+.el-dialog {
+  border-radius: var(--pan-radius-lg);
+  overflow: hidden;
 }

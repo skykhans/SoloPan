@@ -35,9 +35,9 @@
         <el-table-column prop="id" label="ID" width="80" />
         <el-table-column prop="userName" label="用户名" width="150" />
         <el-table-column prop="email" label="邮箱" width="200" />
-        <el-table-column label="已用/总空间">
+        <el-table-column label="已用/总空间" min-width="180">
           <template #default="{ row }">
-            {{ formatSize(row.usedSpace) }} / {{ formatSize(row.totalSpace) }}
+            <span class="usage-cell">{{ formatSize(row.usedSpace) }} / {{ formatSize(row.totalSpace) }}</span>
           </template>
         </el-table-column>
         <el-table-column label="注册时间" width="180">
@@ -152,30 +152,53 @@ onMounted(() => {
 
 <style scoped lang="scss">
 .admin-panel {
+  padding-top: 16px;
+  
   h2 {
-    margin-bottom: 20px;
-    padding-left: 35px; // 为左侧绝对定位的折叠按钮留出空间
+    margin-bottom: 32px;
+    padding-left: 48px;
+    font-size: 24px;
+    font-weight: 800;
+    color: var(--pan-text-main);
+    letter-spacing: -0.5px;
   }
 
   .stats-cards {
-    margin-bottom: 30px;
+    margin-bottom: 32px;
     
     .card-value {
-      font-size: 24px;
-      font-weight: bold;
+      font-size: 28px;
+      font-weight: 800;
       color: var(--pan-primary);
+      margin-top: 8px;
+    }
+
+    :deep(.el-card__header) {
+      font-weight: 600;
+      color: var(--pan-text-body);
+      font-size: 14px;
+      border-bottom: none;
+      padding-bottom: 0;
     }
   }
 
   .user-management {
     background: white;
-    padding: 20px;
-    border-radius: 8px;
-    box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
+    padding: 32px;
+    border-radius: var(--pan-radius-lg);
+    border: 1px solid var(--pan-border-strong);
+    box-shadow: var(--pan-shadow-sm);
 
     h3 {
       margin-top: 0;
-      margin-bottom: 20px;
+      margin-bottom: 24px;
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--pan-text-main);
+    }
+
+    .usage-cell {
+      white-space: nowrap;
     }
   }
 }

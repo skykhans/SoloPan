@@ -34,6 +34,20 @@ html, body {
   -webkit-font-smoothing: antialiased;
 }
 
+/* 
+   GLOBAL ELEMENT PLUS DARK OVERRIDES
+   Force variables that usually default to white
+*/
+:root {
+  --el-bg-color: #000000 !important;
+  --el-bg-color-overlay: #0a0a0a !important;
+  --el-fill-color-blank: #000000 !important;
+  --el-fill-color-light: #0a0a0a !important;
+  --el-fill-color-lighter: #050505 !important;
+  --el-fill-color-extra-light: #020202 !important;
+  --el-mask-color: rgba(0, 0, 0, 0.8) !important;
+}
+
 /* Fix for Element Plus Table bottom border and white lines */
 .el-table__inner-wrapper::before,
 .el-table__inner-wrapper::after,
@@ -45,6 +59,59 @@ html, body {
   background-color: transparent !important;
   height: 0 !important;
   width: 0 !important;
+}
+
+/* 
+   SUPER AGGRESSIVE FIX FOR WHITE FLICKER 
+   Target every possible internal wrapper of Element Plus table
+*/
+.el-table,
+.el-table__inner-wrapper,
+.el-table__header-wrapper,
+.el-table__body-wrapper,
+.el-table__footer-wrapper,
+.el-table__fixed,
+.el-table__fixed-right,
+.el-table__empty-block,
+.el-table__append-wrapper,
+.el-table tr,
+.el-table th,
+.el-table td,
+.el-table__cell,
+.el-table__body,
+.el-table__header,
+.el-table__row {
+  background-color: #000000 !important;
+  color: var(--pan-text-body) !important;
+}
+
+/* Fix for striped rows and hover states */
+.el-table--striped .el-table__row--striped td.el-table__cell {
+  background-color: #050505 !important;
+}
+
+.el-table__row:hover > td.el-table__cell {
+  background-color: #0a0a0a !important;
+}
+
+/* Prevent white background during v-loading mount */
+[v-loading] {
+  background-color: #000000 !important;
+}
+
+.el-loading-mask {
+  background-color: #000000 !important;
+  transition: opacity 0.2s ease-in-out;
+  z-index: 2000 !important;
+}
+
+.el-loading-spinner {
+  background-color: transparent !important;
+}
+
+/* Ensure the empty block is also black */
+.el-table__empty-block {
+  background-color: #000000 !important;
 }
 
 .el-table__border-left-patch,
@@ -61,18 +128,98 @@ html, body {
   background-color: transparent !important;
 }
 
-/* Fix for v-loading flicker and background */
-.el-loading-mask {
-  background-color: #000000 !important;
-  transition: opacity 0.2s ease-in-out;
+/* Global Dark Dialog Styles */
+.el-dialog {
+  background-color: #0a0a0a !important;
+  border: 1px solid var(--pan-border) !important;
+  border-radius: var(--pan-radius-lg) !important;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5) !important;
+  overflow: hidden;
 }
 
-.el-loading-spinner .path {
-  stroke: var(--pan-primary) !important;
+.el-dialog__header {
+  margin: 0 !important;
+  padding: 16px 20px !important;
+  background-color: #0a0a0a !important;
+  border-bottom: 1px solid var(--pan-border) !important;
 }
 
-.el-loading-spinner .el-loading-text {
-  color: var(--pan-primary) !important;
+.el-dialog__title {
+  color: var(--pan-text-main) !important;
+  font-size: 15px !important;
+  font-weight: 600 !important;
+}
+
+.el-dialog__body {
+  background-color: #050505 !important;
+  color: var(--pan-text-body) !important;
+  padding: 24px !important;
+}
+
+.el-dialog__footer {
+  background-color: #0a0a0a !important;
+  border-top: 1px solid var(--pan-border) !important;
+  padding: 16px 20px !important;
+}
+
+.el-dialog__headerbtn .el-dialog__close {
+  color: var(--pan-text-muted) !important;
+  font-size: 18px !important;
+  transition: var(--pan-transition);
+}
+
+.el-dialog__headerbtn .el-dialog__close:hover {
+  color: var(--pan-text-main) !important;
+}
+
+/* Fix Input styles in Dialogs */
+.el-dialog .el-input__wrapper,
+.el-dialog .el-textarea__inner {
+  background-color: rgba(255, 255, 255, 0.03) !important;
+  border: 1px solid var(--pan-border) !important;
+  box-shadow: none !important;
+  color: var(--pan-text-main) !important;
+}
+
+.el-dialog .el-input__wrapper:hover,
+.el-dialog .el-textarea__inner:hover {
+  border-color: var(--pan-text-muted) !important;
+}
+
+.el-dialog .el-input__wrapper.is-focus,
+.el-dialog .el-textarea__inner:focus {
+  border-color: var(--pan-primary) !important;
+  box-shadow: 0 0 0 1px var(--pan-primary) !important;
+}
+
+/* Message Box Dark Mode */
+.el-message-box {
+  background-color: #0a0a0a !important;
+  border: 1px solid var(--pan-border) !important;
+  border-radius: var(--pan-radius-lg) !important;
+}
+
+.el-message-box__title {
+  color: var(--pan-text-main) !important;
+}
+
+.el-message-box__message {
+  color: var(--pan-text-body) !important;
+}
+
+.el-message-box__content {
+  color: var(--pan-text-body) !important;
+}
+
+/* Fix Preview Dialog Header Override */
+.preview-dialog .el-dialog__header {
+  padding: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+}
+
+.preview-dialog .el-dialog__body {
+  padding: 0 !important;
 }
 
 /* Ensure table has no white background during mount */
@@ -127,7 +274,19 @@ html, body {
   border-bottom: 1px solid var(--pan-border) !important;
 }
 
-/* Trae Button Style: Sharp, High Contrast */
+/* Dark mode for ElEmpty */
+.el-empty__description p {
+  color: var(--pan-text-muted) !important;
+}
+
+.el-empty__image {
+  opacity: 0.6;
+  filter: invert(1) hue-rotate(180deg);
+}
+
+.el-table__empty-text {
+  color: var(--pan-text-muted) !important;
+}
 .el-button {
   border-radius: var(--pan-radius-sm) !important;
   font-weight: 600 !important;
@@ -205,17 +364,17 @@ html, body {
 
 /* Element Plus Global Table Overrides */
 .el-table, .el-table__inner-wrapper {
-  background-color: transparent !important;
+  background-color: #000000 !important;
 }
 
 .el-table tr,
 .el-table th.el-table__cell,
 .el-table td.el-table__cell {
-  background-color: transparent !important;
+  background-color: #000000 !important;
 }
 
 .el-table__row {
-  background-color: transparent !important;
+  background-color: #000000 !important;
 }
 
 .el-table__row--striped td.el-table__cell {

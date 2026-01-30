@@ -36,14 +36,19 @@
       </el-menu>
       
       <div class="storage-info" v-show="!isCollapse">
-        <el-progress :percentage="storageUsage" :show-text="false" />
-        <p class="usage-text mono">已用 {{ usedSpaceStr }} / {{ totalSpaceStr }}</p>
+        <div class="storage-label">
+          <span>存储空间</span>
+          <span class="percentage">{{ storageUsage }}%</span>
+        </div>
+        <el-progress :percentage="storageUsage" :show-text="false" :stroke-width="4" />
+        <p class="usage-text mono">{{ usedSpaceStr }} / {{ totalSpaceStr }}</p>
       </div>
 
       <div class="user-profile">
-         <el-dropdown>
+         <el-dropdown trigger="click">
           <span class="el-dropdown-link">
-            <span v-show="!isCollapse">{{ username }}</span>
+            <div class="user-avatar">{{ username.charAt(0).toUpperCase() }}</div>
+            <span v-show="!isCollapse" class="username-text">{{ username }}</span>
             <el-icon class="el-icon--right" :class="{ 'collapsed-icon': isCollapse }"><ArrowDown /></el-icon>
           </span>
           <template #dropdown>
@@ -226,43 +231,115 @@ onMounted(() => {
 
   .storage-info {
     padding: 16px;
-    margin: 12px;
-    background: transparent;
-    border-top: 1px solid var(--pan-border);
-    border-radius: 0;
-    
-    :deep(.el-progress-bar__inner) {
-      background: var(--pan-primary);
-      box-shadow: none;
+    margin: 0 12px 16px;
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid var(--pan-border);
+    border-radius: var(--pan-radius-md);
+    transition: var(--pan-transition);
+
+    &:hover {
+      background: rgba(255, 255, 255, 0.04);
+      border-color: var(--pan-border-strong);
     }
 
-    p {
+    .storage-label {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+      font-size: 12px;
+      color: var(--pan-text-body);
+      font-weight: 600;
+
+      .percentage {
+        color: var(--pan-primary);
+        font-family: var(--font-mono);
+        font-size: 12px;
+      }
+    }
+    
+    :deep(.el-progress) {
+      margin-bottom: 10px;
+
+      .el-progress-bar__outer {
+        background-color: rgba(255, 255, 255, 0.05) !important;
+        border-radius: 2px;
+      }
+      
+      .el-progress-bar__inner {
+        background: var(--pan-primary) !important;
+        border-radius: 2px;
+        transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+      }
+    }
+
+    .usage-text {
       font-size: 11px;
       color: var(--pan-text-muted);
-      margin-top: 8px;
+      margin: 0;
       text-align: left;
       font-weight: 500;
+      letter-spacing: 0.01em;
     }
   }
 
   .user-profile {
-    padding: 16px 24px;
+    padding: 12px 16px;
     cursor: pointer;
     border-top: 1px solid var(--pan-border);
     display: flex;
-    justify-content: center;
-    margin-top: 8px;
+    align-items: center;
+    transition: var(--pan-transition);
+    margin-top: 4px;
+    
+    &:hover {
+      background: rgba(255, 255, 255, 0.03);
+    }
+
+    :deep(.el-dropdown) {
+      width: 100%;
+    }
 
     .el-dropdown-link {
       display: flex;
       align-items: center;
-      gap: 8px;
+      gap: 10px;
       color: var(--pan-text-main);
-      font-weight: 600;
-      font-size: 14px;
+      font-weight: 500;
+      font-size: 13px;
+      width: 100%;
+      outline: none;
+      
+      .user-avatar {
+        width: 24px;
+        height: 24px;
+        background: var(--pan-primary);
+        color: #000;
+        border-radius: 4px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 800;
+        font-size: 12px;
+        flex-shrink: 0;
+      }
+
+      .username-text {
+        flex: 1;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        text-align: left;
+      }
       
       .collapsed-icon {
-        margin: 0;
+        margin-left: auto;
+        font-size: 12px;
+        color: var(--pan-text-muted);
+        
+        &.is-collapse {
+          margin: 0;
+        }
       }
     }
   }

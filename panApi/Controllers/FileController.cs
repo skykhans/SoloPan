@@ -111,7 +111,10 @@ namespace PanSystem.Controllers
         public async Task<IActionResult> CheckMd5(Md5CheckRequest request)
         {
             var userId = GetUserId();
-            
+
+            // 处理文件名冲突
+            var uniqueName = await GetUniqueName(request.FileName, request.ParentId, userId);
+
             // 查找系统中是否存在该 MD5 的文件（不分用户，实现全局秒传）
             var existingFile = await _db.Queryable<StorageItem>()
                 .FirstAsync(f => f.FileMd5 == request.Md5 && !f.IsFolder);
@@ -128,7 +131,7 @@ namespace PanSystem.Controllers
                 // 存在相同 MD5 文件，直接在数据库创建关联记录（秒传）
                 var newItem = new StorageItem
                 {
-                    Name = request.FileName,
+                    Name = uniqueName,
                     ParentId = request.ParentId,
                     UserId = userId,
                     IsFolder = false,
@@ -157,6 +160,12 @@ namespace PanSystem.Controllers
         public async Task<IActionResult> CreateFolder(CreateFolderRequest request)
         {
             var userId = GetUserId();
+
+            // 检查同名
+            var isExist = await _db.Queryable<StorageItem>()
+                .AnyAsync(f => f.ParentId == request.ParentId && f.UserId == userId && f.Name == request.Name && !f.IsDeleted);
+            if (isExist) return BadRequest("已存在同名文件夹或文件");
+
             var folder = new StorageItem
             {
                 Name = request.Name,
@@ -180,7 +189,10 @@ namespace PanSystem.Controllers
                 if (file == null || file.Length == 0) return BadRequest("文件为空");
 
                 var userId = GetUserId();
-                
+
+                // 处理文件名冲突
+                var uniqueName = await GetUniqueName(file.FileName, parentId, userId);
+
                 // 计算 MD5 以便后续秒传
                 string md5;
                 using (var stream = file.OpenReadStream())
@@ -213,7 +225,7 @@ namespace PanSystem.Controllers
 
                 var storageItem = new StorageItem
                 {
-                    Name = file.FileName,
+                    Name = uniqueName,
                     ParentId = parentId,
                     UserId = userId,
                     IsFolder = false,
@@ -393,6 +405,11 @@ namespace PanSystem.Controllers
 
             if (item == null) return NotFound("项目不存在");
 
+            // 检查同名 (排除自己)
+            var isExist = await _db.Queryable<StorageItem>()
+                .AnyAsync(f => f.ParentId == item.ParentId && f.UserId == userId && f.Name == request.NewName && f.Id != request.Id && !f.IsDeleted);
+            if (isExist) return BadRequest("已存在同名文件夹或文件");
+
             item.Name = request.NewName;
             item.UpdateTime = DateTime.Now;
             await _db.Updateable(item).ExecuteCommandAsync();
@@ -568,6 +585,34 @@ namespace PanSystem.Controllers
                 .ExecuteCommandAsync();
 
             return Ok("批量删除成功");
+        }
+
+        private async Task<string> GetUniqueName(string name, int? parentId, int userId)
+        {
+            var existingNames = await _db.Queryable<StorageItem>()
+                .Where(f => f.ParentId == parentId && f.UserId == userId && !f.IsDeleted)
+                .Select(f => f.Name)
+                .ToListAsync();
+
+            if (!existingNames.Contains(name))
+            {
+                return name;
+            }
+
+            var extension = Path.GetExtension(name);
+            var nameWithoutExtension = Path.GetFileNameWithoutExtension(name);
+            int count = 1;
+
+            string newName;
+            do
+            {
+                newName = string.IsNullOrEmpty(extension) 
+                    ? $"{nameWithoutExtension} ({count})" 
+                    : $"{nameWithoutExtension} ({count}){extension}";
+                count++;
+            } while (existingNames.Contains(newName));
+
+            return newName;
         }
     }
 }

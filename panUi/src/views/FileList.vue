@@ -31,10 +31,16 @@
         <el-button v-if="category === 'files'" :icon="Link" @click="showOfflineDownload = true">离线下载</el-button>
         <el-button v-if="selectedIds.length > 0 && category === 'files'" :icon="Rank" @click="handleBatchMove">批量移动</el-button>
         <el-button v-if="selectedIds.length > 0" type="danger" plain :icon="Delete" @click="handleBatchDelete">批量删除</el-button>
+        
+        <div class="view-switch-wrapper">
+          <el-tooltip :content="viewMode === 'list' ? '切换到缩略图模式' : '切换到列表模式'" placement="top">
+            <el-button link :icon="viewMode === 'list' ? Grid : Menu" @click="toggleViewMode" class="view-switch-btn" />
+          </el-tooltip>
+        </div>
       </div>
     </div>
 
-    <div class="table-container pan-card" v-if="viewMode === 'list'">
+    <div class="table-container pan-card" v-show="viewMode === 'list'">
       <el-table 
         :data="fileList" 
         style="width: 100%" 
@@ -92,9 +98,6 @@
           <template #header>
             <div class="operation-header">
               <span>操作</span>
-              <el-tooltip :content="viewMode === 'list' ? '切换到缩略图模式' : '切换到列表模式'" placement="top">
-                <el-button link :icon="viewMode === 'list' ? Grid : Menu" @click="toggleViewMode" class="view-switch-btn" />
-              </el-tooltip>
             </div>
           </template>
           <template #default="{ row }">
@@ -138,15 +141,7 @@
     </div>
 
     <!-- 缩略图模式 -->
-    <div class="grid-container" v-else v-loading="loading">
-      <!-- 顶部操作栏补充（仅在缩略图模式下显示，因为列表模式已经在表头显示了） -->
-      <div class="grid-toolbar">
-         <div class="spacer"></div>
-         <el-tooltip content="切换到列表模式" placement="top">
-            <el-button link :icon="Menu" @click="toggleViewMode" class="view-switch-btn-grid" />
-         </el-tooltip>
-      </div>
-
+    <div class="grid-container" v-show="viewMode === 'grid'" v-loading="loading">
       <div class="empty-tip" v-if="fileList.length === 0">
         <el-empty description="暂无文件" />
       </div>
@@ -169,7 +164,7 @@
               fit="cover"
               class="grid-thumbnail"
             />
-            <el-icon v-else :size="64" :class="file.isFolder ? 'folder-icon' : 'file-icon'">
+            <el-icon v-else :size="44" :class="file.isFolder ? 'folder-icon' : 'file-icon'">
               <FolderOpened v-if="file.isFolder" />
               <component :is="getFileIcon(file.name)" v-else />
             </el-icon>
@@ -420,7 +415,7 @@ const props = defineProps<{
 
 const route = useRoute()
 const router = useRouter()
-const loading = ref(false)
+const loading = ref(true)
 const fileList = ref<any[]>([])
 const pathStack = ref<{ id: number; name: string }[]>(history.state?.pathStack || [])
 const selectedIds = ref<number[]>([])
@@ -546,8 +541,13 @@ const handleRename = (row: any) => {
       await request.put('/file/rename', { id: row.id, newName: value })
       ElMessage.success('重命名成功')
       fetchFiles()
-    } catch (error) {
+    } catch (error: any) {
       console.error(error)
+      if (error.response && error.response.data) {
+        ElMessage.error(error.response.data)
+      } else {
+        ElMessage.error('重命名失败')
+      }
     }
   })
 }
@@ -820,8 +820,13 @@ const confirmCreateFolder = async () => {
     showCreateFolder.value = false
     newFolderName.value = ''
     fetchFiles()
-  } catch (error) {
+  } catch (error: any) {
     console.error(error)
+    if (error.response && error.response.data) {
+      ElMessage.error(error.response.data)
+    } else {
+      ElMessage.error('创建失败')
+    }
   }
 }
 
@@ -1023,6 +1028,8 @@ onMounted(() => {
   gap: 20px;
   flex-wrap: nowrap;
   padding: 0 4px;
+  border-bottom: 1px solid var(--pan-border);
+  padding-bottom: 16px;
 
   .breadcrumb {
     display: flex;
@@ -1056,18 +1063,28 @@ onMounted(() => {
 
   .buttons {
     display: flex;
-    gap: 8px;
+    gap: 12px;
     align-items: center;
     flex-shrink: 0;
+
+    .view-switch-wrapper {
+      margin-left: 8px;
+      padding-left: 16px;
+      border-left: 1px solid var(--pan-border);
+      display: flex;
+      align-items: center;
+      height: 24px;
+    }
   }
 }
 
 .table-container {
   flex: 1;
-  background: transparent;
+  background-color: #000000 !important;
   border: 1px solid var(--pan-border);
   border-radius: var(--pan-radius-sm);
   overflow: hidden;
+  animation: fadeIn 0.3s ease-in-out;
 }
 
 .file-name-cell {
@@ -1127,9 +1144,9 @@ onMounted(() => {
 .folder-selector {
   max-height: 350px;
   overflow-y: auto;
-  border: 1px solid #f0f2f5;
-  border-radius: 8px;
-  background: #fafafa;
+  border: 1px solid var(--pan-border);
+  border-radius: var(--pan-radius-md);
+  background: #050505;
 
   .folder-item {
     display: flex;
@@ -1138,18 +1155,20 @@ onMounted(() => {
     padding: 12px 15px;
     cursor: pointer;
     transition: all 0.2s;
-    border-bottom: 1px solid #f0f2f5;
+    border-bottom: 1px solid var(--pan-border);
+    color: var(--pan-text-body);
 
     &:last-child {
       border-bottom: none;
     }
 
     &:hover {
-      background-color: #f1f4f2;
+      background-color: rgba(255, 255, 255, 0.03);
+      color: var(--pan-text-main);
     }
 
     &.active {
-      background-color: #eef7f2;
+      background-color: rgba(16, 185, 129, 0.1);
       color: var(--pan-primary);
       font-weight: bold;
     }
@@ -1171,10 +1190,12 @@ onMounted(() => {
     .enter-icon {
       padding: 5px;
       border-radius: 4px;
-      color: #909399;
+      color: var(--pan-text-muted);
+      display: flex;
+      align-items: center;
       
       &:hover {
-        background-color: #e4e7ed;
+        background-color: rgba(255, 255, 255, 0.05);
         color: var(--pan-primary);
       }
     }
@@ -1286,16 +1307,21 @@ onMounted(() => {
   display: flex;
   align-items: center;
   justify-content: space-between;
+}
+
+.view-switch-btn {
+  font-size: 18px;
+  color: var(--pan-text-muted);
+  padding: 4px;
+  transition: var(--pan-transition);
+  display: flex;
+  align-items: center;
+  justify-content: center;
   
-  .view-switch-btn {
-    padding: 0;
-    height: auto;
-    font-size: 16px;
-    color: var(--pan-text-muted);
-    
-    &:hover {
-      color: var(--pan-text-main);
-    }
+  &:hover {
+    color: var(--pan-text-main);
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: var(--pan-radius-sm);
   }
 }
 
@@ -1304,37 +1330,21 @@ onMounted(() => {
     background-color: rgba(16, 185, 129, 0.1);
   }
 
-  .grid-toolbar {
-    width: 100%;
-    display: flex;
-    justify-content: flex-end;
-    padding-bottom: 10px;
-    padding-right: 20px;
-    border-bottom: 1px solid var(--pan-border);
-    margin-bottom: 10px;
-    
-    .view-switch-btn-grid {
-      font-size: 18px;
-      color: var(--pan-text-muted);
-      
-      &:hover {
-        color: var(--pan-text-main);
-      }
-    }
-  }
-
   .grid-container {
   flex: 1;
-  padding: 24px;
+  padding: 16px;
   overflow-y: auto;
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(140px, 140px));
-  gap: 20px;
+  grid-template-columns: repeat(auto-fill, minmax(100px, 100px));
+  grid-auto-rows: max-content;
+  gap: 16px 12px;
   justify-content: center;
-  background: transparent;
+  align-content: start;
+  background-color: #000000 !important;
   border-radius: var(--pan-radius-lg);
   border: 1px solid var(--pan-border-strong);
   box-shadow: var(--pan-shadow-sm);
+  animation: fadeIn 0.3s ease-in-out;
 
   .empty-tip {
     grid-column: 1 / -1;
@@ -1344,15 +1354,15 @@ onMounted(() => {
   }
   
   .grid-item {
-     width: 140px;
-     height: 160px;
+     width: 100px;
+     height: 100px;
      cursor: pointer;
      
      .grid-item-inner {
       width: 100%;
       height: 100%;
       border-radius: var(--pan-radius-sm);
-      padding: 16px;
+      padding: 8px;
       display: flex;
       flex-direction: column;
       align-items: center;
@@ -1371,12 +1381,12 @@ onMounted(() => {
     }
     
     .grid-preview {
-      width: 64px;
-      height: 64px;
+      width: 44px;
+      height: 44px;
       display: flex;
       justify-content: center;
       align-items: center;
-      margin-bottom: 12px;
+      margin-bottom: 6px;
       
       .grid-thumbnail {
         width: 100%;

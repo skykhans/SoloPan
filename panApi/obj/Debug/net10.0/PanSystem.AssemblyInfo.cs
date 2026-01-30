@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("PanSystem")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+de0607573fc857a8bf6d0fe6f31f2db34c2ec173")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+ef275ebd73951f7a8c5e203dbac61ae102b13522")]
 [assembly: System.Reflection.AssemblyProductAttribute("PanSystem")]
 [assembly: System.Reflection.AssemblyTitleAttribute("PanSystem")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

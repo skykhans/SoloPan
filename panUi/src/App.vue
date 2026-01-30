@@ -1,14 +1,20 @@
 <template>
   <div class="app-container">
-    <div class="sidebar" v-if="showSidebar">
+    <div class="sidebar" v-if="showSidebar" :class="{ collapsed: isCollapse }">
       <div class="logo">
         <img src="./assets/vue.svg" alt="logo" />
-        <span>我的网盘</span>
+        <span v-show="!isCollapse">我的网盘</span>
       </div>
+      
+      <div class="collapse-btn" @click="toggleSidebar">
+        <el-icon><component :is="isCollapse ? Expand : Fold" /></el-icon>
+      </div>
+
       <el-menu
         :default-active="activeMenu"
         class="el-menu-vertical"
         router
+        :collapse="isCollapse"
       >
         <el-menu-item index="/files" @click="handleMenuClick('/files')">
           <el-icon><FolderOpened /></el-icon>
@@ -64,7 +70,7 @@ import { useRoute, useRouter } from 'vue-router'
 import request from './utils/request'
 import { 
   Upload, FolderAdd, FolderOpened, Document, 
-  Star, StarFilled, Download, More, Edit, Rank, Share, Delete, Link, Folder, RefreshLeft, Monitor, ArrowDown
+  Star, StarFilled, Download, More, Edit, Rank, Share, Delete, Link, Folder, RefreshLeft, Monitor, ArrowDown, Expand, Fold
 } from '@element-plus/icons-vue'
 
 const route = useRoute()
@@ -73,10 +79,15 @@ const username = ref(localStorage.getItem('username') || '用户')
 const usedSpace = ref(0)
 const totalSpace = ref(1024 * 1024 * 1024) // 1GB 默认
 const isAdmin = ref(false)
+const isCollapse = ref(false)
 
 const showSidebar = computed(() => {
   return route.name !== 'Login' && route.name !== 'Share'
 })
+
+const toggleSidebar = () => {
+  isCollapse.value = !isCollapse.value
+}
 
 const handleMenuClick = (path: string) => {
   if (path === '/files' && route.path === '/files') {
@@ -117,7 +128,8 @@ const fetchUserInfo = async () => {
   if (!showSidebar.value) return
   try {
     const res: any = await request.get('/user/info')
-    username.value = res.username
+    // 兼容后端可能返回的不同大小写 (UserName vs username vs userName)
+    username.value = res.userName || res.username || res.UserName || '用户'
     usedSpace.value = res.usedSpace
     totalSpace.value = res.totalSpace
     isAdmin.value = res.isAdmin

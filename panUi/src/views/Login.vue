@@ -62,7 +62,9 @@ const handleSubmit = async () => {
     
     if (isLogin.value) {
       localStorage.setItem('token', res.token)
-      localStorage.setItem('username', res.username)
+      // 兼容后端可能返回的不同大小写
+      const userName = res.username || res.userName || res.UserName || '用户'
+      localStorage.setItem('username', userName)
       ElMessage.success('登录成功')
       const redirect = route.query.redirect as string
       router.push(redirect || '/')

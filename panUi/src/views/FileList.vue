@@ -1076,10 +1076,11 @@ onMounted(() => {
 
 .table-container {
   flex: 1;
+  min-height: 0;
   background-color: #000000 !important;
   border: 1px solid var(--pan-border);
   border-radius: var(--pan-radius-sm);
-  overflow: hidden;
+  overflow: auto;
   animation: fadeIn 0.3s ease-in-out;
 }
 

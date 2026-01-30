@@ -223,30 +223,66 @@
     </el-dialog>
 
     <!-- 移动弹窗 -->
-    <el-dialog v-model="showMoveDialog" title="移动到" width="400px">
-      <div class="folder-selector">
-        <div 
-          class="folder-item" 
-          :class="{ active: moveTargetParentId === null }"
-          @click="moveTargetParentId = null"
-        >
-          <el-icon><Folder /></el-icon>
-          <span>根目录</span>
+    <el-dialog v-model="showMoveDialog" title="移动到" width="450px" class="move-dialog">
+      <div class="move-dialog-content">
+        <div class="move-path-nav">
+          <span class="nav-item" @click="handleBreadcrumbClickInMove(-1)">全部文件</span>
+          <template v-for="(item, index) in moveDialogPathStack" :key="item.id">
+            <el-icon class="nav-separator"><ArrowRight /></el-icon>
+            <span class="nav-item" @click="handleBreadcrumbClickInMove(index)">{{ item.name }}</span>
+          </template>
         </div>
-        <div 
-          v-for="folder in folderTree" 
-          :key="folder.id" 
-          class="folder-item"
-          :class="{ active: moveTargetParentId === folder.id }"
-          @click="moveTargetParentId = folder.id"
-        >
-          <el-icon><Folder /></el-icon>
-          <span>{{ folder.name }}</span>
+
+        <div class="folder-selector">
+          <div 
+            v-if="moveDialogCurrentParentId !== null"
+            class="folder-item back-item"
+            @click="handleBackInMove"
+          >
+            <el-icon><RefreshLeft /></el-icon>
+            <span>返回上一级</span>
+          </div>
+
+          <div 
+            class="folder-item root-item" 
+            v-if="moveDialogCurrentParentId === null"
+            :class="{ active: moveTargetParentId === null }"
+            @click="moveTargetParentId = null"
+          >
+            <el-icon><Folder /></el-icon>
+            <span>根目录</span>
+          </div>
+
+          <div 
+            v-for="folder in folderTree" 
+            :key="folder.id" 
+            class="folder-item"
+            @click="handleEnterFolderInMove(folder)"
+          >
+            <div class="folder-info">
+              <el-icon><Folder /></el-icon>
+              <span class="folder-name">{{ folder.name }}</span>
+            </div>
+            <div class="enter-icon">
+              <el-icon title="进入子目录"><ArrowRight /></el-icon>
+            </div>
+          </div>
+
+          <div v-if="folderTree.length === 0 && moveDialogCurrentParentId !== null" class="empty-folder">
+            暂无子文件夹
+          </div>
         </div>
       </div>
       <template #footer>
-        <el-button @click="showMoveDialog = false">取消</el-button>
-        <el-button type="primary" class="pan-button-primary" @click="confirmMove">确定移动</el-button>
+        <div class="move-footer">
+          <span class="selected-target">
+            目标位置: <span class="path-text">{{ currentMovePathText }}</span>
+          </span>
+          <div class="footer-btns">
+            <el-button @click="showMoveDialog = false">取消</el-button>
+            <el-button type="primary" class="pan-button-primary" @click="confirmMove">移动到此处</el-button>
+          </div>
+        </div>
       </template>
     </el-dialog>
 
@@ -341,7 +377,8 @@ import { useRoute, useRouter } from 'vue-router'
 import { 
   Upload, FolderAdd, FolderOpened, Document, 
   Star, StarFilled, Download, More, Edit, Rank, Share, Delete, Link, Folder, RefreshLeft, Monitor,
-  Menu, Grid, Picture, VideoPlay, Notebook, Paperclip, Film, Headset, Monitor as MonitorIcon, Box
+  Menu, Grid, Picture, VideoPlay, Notebook, Paperclip, Film, Headset, Monitor as MonitorIcon, Box,
+  ArrowRight
 } from '@element-plus/icons-vue'
 import request from '../utils/request'
 import { ElMessage, ElMessageBox } from 'element-plus'
@@ -375,7 +412,15 @@ const showOfflineDownload = ref(false)
 const offlineUrl = ref('')
 const showMoveDialog = ref(false)
 const moveTargetParentId = ref<number | null>(null)
+const moveDialogCurrentParentId = ref<number | null>(null)
+const moveDialogPathStack = ref<{ id: number; name: string }[]>([])
 const movingItemIds = ref<number[]>([])
+
+const currentMovePathText = computed(() => {
+  if (moveDialogPathStack.value.length === 0) return '全部文件'
+  return moveDialogPathStack.value.map(p => p.name).join(' / ')
+})
+
 const folderTree = ref<any[]>([])
 const showShareDialog = ref(false)
 const shareInfo = ref<any>(null)
@@ -473,26 +518,56 @@ const handleRename = (row: any) => {
   })
 }
 
+const fetchFolderTree = async (parentId: number | null = null) => {
+  try {
+    const res: any = await request.get('/file/list', { params: { parentId } })
+    folderTree.value = res.filter((item: any) => item.isFolder)
+    moveDialogCurrentParentId.value = parentId
+    moveTargetParentId.value = parentId // 目标位置跟随当前进入的目录
+  } catch (error) {
+    console.error(error)
+  }
+}
+
+const handleEnterFolderInMove = (folder: any) => {
+  moveDialogPathStack.value.push({ id: folder.id, name: folder.name })
+  fetchFolderTree(folder.id)
+}
+
+const handleBreadcrumbClickInMove = (index: number) => {
+  if (index === -1) {
+    moveDialogPathStack.value = []
+    fetchFolderTree(null)
+  } else {
+    moveDialogPathStack.value = moveDialogPathStack.value.slice(0, index + 1)
+    fetchFolderTree(moveDialogPathStack.value[index].id)
+  }
+}
+
+const handleBackInMove = () => {
+  moveDialogPathStack.value.pop()
+  const parentId = moveDialogPathStack.value.length > 0 
+    ? moveDialogPathStack.value[moveDialogPathStack.value.length - 1].id 
+    : null
+  fetchFolderTree(parentId)
+}
+
 const handleMove = async (row: any) => {
   movingItemIds.value = [row.id]
+  moveTargetParentId.value = currentParentId.value
+  moveDialogCurrentParentId.value = null
+  moveDialogPathStack.value = []
   showMoveDialog.value = true
-  fetchFolderTree()
+  fetchFolderTree(null)
 }
 
 const handleBatchMove = () => {
   movingItemIds.value = selectedIds.value
+  moveTargetParentId.value = currentParentId.value
+  moveDialogCurrentParentId.value = null
+  moveDialogPathStack.value = []
   showMoveDialog.value = true
-  fetchFolderTree()
-}
-
-const fetchFolderTree = async () => {
-  try {
-    const res: any = await request.get('/file/list') // 获取根目录下的所有文件夹
-    // 简单处理，只显示根目录下的文件夹，实际应支持树形结构
-    folderTree.value = res.filter((item: any) => item.isFolder)
-  } catch (error) {
-    console.error(error)
-  }
+  fetchFolderTree(null)
 }
 
 const confirmMove = async () => {
@@ -972,26 +1047,130 @@ onMounted(() => {
 }
 
 .folder-selector {
-  max-height: 300px;
+  max-height: 350px;
   overflow-y: auto;
-  border: 1px solid var(--pan-border);
+  border: 1px solid #f0f2f5;
   border-radius: 8px;
+  background: #fafafa;
 
   .folder-item {
     display: flex;
     align-items: center;
-    gap: 10px;
-    padding: 10px 15px;
+    justify-content: space-between;
+    padding: 12px 15px;
     cursor: pointer;
     transition: all 0.2s;
+    border-bottom: 1px solid #f0f2f5;
+
+    &:last-child {
+      border-bottom: none;
+    }
 
     &:hover {
       background-color: #f1f4f2;
     }
 
     &.active {
-      background-color: #f0f9f4;
+      background-color: #eef7f2;
       color: var(--pan-primary);
+      font-weight: bold;
+    }
+
+    .folder-info {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex: 1;
+      
+      .folder-name {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        max-width: 250px;
+      }
+    }
+
+    .enter-icon {
+      padding: 5px;
+      border-radius: 4px;
+      color: #909399;
+      
+      &:hover {
+        background-color: #e4e7ed;
+        color: var(--pan-primary);
+      }
+    }
+  }
+
+  .back-item {
+    color: var(--pan-primary);
+    background-color: #fff;
+    font-size: 13px;
+    
+    &:hover {
+      background-color: #f5f7fa;
+    }
+  }
+
+  .empty-folder {
+    padding: 40px 0;
+    text-align: center;
+    color: #909399;
+    font-size: 13px;
+  }
+}
+
+.move-dialog-content {
+  .move-path-nav {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 5px;
+    margin-bottom: 15px;
+    padding: 8px 12px;
+    background: #f5f7fa;
+    border-radius: 4px;
+    font-size: 13px;
+
+    .nav-item {
+      cursor: pointer;
+      color: #606266;
+      
+      &:hover {
+        color: var(--pan-primary);
+        text-decoration: underline;
+      }
+
+      &:last-child {
+        color: #303133;
+        font-weight: bold;
+        cursor: default;
+        &:hover {
+          text-decoration: none;
+        }
+      }
+    }
+
+    .nav-separator {
+      font-size: 12px;
+      color: #c0c4cc;
+    }
+  }
+}
+
+.move-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+
+  .selected-target {
+    font-size: 13px;
+    color: #606266;
+    
+    .path-text {
+      color: var(--pan-primary);
+      font-weight: bold;
     }
   }
 }

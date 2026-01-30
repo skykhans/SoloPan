@@ -49,7 +49,7 @@
           <span class="el-dropdown-link">
             <div class="user-avatar">{{ username.charAt(0).toUpperCase() }}</div>
             <span v-show="!isCollapse" class="username-text">{{ username }}</span>
-            <el-icon class="el-icon--right" :class="{ 'collapsed-icon': isCollapse }"><ArrowDown /></el-icon>
+            <el-icon v-show="!isCollapse" class="el-icon--right"><ArrowDown /></el-icon>
           </span>
           <template #dropdown>
             <el-dropdown-menu>
@@ -177,6 +177,36 @@ onMounted(() => {
 
     &.collapsed {
       width: 60px;
+
+      .logo {
+        padding: 0;
+        justify-content: center;
+        margin-bottom: 24px;
+      }
+
+      .el-menu {
+        padding: 0 8px;
+        
+        :deep(.el-menu-item) {
+          padding: 0 !important;
+          display: flex;
+          justify-content: center;
+          
+          .el-icon {
+            margin: 0;
+          }
+        }
+      }
+
+      .user-profile {
+        padding: 12px 0;
+        justify-content: center;
+
+        .el-dropdown-link {
+          justify-content: center;
+          gap: 0;
+        }
+      }
     }
 
     .logo {

@@ -204,11 +204,11 @@ const handleDownload = () => {
 
 const handlePrint = () => {
   if (props.fileType === 'pdf') {
-    // PDF iframe print
-    const iframe = document.querySelector('.pdf-frame') as HTMLIFrameElement
-    if (iframe && iframe.contentWindow) {
-      iframe.contentWindow.print()
-    }
+    // For PDF, the most reliable way across browsers is to open in a new tab 
+    // where the browser's native PDF viewer can handle printing perfectly.
+    const token = localStorage.getItem('token')
+    const url = `${request.defaults.baseURL || '/api'}/file/download/${props.fileId}?access_token=${token}&preview=true`
+    window.open(url, '_blank')
     return
   }
   
@@ -274,6 +274,8 @@ const loadContent = async () => {
       await nextTick()
       if (docxContainer.value) {
         docxContainer.value.innerHTML = ''
+        // Add a class to hide container during render to prevent flicker
+        docxContainer.value.style.opacity = '0'
         await renderAsync(res as unknown as Blob, docxContainer.value, docxContainer.value, {
           className: 'docx-content',
           inWrapper: true,
@@ -283,6 +285,7 @@ const loadContent = async () => {
           useBase64URL: true,
           padding: 20
         })
+        docxContainer.value.style.opacity = '1'
       }
     } else if (props.fileType === 'excel') {
       const res = await request.get(`/file/download/${props.fileId}`, { responseType: 'arraybuffer' })
@@ -314,6 +317,7 @@ onMounted(loadContent)
   display: flex;
   flex-direction: column;
   background-color: #050505;
+  transition: opacity 0.3s ease;
 }
 
 .toolbar {
@@ -338,7 +342,7 @@ onMounted(loadContent)
   padding: 20px;
   display: flex;
   justify-content: center;
-  align-items: flex-start;
+  align-items: stretch; /* Ensure it fills the height */
 
   &.full-height {
     padding: 0;
@@ -352,17 +356,27 @@ onMounted(loadContent)
   background: white; /* Keep white for document content */
   color: #333;
   border-radius: 4px;
+  opacity: 0; /* Hidden by default, shown via JS after render */
+  transition: opacity 0.3s ease;
   
   :deep(.docx-wrapper) {
     background: transparent !important;
     padding: 0 !important;
   }
+
+  :deep(.docx) {
+    background: white !important;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2) !important;
+    margin: 0 auto !important;
+  }
 }
 
 .pdf-frame {
+  display: block;
   width: 100%;
   height: 100%;
   border: none;
+  background: white;
 }
 
 .ppt-container {
@@ -378,15 +392,21 @@ onMounted(loadContent)
   height: 100%;
   display: flex;
   flex-direction: column;
-  background: white;
-  border-radius: 4px;
+  background: #050505;
+  border-radius: var(--pan-radius-sm);
   overflow: hidden;
+  animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 .excel-tabs {
   padding: 0 20px;
-  background-color: #f5f7fa;
-  border-bottom: 1px solid #e4e7ed;
+  background-color: #0a0a0a;
+  border-bottom: 1px solid var(--pan-border);
   flex-shrink: 0;
 }
 
@@ -395,16 +415,56 @@ onMounted(loadContent)
   overflow: auto;
   flex: 1;
   padding: 20px;
-  background: white;
+  background: #050505;
+  display: flex;
+  justify-content: center;
   
   :deep(table) {
-    border-collapse: collapse;
-    width: 100%;
+    background: white;
+    border-collapse: separate;
+    border-spacing: 0;
+    width: auto;
+    min-width: 100%;
+    font-size: 13px;
+    color: #333;
+    font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    border: 1px solid #e0e0e0;
+    border-radius: 4px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
     
     td, th {
-      border: 1px solid #e0e0e0;
-      padding: 8px;
-      color: #333;
+      border-right: 1px solid #e0e0e0;
+      border-bottom: 1px solid #e0e0e0;
+      padding: 8px 12px;
+      min-width: 80px;
+      text-align: left;
+      
+      &:last-child {
+        border-right: none;
+      }
+    }
+
+    th {
+      background-color: #f8f9fa;
+      font-weight: 600;
+      color: #495057;
+      border-bottom: 2px solid #dee2e6;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+
+    tr:last-child td {
+      border-bottom: none;
+    }
+
+    tr:nth-child(even) {
+      background-color: #fcfcfc;
+    }
+
+    tr:hover td {
+      background-color: #e8f0fe;
+      color: #1967d2;
     }
   }
 }
@@ -415,6 +475,7 @@ onMounted(loadContent)
   display: flex;
   justify-content: center;
   align-items: center;
+  animation: fadeIn 0.3s ease;
   
   img {
     max-width: 100%;

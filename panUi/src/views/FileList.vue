@@ -320,13 +320,21 @@
     <!-- 视频播放弹窗 -->
     <el-dialog 
       v-model="showVideoPlayer" 
-      :title="videoName" 
-      width="800px" 
+      :fullscreen="isPreviewFullscreen"
+      width="1000px" 
+      top="5vh"
       destroy-on-close
-      center
-      @closed="videoUrl = ''"
-      class="preview-dialog video-preview-dialog"
+      @closed="videoUrl = ''; isPreviewFullscreen = false"
+      :class="['preview-dialog', 'video-preview-dialog', { 'is-fullscreen': isPreviewFullscreen }]"
     >
+      <template #header>
+        <div class="dialog-header-custom">
+          <span class="el-dialog__title">{{ videoName }}</span>
+          <div class="header-actions">
+            <el-button link :icon="isPreviewFullscreen ? Aim : FullScreen" @click.stop="togglePreviewFullscreen" class="fullscreen-btn" />
+          </div>
+        </div>
+      </template>
       <div class="video-container">
         <video 
           v-if="showVideoPlayer"
@@ -343,12 +351,21 @@
     <!-- 文本/Log 预览弹窗 -->
     <el-dialog
       v-model="showTextPreview"
-      :title="textFileName"
-      width="800px"
+      :fullscreen="isPreviewFullscreen"
+      width="1000px"
+      top="5vh"
       destroy-on-close
-      center
-      class="preview-dialog text-preview-dialog"
+      @closed="isPreviewFullscreen = false"
+      :class="['preview-dialog', 'text-preview-dialog', { 'is-fullscreen': isPreviewFullscreen }]"
     >
+      <template #header>
+        <div class="dialog-header-custom">
+          <span class="el-dialog__title">{{ textFileName }}</span>
+          <div class="header-actions">
+            <el-button link :icon="isPreviewFullscreen ? Aim : FullScreen" @click.stop="togglePreviewFullscreen" class="fullscreen-btn" />
+          </div>
+        </div>
+      </template>
       <div class="text-preview-wrapper">
         <pre class="text-preview-content">{{ textContent }}</pre>
       </div>
@@ -357,11 +374,21 @@
     <!-- 统一文件预览弹窗 -->
     <el-dialog
       v-model="previewState.visible"
-      :title="previewState.fileName"
-      fullscreen
+      :fullscreen="isPreviewFullscreen"
+      width="1000px"
+      top="5vh"
       destroy-on-close
-      class="preview-dialog file-preview-dialog"
+      @closed="isPreviewFullscreen = false"
+      :class="['preview-dialog', 'file-preview-dialog', { 'is-fullscreen': isPreviewFullscreen }]"
     >
+      <template #header>
+        <div class="dialog-header-custom">
+          <span class="el-dialog__title">{{ previewState.fileName }}</span>
+          <div class="header-actions">
+            <el-button link :icon="isPreviewFullscreen ? Aim : FullScreen" @click.stop="togglePreviewFullscreen" class="fullscreen-btn" />
+          </div>
+        </div>
+      </template>
       <FilePreview
         v-if="previewState.visible"
         :file-id="previewState.fileId"
@@ -379,7 +406,7 @@ import {
   Upload, FolderAdd, FolderOpened, Document, 
   Star, StarFilled, Download, More, Edit, Rank, Share, Delete, Link, Folder, RefreshLeft, Monitor,
   Menu, Grid, Picture, VideoPlay, Notebook, Paperclip, Film, Headset, Monitor as MonitorIcon, Box,
-  ArrowRight
+  ArrowRight, FullScreen, Aim
 } from '@element-plus/icons-vue'
 import request from '../utils/request'
 import { ElMessage, ElMessageBox } from 'element-plus'
@@ -487,6 +514,12 @@ const videoName = ref('')
 const showTextPreview = ref(false)
 const textContent = ref('')
 const textFileName = ref('')
+
+const isPreviewFullscreen = ref(false)
+const togglePreviewFullscreen = (e: Event) => {
+  e.stopPropagation()
+  isPreviewFullscreen.value = !isPreviewFullscreen.value
+}
 
 const previewState = ref({
   visible: false,
@@ -1407,103 +1440,29 @@ onMounted(() => {
   }
 }
 
+.text-preview-wrapper {
+  height: 100%;
+  overflow: hidden;
+}
+
 .text-preview-content {
   background-color: #050505;
   color: var(--pan-text-body);
   padding: 20px;
   border-radius: var(--pan-radius-sm);
-  overflow-x: auto;
+  overflow: auto;
   white-space: pre-wrap;
   word-wrap: break-word;
-  max-height: 60vh;
-  overflow-y: auto;
+  height: 100%; /* Fill the container */
   font-family: var(--font-mono);
   font-size: 13px;
   line-height: 1.6;
   border: 1px solid var(--pan-border);
 }
 
-.excel-preview-container {
-  height: 80vh;
-  display: flex;
-  flex-direction: column;
-  background: #050505;
-  border-radius: var(--pan-radius-sm);
-}
-
-.excel-tabs {
-  padding: 0 20px;
-  background-color: #0a0a0a;
-  border-bottom: 1px solid var(--pan-border);
-}
-
-.excel-content-wrapper {
-  flex: 1;
-  overflow: auto;
-  padding: 20px;
-}
-
-.excel-content {
-  background: white; /* Excel content usually needs white to be readable if it has colors */
-  padding: 40px;
-  border-radius: 4px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
-  margin: 20px;
-  overflow: auto;
-  
-  :deep(table) {
-    border-collapse: separate;
-    border-spacing: 0;
-    width: 100%;
-    font-size: 13px;
-    color: #333;
-    font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-    border: 1px solid #e0e0e0;
-    border-radius: 4px;
-    
-    td, th {
-      border-right: 1px solid #e0e0e0;
-      border-bottom: 1px solid #e0e0e0;
-      padding: 8px 12px;
-      min-width: 80px;
-      text-align: left;
-      position: relative;
-      
-      &:last-child {
-        border-right: none;
-      }
-    }
-
-    th {
-      background-color: #f8f9fa;
-      font-weight: 600;
-      color: #495057;
-      border-bottom: 2px solid #dee2e6;
-      text-transform: uppercase;
-      font-size: 12px;
-      letter-spacing: 0.5px;
-      position: sticky;
-      top: 0;
-      z-index: 10;
-    }
-
-    tr:last-child td {
-      border-bottom: none;
-    }
-
-    tr:nth-child(even) {
-      background-color: #fcfcfc;
-    }
-
-    tr:hover td {
-      background-color: #e8f0fe;
-      color: #1967d2;
-    }
-  }
-}
-
 .video-container {
   width: 100%;
+  height: 100%;
   background: #000;
   display: flex;
   justify-content: center;
@@ -1514,13 +1473,15 @@ onMounted(() => {
 
 .video-player {
   width: 100%;
-  max-height: 60vh;
+  height: 100%;
+  max-height: 100%;
+  object-fit: contain;
   outline: none;
 }
 
 .pdf-frame {
   width: 100%;
-  height: 80vh;
+  height: 100%;
   border: none;
   background-color: #333;
 }
@@ -1533,18 +1494,89 @@ onMounted(() => {
   overflow: hidden;
   display: flex;
   flex-direction: column;
+  height: 85vh; /* Initial state height */
+  transition: all 0.3s ease;
+
+  &.is-fullscreen {
+    height: 100vh !important;
+    width: 100vw !important;
+    top: 0 !important;
+    margin: 0 !important;
+    border-radius: 0;
+    border: none !important;
+  }
 
   .el-dialog__header {
     margin: 0;
-    padding: 16px 20px;
+    padding: 0; 
     background-color: #0a0a0a;
     border-bottom: 1px solid var(--pan-border);
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+
+    .el-dialog__headerbtn {
+      top: 0;
+      margin-top: 0;
+      height: 48px; /* Match custom header height */
+      width: 48px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+
+      .el-dialog__close {
+        color: var(--pan-text-muted);
+        font-size: 18px;
+        &:hover {
+          color: var(--pan-text-main);
+        }
+      }
+    }
   }
 
-  .el-dialog__title {
-    color: var(--pan-text-main) !important;
-    font-size: 14px !important;
-    font-weight: 600 !important;
+  .dialog-header-custom {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0 20px;
+    height: 48px;
+    width: 100%;
+    position: relative;
+    z-index: 10;
+
+    .el-dialog__title {
+      color: var(--pan-text-main) !important;
+      font-size: 14px !important;
+      font-weight: 600 !important;
+      line-height: 48px;
+    }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-right: 48px; /* Room for close button */
+      position: relative;
+      z-index: 20;
+
+      .el-button.fullscreen-btn {
+        padding: 8px;
+        font-size: 18px;
+        color: var(--pan-text-muted);
+        cursor: pointer;
+        pointer-events: auto !important; 
+        
+        &:hover {
+          color: var(--pan-text-main);
+          background-color: rgba(255, 255, 255, 0.05);
+        }
+
+        :deep(.el-icon) {
+          font-size: 18px;
+        }
+      }
+    }
   }
 
   .el-dialog__body {
@@ -1552,12 +1584,14 @@ onMounted(() => {
     flex: 1;
     overflow: hidden;
     background-color: #050505;
+    display: flex;
+    flex-direction: column;
   }
 }
 
 :deep(.text-preview-dialog), :deep(.video-preview-dialog) {
   .el-dialog__body {
-    padding: 20px;
+    padding: 24px;
   }
 }
 

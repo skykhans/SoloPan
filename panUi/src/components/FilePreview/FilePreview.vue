@@ -18,7 +18,7 @@
     <div 
       class="preview-content-wrapper" 
       ref="wrapperRef" 
-      :class="{ 'full-height': ['pdf', 'ppt', 'pptx'].includes(fileType) }"
+      :class="{ 'full-height': fileType === 'pdf' }"
     >
       <!-- Docx Preview -->
       <div 
@@ -72,15 +72,13 @@
       <div 
         v-if="['ppt', 'pptx'].includes(fileType)"
         class="ppt-container"
-        ref="pptContainer"
       >
-        <div class="ppt-content" :style="scaleStyle">
-          <VueOfficePptx 
-            :src="pptSrc"
-            @rendered="onPptRendered"
-            @error="onPptError"
-          />
-        </div>
+        <VueOfficePptx 
+          :src="pptSrc"
+          @rendered="onPptRendered"
+          @error="onPptError"
+          style="width: 100%; height: 100%;"
+        />
       </div>
 
       <!-- Fallback / PPT -->
@@ -101,6 +99,7 @@ import { ref, onMounted, watch, computed, nextTick } from 'vue'
 import { renderAsync } from 'docx-preview'
 import * as XLSX from 'xlsx'
 import VueOfficePptx from '@vue-office/pptx'
+import '@vue-office/pptx/lib/index.css'
 import { ZoomIn, ZoomOut, Download, Printer } from '@element-plus/icons-vue'
 import request from '../../utils/request'
 import { ElMessage } from 'element-plus'
@@ -117,7 +116,6 @@ const wrapperRef = ref<HTMLElement | null>(null)
 
 // Docx refs
 const docxContainer = ref<HTMLElement | null>(null)
-const pptContainer = ref<HTMLElement | null>(null)
 
 // Excel refs
 const excelHtml = ref('')
@@ -126,7 +124,7 @@ const activeSheet = ref('')
 const renderError = ref(false)
 
 // Computed
-const showZoom = computed(() => ['docx', 'excel', 'image', 'ppt', 'pptx'].includes(props.fileType))
+const showZoom = computed(() => ['docx', 'excel', 'image'].includes(props.fileType))
 
 const shouldShowFallback = computed(() => {
   if (loading.value) return false
@@ -150,7 +148,8 @@ const docxStyle = computed(() => ({
 }))
 
 const scaleStyle = computed(() => ({
-  zoom: scale.value
+  transform: `scale(${scale.value})`,
+  transformOrigin: 'top center'
 }))
 
 const pdfUrl = computed(() => {
@@ -176,10 +175,6 @@ const zoomOut = () => {
 
 const onPptRendered = () => {
   loading.value = false
-  // Trigger resize to ensure PPT fits the container
-  nextTick(() => {
-    window.dispatchEvent(new Event('resize'))
-  })
 }
 
 const onPptError = (e: any) => {
@@ -237,8 +232,6 @@ const handlePrint = () => {
     content = docxContainer.value.innerHTML
   } else if (props.fileType === 'excel') {
     content = excelHtml.value
-  } else if (['ppt', 'pptx'].includes(props.fileType) && pptContainer.value) {
-    content = pptContainer.value.innerHTML
   }
 
   if (content) {
@@ -273,12 +266,6 @@ const handlePrint = () => {
 }
 
 const loadContent = async () => {
-  if (['ppt', 'pptx'].includes(props.fileType)) {
-    loading.value = true
-    renderError.value = false
-    return
-  }
-
   loading.value = true
   renderError.value = false
   try {
@@ -352,11 +339,10 @@ onMounted(loadContent)
   display: flex;
   justify-content: center;
   align-items: flex-start;
-  position: relative;
 
   &.full-height {
     padding: 0;
-    display: block;
+    align-items: stretch;
     overflow: hidden;
   }
 }
@@ -373,41 +359,15 @@ onMounted(loadContent)
 }
 
 .pdf-frame {
-  position: absolute;
-  top: 0;
-  left: 0;
   width: 100%;
   height: 100%;
   border: none;
 }
 
 .ppt-container {
-  position: absolute;
-  top: 0;
-  left: 0;
   width: 100%;
   height: 100%;
-  overflow: auto; /* Allow scrolling like PDF */
-  background-color: #525659;
-  display: flex;
-  justify-content: center;
-  align-items: flex-start; /* Start from top */
-  
-  :deep(*) {
-    box-sizing: border-box;
-  }
-
-  .ppt-content {
-    width: 100%;
-    /* Let the content define the height */
-  }
-
-  :deep(.vue-office-pptx) {
-    width: 100%;
-    margin: 0;
-    padding: 0;
-    /* Remove forced height so it can grow with slides */
-  }
+  overflow: hidden;
 }
 
 .excel-wrapper {

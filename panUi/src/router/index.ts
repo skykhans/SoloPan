@@ -31,11 +31,6 @@ const routes: Array<RouteRecordRaw> = [
     props: { category: 'recycle-bin' }
   },
   {
-    path: '/my-shares',
-    name: 'MyShares',
-    component: () => import('../views/MyShares.vue')
-  },
-  {
     path: '/share/:token',
     name: 'Share',
     component: () => import('../views/Share.vue')

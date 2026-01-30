@@ -27,11 +27,4 @@ namespace PanSystem.DTOs
         public string ShareToken { get; set; }
         public string ShareCode { get; set; }
     }
-
-    public class SaveShareRequest
-    {
-        public string ShareToken { get; set; }
-        public string ShareCode { get; set; }
-        public int? TargetParentId { get; set; }
-    }
 }

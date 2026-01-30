@@ -34,7 +34,7 @@
             <span class="divider">|</span>
             <span>分享者：{{ fileInfo.userName }}</span>
             <span class="divider">|</span>
-            <span class="expire-time">有效期至：{{ fileInfo.expireTime ? formatDate(fileInfo.expireTime) : '永久有效' }}</span>
+            <span>有效期至：{{ fileInfo.expireTime ? formatDate(fileInfo.expireTime) : '永久有效' }}</span>
           </p>
         </div>
       </div>
@@ -238,10 +238,6 @@ const formatDate = (dateStr: string) => {
       .divider {
         margin: 0 10px;
         color: #eee;
-      }
-
-      .expire-time {
-        white-space: nowrap;
       }
     }
   }

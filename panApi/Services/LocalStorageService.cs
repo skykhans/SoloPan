@@ -35,8 +35,7 @@ namespace PanSystem.Services
 
         public string GetFullPath(string relativePath)
         {
-            var fullPath = Path.Combine(Directory.GetCurrentDirectory(), _uploadPath, relativePath);
-            return Path.GetFullPath(fullPath);
+            return Path.Combine(_uploadPath, relativePath);
         }
 
         public Task DeleteFileAsync(string relativePath)

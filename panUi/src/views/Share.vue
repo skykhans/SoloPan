@@ -1,5 +1,21 @@
 <template>
   <div class="share-page">
+    <div class="top-bar">
+      <div class="logo">
+        <img src="../assets/vue.svg" alt="logo" />
+        <span>我的网盘</span>
+      </div>
+      <div class="user-actions">
+         <template v-if="!isLoggedIn">
+           <span class="login-tip">登录后可保存文件</span>
+           <el-button type="primary" link @click="goToLogin">登录 / 注册</el-button>
+         </template>
+         <template v-else>
+           <span class="username">{{ username }}</span>
+         </template>
+      </div>
+    </div>
+
     <div class="share-box" v-if="!fileInfo">
       <h2>请输入提取码</h2>
       <div class="input-area">
@@ -18,7 +34,7 @@
             <span class="divider">|</span>
             <span>分享者：{{ fileInfo.userName }}</span>
             <span class="divider">|</span>
-            <span>有效期至：{{ fileInfo.expireTime ? formatDate(fileInfo.expireTime) : '永久有效' }}</span>
+            <span class="expire-time">有效期至：{{ fileInfo.expireTime ? formatDate(fileInfo.expireTime) : '永久有效' }}</span>
           </p>
         </div>
       </div>
@@ -31,17 +47,28 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
-import { useRoute } from 'vue-router'
+import { ref, onMounted, computed } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { Document, Download } from '@element-plus/icons-vue'
 import request from '../utils/request'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 
 const route = useRoute()
+const router = useRouter()
 const shareToken = route.params.token as string
 const shareCode = ref('')
 const loading = ref(false)
 const fileInfo = ref<any>(null)
+
+const isLoggedIn = computed(() => !!localStorage.getItem('token'))
+const username = computed(() => localStorage.getItem('username'))
+
+const goToLogin = () => {
+  router.push({
+    path: '/login',
+    query: { redirect: route.fullPath }
+  })
+}
 
 const checkCode = async () => {
   if (!shareCode.value) {
@@ -67,14 +94,42 @@ const checkCode = async () => {
 }
 
 const handleDownload = () => {
-  // 实际下载逻辑，可能需要后端提供无需鉴权的下载接口，或者用 shareToken 换取临时下载链接
   ElMessage.info('开始下载...')
-  // 这里简化处理，直接跳转到下载链接 (需要后端支持)
-  // window.location.href = `http://localhost:5080/api/share/download/${shareToken}?code=${shareCode.value}`
+  const baseURL = request.defaults.baseURL || '/api'
+  const link = document.createElement('a')
+  link.href = `${baseURL}/share/download/${shareToken}?code=${shareCode.value}`
+  link.target = '_blank' // open in new tab to avoid disrupting current page
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
 }
 
-const saveToDrive = () => {
-  ElMessage.success('保存成功 (模拟)')
+const saveToDrive = async () => {
+  if (!isLoggedIn.value) {
+    ElMessageBox.confirm(
+      '保存文件需要先登录，是否前往登录？',
+      '提示',
+      {
+        confirmButtonText: '去登录',
+        cancelButtonText: '取消',
+        type: 'warning'
+      }
+    ).then(() => {
+      goToLogin()
+    }).catch(() => {})
+    return
+  }
+
+  try {
+    await request.post('/share/save', {
+      shareToken,
+      shareCode: shareCode.value,
+      targetParentId: null // 默认保存到根目录
+    })
+    ElMessage.success('保存成功，请到我的网盘查看')
+  } catch (error) {
+    console.error(error)
+  }
 }
 
 const formatSize = (bytes: number) => {
@@ -97,6 +152,52 @@ const formatDate = (dateStr: string) => {
   justify-content: center;
   align-items: center;
   background-color: #f5f7fa;
+  flex-direction: column;
+
+  .top-bar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 60px;
+    background: white;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0 40px;
+    z-index: 100;
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 18px;
+      font-weight: bold;
+      color: var(--pan-primary);
+      
+      img {
+        width: 32px;
+        height: 32px;
+      }
+    }
+
+    .user-actions {
+      display: flex;
+      align-items: center;
+      gap: 15px;
+      font-size: 14px;
+      
+      .login-tip {
+        color: #909399;
+      }
+
+      .username {
+        color: #333;
+        font-weight: 500;
+      }
+    }
+  }
 
   .share-box, .file-info-box {
     background: white;
@@ -137,6 +238,10 @@ const formatDate = (dateStr: string) => {
       .divider {
         margin: 0 10px;
         color: #eee;
+      }
+
+      .expire-time {
+        white-space: nowrap;
       }
     }
   }

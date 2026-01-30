@@ -87,7 +87,8 @@ namespace PanSystem.Controllers
                     FileSize = f.FileSize,
                     CreateTime = f.CreateTime,
                     ParentId = f.ParentId,
-                    IsFavorite = f.IsFavorite
+                    IsFavorite = f.IsFavorite,
+                    IsShared = SqlFunc.Subqueryable<ShareLink>().Where(s => s.StorageItemId == f.Id && s.UserId == userId).Any()
                 })
                 .ToListAsync();
 
@@ -494,7 +495,8 @@ namespace PanSystem.Controllers
                     FileSize = f.FileSize,
                     CreateTime = f.CreateTime,
                     ParentId = f.ParentId,
-                    IsFavorite = true
+                    IsFavorite = true,
+                    IsShared = SqlFunc.Subqueryable<ShareLink>().Where(s => s.StorageItemId == f.Id && s.UserId == userId).Any()
                 })
                 .ToListAsync();
 
@@ -519,7 +521,8 @@ namespace PanSystem.Controllers
                     FileSize = f.FileSize,
                     CreateTime = f.CreateTime,
                     ParentId = f.ParentId,
-                    IsFavorite = f.IsFavorite
+                    IsFavorite = f.IsFavorite,
+                    IsShared = SqlFunc.Subqueryable<ShareLink>().Where(s => s.StorageItemId == f.Id && s.UserId == userId).Any()
                 })
                 .ToListAsync();
 

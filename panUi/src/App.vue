@@ -18,6 +18,10 @@
           <el-icon><Star /></el-icon>
           <span>我的收藏</span>
         </el-menu-item>
+        <el-menu-item index="/my-shares">
+          <el-icon><Share /></el-icon>
+          <span>我的分享</span>
+        </el-menu-item>
         <el-menu-item index="/recycle-bin">
           <el-icon><Delete /></el-icon>
           <span>回收站</span>
@@ -30,14 +34,14 @@
       
       <div class="storage-info">
         <el-progress :percentage="storageUsage" :format="storageFormat" />
-        <p>已用 {{ usedSpaceStr }} / {{ totalSpaceStr }}</p>
+        <p class="usage-text">已用 {{ usedSpaceStr }} / {{ totalSpaceStr }}</p>
       </div>
 
       <div class="user-profile">
          <el-dropdown>
           <span class="el-dropdown-link">
             {{ username }}
-            <el-icon class="el-icon--right"><arrow-down /></el-icon>
+            <el-icon class="el-icon--right"><ArrowDown /></el-icon>
           </span>
           <template #dropdown>
             <el-dropdown-menu>
@@ -55,12 +59,12 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, onMounted } from 'vue'
+import { computed, ref, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import request from './utils/request'
 import { 
   Upload, FolderAdd, FolderOpened, Document, 
-  Star, StarFilled, Download, More, Edit, Rank, Share, Delete, Link, Folder, RefreshLeft, Monitor
+  Star, StarFilled, Download, More, Edit, Rank, Share, Delete, Link, Folder, RefreshLeft, Monitor, ArrowDown
 } from '@element-plus/icons-vue'
 
 const route = useRoute()
@@ -122,6 +126,13 @@ const fetchUserInfo = async () => {
   }
 }
 
+watch(() => showSidebar.value, (val) => {
+  if (val) {
+    username.value = localStorage.getItem('username') || '用户'
+    fetchUserInfo()
+  }
+})
+
 onMounted(() => {
   fetchUserInfo()
 })
@@ -172,6 +183,10 @@ onMounted(() => {
       color: #909399;
       margin-top: 5px;
       text-align: center;
+    }
+
+    .usage-text {
+      white-space: nowrap;
     }
   }
 

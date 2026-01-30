@@ -29,12 +29,13 @@
 
 <script setup lang="ts">
 import { ref, reactive } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import { User, Lock } from '@element-plus/icons-vue'
 import request from '../utils/request'
 import { ElMessage } from 'element-plus'
 
 const router = useRouter()
+const route = useRoute()
 const isLogin = ref(true)
 const loading = ref(false)
 const form = reactive({
@@ -63,7 +64,8 @@ const handleSubmit = async () => {
       localStorage.setItem('token', res.token)
       localStorage.setItem('username', res.username)
       ElMessage.success('登录成功')
-      router.push('/')
+      const redirect = route.query.redirect as string
+      router.push(redirect || '/')
     } else {
       ElMessage.success('注册成功，请登录')
       isLogin.value = true

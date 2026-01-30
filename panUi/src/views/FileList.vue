@@ -4,7 +4,7 @@
       <div class="breadcrumb">
         <el-breadcrumb separator="/">
           <el-breadcrumb-item>
-            <span class="breadcrumb-link" @click="handleBreadcrumbClick(-1)">全部文件</span>
+            <span class="breadcrumb-link" @click="handleBreadcrumbClick(-1)">{{ rootName }}</span>
           </el-breadcrumb-item>
           <el-breadcrumb-item v-for="(item, index) in pathStack" :key="item.id">
             <span 
@@ -65,9 +65,12 @@
               </div>
               <el-icon v-else :size="24" :class="row.isFolder ? 'folder-icon' : 'file-icon'">
                 <FolderOpened v-if="row.isFolder" />
-                <Document v-else />
+                <component :is="getFileIcon(row.name)" v-else />
               </el-icon>
               <span class="name">{{ row.name }}</span>
+              <el-tooltip content="已分享" placement="top" v-if="row.isShared">
+                <el-icon class="share-status-icon"><Share /></el-icon>
+              </el-tooltip>
             </div>
           </template>
         </el-table-column>
@@ -167,7 +170,7 @@
             />
             <el-icon v-else :size="64" :class="file.isFolder ? 'folder-icon' : 'file-icon'">
               <FolderOpened v-if="file.isFolder" />
-              <Document v-else />
+              <component :is="getFileIcon(file.name)" v-else />
             </el-icon>
           </div>
           <div class="grid-name" :title="file.name">{{ file.name }}</div>
@@ -314,83 +317,36 @@
       </div>
     </el-dialog>
 
-    <!-- PDF 预览弹窗 -->
+    <!-- 统一文件预览弹窗 -->
     <el-dialog
-      v-model="showPdfPreview"
-      :title="pdfName"
-      width="90%"
-      top="5vh"
+      v-model="previewState.visible"
+      :title="previewState.fileName"
+      fullscreen
       destroy-on-close
-      center
-      class="preview-dialog pdf-preview-dialog"
+      class="preview-dialog file-preview-dialog"
     >
-      <iframe :src="pdfUrl" class="pdf-frame"></iframe>
+      <FilePreview
+        v-if="previewState.visible"
+        :file-id="previewState.fileId"
+        :file-name="previewState.fileName"
+        :file-type="previewState.fileType"
+      />
     </el-dialog>
-
-    <!-- Word (docx) 预览弹窗 -->
-    <el-dialog
-      v-model="showDocxPreview"
-      :title="docxName"
-      width="90%"
-      top="5vh"
-      destroy-on-close
-      center
-      class="preview-dialog docx-preview-dialog"
-    >
-      <div class="docx-wrapper">
-        <div ref="docxContainer" class="docx-container"></div>
-      </div>
-    </el-dialog>
-
-    <!-- Excel 预览弹窗 -->
-    <el-dialog
-      v-model="showExcelPreview"
-      :title="excelName"
-      width="90%"
-      top="5vh"
-      destroy-on-close
-      center
-      class="preview-dialog excel-preview-dialog"
-    >
-      <div class="excel-preview-container">
-        <el-tabs v-model="excelActiveSheet" @tab-click="handleExcelTabClick" class="excel-tabs">
-          <el-tab-pane
-            v-for="sheet in (excelWorkbook ? excelWorkbook.SheetNames : [])"
-            :key="sheet"
-            :label="sheet"
-            :name="sheet"
-          />
-        </el-tabs>
-        <div class="excel-content-wrapper">
-          <div class="excel-content" v-html="excelHtml"></div>
-        </div>
-      </div>
-    </el-dialog>
-
-    <!-- 图片预览组件 -->
-    <el-image-viewer
-      v-if="showImagePreview"
-      :url-list="previewList"
-      :initial-index="previewInitialIndex"
-      @close="showImagePreview = false"
-      teleported
-    />
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, watch, nextTick } from 'vue'
-import { useRoute } from 'vue-router'
+import { ref, onMounted, watch, nextTick, computed } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { 
   Upload, FolderAdd, FolderOpened, Document, 
   Star, StarFilled, Download, More, Edit, Rank, Share, Delete, Link, Folder, RefreshLeft, Monitor,
-  Menu, Grid
+  Menu, Grid, Picture, VideoPlay, Notebook, Paperclip, Film, Headset, Monitor as MonitorIcon, Box
 } from '@element-plus/icons-vue'
 import request from '../utils/request'
-import { ElMessage, ElMessageBox, ElImageViewer } from 'element-plus'
-
-import { renderAsync } from 'docx-preview'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import * as XLSX from 'xlsx'
+import FilePreview from '../components/FilePreview/FilePreview.vue'
 
 const props = defineProps<{
   category?: string
@@ -398,13 +354,20 @@ const props = defineProps<{
 }>()
 
 const route = useRoute()
+const router = useRouter()
 const loading = ref(false)
 const fileList = ref<any[]>([])
-const pathStack = ref<{ id: number; name: string }[]>([])
+const pathStack = ref<{ id: number; name: string }[]>(history.state?.pathStack || [])
 const selectedIds = ref<number[]>([])
-const currentParentId = ref<number | null>(null)
+const currentParentId = ref<number | null>(route.query.folderId ? Number(route.query.folderId) : null)
 const sortState = ref<{ prop: string, order: string } | null>(null)
 const viewMode = ref<'list' | 'grid'>(localStorage.getItem('viewMode') as 'list' | 'grid' || 'list')
+
+const rootName = computed(() => {
+  if (props.category === 'favorites') return '我的收藏'
+  if (props.category === 'recycle-bin') return '回收站'
+  return '全部文件'
+})
 
 const showCreateFolder = ref(false)
 const newFolderName = ref('')
@@ -478,18 +441,13 @@ const videoName = ref('')
 const showTextPreview = ref(false)
 const textContent = ref('')
 const textFileName = ref('')
-const showPdfPreview = ref(false)
-const pdfUrl = ref('')
-const pdfName = ref('')
-const showDocxPreview = ref(false)
-const docxName = ref('')
-const showExcelPreview = ref(false)
-const excelName = ref('')
-const excelWorkbook = ref<any>(null)
-const excelActiveSheet = ref('')
-const excelHtml = ref('')
 
-const docxContainer = ref<HTMLElement | null>(null)
+const previewState = ref({
+  visible: false,
+  fileId: 0,
+  fileName: '',
+  fileType: 'unknown' as 'docx' | 'pdf' | 'excel' | 'image' | 'ppt' | 'unknown'
+})
 
 const toggleViewMode = () => {
   viewMode.value = viewMode.value === 'list' ? 'grid' : 'list'
@@ -559,6 +517,8 @@ const handleShare = async (row: any) => {
     })
     shareInfo.value = res
     showShareDialog.value = true
+    // 更新当前行的分享状态
+    row.isShared = true
   } catch (error) {
     console.error(error)
   }
@@ -575,7 +535,14 @@ const fetchFiles = async () => {
     let url = '/file/list'
     const params: any = {}
     
-    if (props.category === 'favorites') {
+    if (route.query.q) {
+      url = '/file/search'
+      params.keyword = route.query.q
+    } else if (currentParentId.value) {
+      // 如果进入了文件夹，则作为普通文件列表处理 (支持从收藏夹进入文件夹)
+      url = '/file/list'
+      params.parentId = currentParentId.value
+    } else if (props.category === 'favorites') {
       url = '/file/favorites'
     } else if (props.category === 'recycle-bin') {
       url = '/file/recycle-bin'
@@ -583,11 +550,6 @@ const fetchFiles = async () => {
       params.category = props.type
     } else {
       params.parentId = currentParentId.value
-    }
-
-    if (route.query.q) {
-      url = '/file/search'
-      params.keyword = route.query.q
     }
 
     // 添加排序参数
@@ -608,33 +570,52 @@ const fetchFiles = async () => {
 watch(() => route.query.t, () => {
   // 监听时间戳变化，重置为根目录
   if (route.path === '/files' && !route.query.q) {
-    pathStack.value = []
-    currentParentId.value = null
-    fetchFiles()
+    // pathStack.value = []
+    // currentParentId.value = null
+    // fetchFiles()
+    // t 变化通常伴随 folderId 消失，由 folderId watcher 处理
   }
 })
 
-const showImagePreview = ref(false)
-const previewInitialIndex = ref(0)
-const previewList = ref<string[]>([])
+watch(() => route.query.folderId, (newId) => {
+  if (props.category === 'recycle-bin') return
+  
+  const id = newId ? Number(newId) : null
+  currentParentId.value = id
+  
+  if (history.state && history.state.pathStack) {
+     pathStack.value = history.state.pathStack
+  } else if (!id) {
+     pathStack.value = []
+  }
+  
+  fetchFiles()
+})
 
-const handlePreviewImage = (row: any) => {
-  // 收集当前列表中的所有图片
-  const images = fileList.value.filter(item => !item.isFolder && isImage(item.name))
-  previewList.value = images.map(item => getDownloadUrl(item.id))
-  
-  // 找到当前点击的图片在列表中的索引
-  const index = images.findIndex(item => item.id === row.id)
-  previewInitialIndex.value = index >= 0 ? index : 0
-  
-  showImagePreview.value = true
+const handlePreview = (row: any, type: string) => {
+  previewState.value = {
+    visible: true,
+    fileId: row.id,
+    fileName: row.name,
+    fileType: type as any
+  }
 }
+
+const handlePreviewImage = (row: any) => handlePreview(row, 'image')
 
 const handleRowClick = (row: any) => {
   if (row.isFolder) {
-    currentParentId.value = row.id
-    pathStack.value.push({ id: row.id, name: row.name })
-    fetchFiles()
+    // 回收站中的文件夹不可进入
+    if (props.category === 'recycle-bin') return
+    
+    // Construct new path stack
+    const newPathStack = [...pathStack.value, { id: row.id, name: row.name }]
+    
+    router.push({
+      path: route.path,
+      query: { ...route.query, folderId: row.id },
+      state: { pathStack: JSON.parse(JSON.stringify(newPathStack)) }
+    })
   } else if (isImage(row.name)) {
     handlePreviewImage(row)
   } else if (isVideo(row.name)) {
@@ -647,6 +628,8 @@ const handleRowClick = (row: any) => {
     handlePreviewDocx(row)
   } else if (isExcel(row.name)) {
     handlePreviewExcel(row)
+  } else if (isPpt(row.name)) {
+    handlePreview(row, 'ppt')
   }
 }
 
@@ -668,80 +651,30 @@ const handlePreviewText = async (row: any) => {
   }
 }
 
-const handlePreviewPdf = (row: any) => {
-  pdfName.value = row.name
-  // 增加时间戳，防止缓存；增加 preview=true 参数
-  pdfUrl.value = getDownloadUrl(row.id) + '&preview=true&t=' + new Date().getTime()
-  showPdfPreview.value = true
-}
+const handlePreviewPdf = (row: any) => handlePreview(row, 'pdf')
 
-const handlePreviewDocx = async (row: any) => {
-  docxName.value = row.name
-  showDocxPreview.value = true
-  
-  try {
-    const res = await request.get(`/file/download/${row.id}`, { responseType: 'blob' })
-    // 使用 nextTick 确保 DOM 已更新
-    await nextTick()
-    if (docxContainer.value) {
-        renderAsync(res as unknown as Blob, docxContainer.value, docxContainer.value, {
-            className: 'docx-preview',
-            inWrapper: true,
-            ignoreWidth: false,
-            ignoreHeight: false,
-            experimental: true
-        })
-    }
-  } catch (error) {
-    console.error(error)
-    ElMessage.error('预览失败')
-  }
-}
+const handlePreviewDocx = (row: any) => handlePreview(row, 'docx')
 
-const handlePreviewExcel = async (row: any) => {
-  excelName.value = row.name
-  showExcelPreview.value = true
-  
-  try {
-    const res = await request.get(`/file/download/${row.id}`, { responseType: 'arraybuffer' })
-    const data = new Uint8Array(res as unknown as ArrayBuffer)
-    const workbook = XLSX.read(data, { type: 'array' })
-    excelWorkbook.value = workbook
-    
-    if (workbook.SheetNames.length > 0) {
-      excelActiveSheet.value = workbook.SheetNames[0]
-      renderExcelSheet(workbook.SheetNames[0])
-    }
-  } catch (error) {
-    console.error(error)
-    ElMessage.error('预览失败')
-  }
-}
-
-const handleExcelTabClick = (tab: any) => {
-  renderExcelSheet(tab.props.name)
-}
-
-const renderExcelSheet = (sheetName: string) => {
-  if (!excelWorkbook.value) return
-  const worksheet = excelWorkbook.value.Sheets[sheetName]
-  excelHtml.value = XLSX.utils.sheet_to_html(worksheet)
-}
+const handlePreviewExcel = (row: any) => handlePreview(row, 'excel')
 
 const handleBreadcrumbClick = (index: number) => {
   if (index === -1) {
-    // 点击根目录
-    pathStack.value = []
-    currentParentId.value = null
+    // Root
+    router.push({
+      path: route.path,
+      query: { ...route.query, folderId: undefined },
+      state: { pathStack: [] }
+    })
   } else if (index < pathStack.value.length - 1) {
-    // 点击中间层级 (如果是点击最后一个，即当前目录，则不做任何操作)
     const targetItem = pathStack.value[index]
-    currentParentId.value = targetItem.id
-    pathStack.value = pathStack.value.slice(0, index + 1)
-  } else {
-    return
+    const newPathStack = pathStack.value.slice(0, index + 1)
+    
+    router.push({
+      path: route.path,
+      query: { ...route.query, folderId: targetItem.id },
+      state: { pathStack: JSON.parse(JSON.stringify(newPathStack)) }
+    })
   }
-  fetchFiles()
 }
 
 const handleUpload = async (options: any) => {
@@ -862,6 +795,26 @@ const isDocx = (name: string) => {
 const isExcel = (name: string) => {
   const ext = name.split('.').pop()?.toLowerCase()
   return ['xls', 'xlsx', 'csv'].includes(ext || '')
+}
+
+const isPpt = (name: string) => {
+  const ext = name.split('.').pop()?.toLowerCase()
+  return ['ppt', 'pptx'].includes(ext || '')
+}
+
+const getFileIcon = (name: string) => {
+  if (isImage(name)) return Picture
+  if (isVideo(name)) return VideoPlay
+  if (isPdf(name)) return Document
+  if (isDocx(name)) return Document
+  if (isExcel(name)) return Grid
+  if (isText(name)) return Notebook
+  
+  const ext = name.split('.').pop()?.toLowerCase()
+  if (['mp3', 'wav', 'flac'].includes(ext || '')) return Headset
+  if (['zip', 'rar', '7z', 'tar', 'gz'].includes(ext || '')) return Box
+  
+  return Document
 }
 
 const getThumbnailUrl = (id: number) => {
@@ -1000,6 +953,11 @@ onMounted(() => {
 
   .file-icon {
     color: #76c893;
+  }
+
+  .share-status-icon {
+    color: #67c23a;
+    font-size: 16px;
   }
 
   .name {
@@ -1231,14 +1189,7 @@ onMounted(() => {
   border: 1px solid #eee;
 }
 
-.docx-container {
-  background: #fff;
-  padding: 40px;
-  min-height: 500px;
-  max-height: 80vh;
-  overflow-y: auto;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
-}
+
 
 .excel-preview-container {
   height: 80vh;
@@ -1347,11 +1298,14 @@ onMounted(() => {
   border-radius: 12px;
   overflow: hidden;
   box-shadow: 0 12px 32px rgba(0, 0, 0, 0.15);
+  display: flex;
+  flex-direction: column;
 
   .el-dialog__header {
     margin: 0;
     padding: 20px 24px;
     border-bottom: 1px solid #f0f0f0;
+    flex-shrink: 0;
     
     .el-dialog__title {
       font-weight: 600;
@@ -1363,6 +1317,9 @@ onMounted(() => {
   .el-dialog__body {
     padding: 0;
     background-color: #f9f9f9;
+    flex: 1;
+    overflow: hidden;
+    height: 0; /* Force flex child height */
   }
 }
 

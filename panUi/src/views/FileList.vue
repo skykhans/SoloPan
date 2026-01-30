@@ -77,13 +77,14 @@
 
         <el-table-column label="大小" width="120" prop="size" sortable="custom">
           <template #default="{ row }">
-            {{ row.isFolder ? '-' : formatSize(row.fileSize) }}
+            <span class="mono" v-if="!row.isFolder">{{ formatSize(row.fileSize) }}</span>
+            <span v-else>-</span>
           </template>
         </el-table-column>
 
         <el-table-column label="修改时间" width="200" prop="time" sortable="custom">
           <template #default="{ row }">
-            {{ formatDate(row.createTime) }}
+            <span class="mono">{{ formatDate(row.createTime) }}</span>
           </template>
         </el-table-column>
 
@@ -982,39 +983,64 @@ onMounted(() => {
 }
 
 .action-bar {
+  margin-bottom: 24px;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  flex-shrink: 0;
-  padding-left: 48px;
-  height: 64px;
-  margin: 0 -24px 16px;
-  padding-right: 24px;
-  background: white;
-  border-bottom: 1px solid var(--pan-border-strong);
+  gap: 20px;
+  flex-wrap: nowrap;
+  padding: 0 4px;
+
+  .breadcrumb {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    flex-shrink: 1;
+    min-width: 0;
+    overflow: hidden;
+
+    :deep(.el-breadcrumb__inner) {
+      color: var(--pan-text-muted) !important;
+      font-size: 13px;
+      font-weight: 400;
+      
+      &.is-link:hover {
+        color: var(--pan-text-main) !important;
+      }
+    }
+
+    .breadcrumb-link {
+      cursor: pointer;
+      transition: var(--pan-transition);
+      
+      &.is-last {
+        color: var(--pan-text-main) !important;
+        font-weight: 600;
+        cursor: default;
+      }
+    }
+  }
 
   .buttons {
     display: flex;
     gap: 8px;
+    align-items: center;
+    flex-shrink: 0;
   }
 }
 
 .table-container {
-  padding: 0;
   flex: 1;
+  background: transparent;
+  border: 1px solid var(--pan-border);
+  border-radius: var(--pan-radius-sm);
   overflow: hidden;
-  display: flex;
-  flex-direction: column;
-  background: white;
-  border-radius: var(--pan-radius-lg);
-  border: 1px solid var(--pan-border-strong);
-  box-shadow: var(--pan-shadow-sm);
 }
 
 .file-name-cell {
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 12px;
   cursor: pointer;
   padding: 4px 0;
   
@@ -1023,9 +1049,9 @@ onMounted(() => {
   }
 
   .image-preview-wrapper {
-    width: 36px;
-    height: 36px;
-    border-radius: var(--pan-radius-sm);
+    width: 32px;
+    height: 32px;
+    border-radius: 6px;
     overflow: hidden;
     flex-shrink: 0;
     border: 1px solid var(--pan-border);
@@ -1033,15 +1059,18 @@ onMounted(() => {
     .thumbnail {
       width: 100%;
       height: 100%;
+      object-fit: cover;
     }
   }
 
   .folder-icon {
-    color: #fbbf24; /* Amber 400 */
+    color: #FCD34D; /* Amber 300 */
+    filter: drop-shadow(0 0 5px rgba(252, 211, 77, 0.3));
   }
 
   .file-icon {
-    color: #10b981; /* Emerald 500 */
+    color: var(--pan-accent);
+    filter: drop-shadow(0 0 5px rgba(61, 155, 255, 0.3));
   }
 
   .share-status-icon {
@@ -1120,18 +1149,18 @@ onMounted(() => {
 
   .back-item {
     color: var(--pan-primary);
-    background-color: #fff;
+    background-color: transparent;
     font-size: 13px;
     
     &:hover {
-      background-color: #f5f7fa;
+      background-color: rgba(255, 255, 255, 0.03);
     }
   }
 
   .empty-folder {
     padding: 40px 0;
     text-align: center;
-    color: #909399;
+    color: var(--pan-text-muted);
     font-size: 13px;
   }
 }
@@ -1144,13 +1173,14 @@ onMounted(() => {
     gap: 5px;
     margin-bottom: 15px;
     padding: 8px 12px;
-    background: #f5f7fa;
-    border-radius: 4px;
+    background: #0a0a0a;
+    border: 1px solid var(--pan-border);
+    border-radius: var(--pan-radius-sm);
     font-size: 13px;
 
     .nav-item {
       cursor: pointer;
-      color: #606266;
+      color: var(--pan-text-body);
       
       &:hover {
         color: var(--pan-primary);
@@ -1158,7 +1188,7 @@ onMounted(() => {
       }
 
       &:last-child {
-        color: #303133;
+        color: var(--pan-text-main);
         font-weight: bold;
         cursor: default;
         &:hover {
@@ -1169,7 +1199,7 @@ onMounted(() => {
 
     .nav-separator {
       font-size: 12px;
-      color: #c0c4cc;
+      color: var(--pan-text-muted);
     }
   }
 }
@@ -1182,7 +1212,7 @@ onMounted(() => {
 
   .selected-target {
     font-size: 13px;
-    color: #606266;
+    color: var(--pan-text-body);
     
     .path-text {
       color: var(--pan-primary);
@@ -1228,17 +1258,17 @@ onMounted(() => {
     padding: 0;
     height: auto;
     font-size: 16px;
-    color: var(--el-text-color-regular);
+    color: var(--pan-text-muted);
     
     &:hover {
-      color: var(--pan-primary);
+      color: var(--pan-text-main);
     }
   }
 }
 
 .file-name-cell.drag-over, .grid-item.drag-over .grid-item-inner {
     border: 2px dashed var(--pan-primary);
-    background-color: rgba(var(--pan-primary-rgb), 0.1);
+    background-color: rgba(16, 185, 129, 0.1);
   }
 
   .grid-toolbar {
@@ -1247,15 +1277,15 @@ onMounted(() => {
     justify-content: flex-end;
     padding-bottom: 10px;
     padding-right: 20px;
-    border-bottom: 1px solid #ebeef5;
+    border-bottom: 1px solid var(--pan-border);
     margin-bottom: 10px;
     
     .view-switch-btn-grid {
       font-size: 18px;
-      color: #606266;
+      color: var(--pan-text-muted);
       
       &:hover {
-        color: var(--pan-primary);
+        color: var(--pan-text-main);
       }
     }
   }
@@ -1268,7 +1298,7 @@ onMounted(() => {
   grid-template-columns: repeat(auto-fill, minmax(140px, 140px));
   gap: 20px;
   justify-content: center;
-  background: white;
+  background: transparent;
   border-radius: var(--pan-radius-lg);
   border: 1px solid var(--pan-border-strong);
   box-shadow: var(--pan-shadow-sm);
@@ -1288,7 +1318,7 @@ onMounted(() => {
      .grid-item-inner {
       width: 100%;
       height: 100%;
-      border-radius: var(--pan-radius-md);
+      border-radius: var(--pan-radius-sm);
       padding: 16px;
       display: flex;
       flex-direction: column;
@@ -1298,8 +1328,8 @@ onMounted(() => {
       border: 1px solid transparent;
       
       &:hover {
-        background-color: var(--pan-primary-light);
-        border-color: var(--pan-primary);
+        background: rgba(255, 255, 255, 0.05);
+        border-color: var(--pan-border);
         
         .grid-actions {
           opacity: 1;
@@ -1378,35 +1408,33 @@ onMounted(() => {
 }
 
 .text-preview-content {
-  background-color: #fafafa;
-  color: #333;
+  background-color: #050505;
+  color: var(--pan-text-body);
   padding: 20px;
-  border-radius: 8px;
+  border-radius: var(--pan-radius-sm);
   overflow-x: auto;
   white-space: pre-wrap;
   word-wrap: break-word;
   max-height: 60vh;
   overflow-y: auto;
-  font-family: 'JetBrains Mono', 'Fira Code', Consolas, Monaco, monospace;
-  font-size: 14px;
+  font-family: var(--font-mono);
+  font-size: 13px;
   line-height: 1.6;
-  border: 1px solid #eee;
+  border: 1px solid var(--pan-border);
 }
-
-
 
 .excel-preview-container {
   height: 80vh;
   display: flex;
   flex-direction: column;
-  background: #fff;
-  border-radius: 4px;
+  background: #050505;
+  border-radius: var(--pan-radius-sm);
 }
 
 .excel-tabs {
   padding: 0 20px;
-  background-color: #f5f7fa;
-  border-bottom: 1px solid #e4e7ed;
+  background-color: #0a0a0a;
+  border-bottom: 1px solid var(--pan-border);
 }
 
 .excel-content-wrapper {
@@ -1416,11 +1444,11 @@ onMounted(() => {
 }
 
 .excel-content {
-  background: white;
+  background: white; /* Excel content usually needs white to be readable if it has colors */
   padding: 40px;
+  border-radius: 4px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
   margin: 20px;
-  border-radius: 8px;
   overflow: auto;
   
   :deep(table) {
@@ -1480,7 +1508,7 @@ onMounted(() => {
   display: flex;
   justify-content: center;
   align-items: center;
-  border-radius: 8px;
+  border-radius: var(--pan-radius-sm);
   overflow: hidden;
 }
 
@@ -1494,36 +1522,36 @@ onMounted(() => {
   width: 100%;
   height: 80vh;
   border: none;
-  background-color: #f5f5f5;
+  background-color: #333;
 }
 
 /* Global Preview Dialog Styles */
 :deep(.preview-dialog) {
-  border-radius: 12px;
+  background-color: #050505 !important;
+  border: 1px solid var(--pan-border) !important;
+  border-radius: var(--pan-radius-md);
   overflow: hidden;
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.15);
   display: flex;
   flex-direction: column;
 
   .el-dialog__header {
     margin: 0;
-    padding: 20px 24px;
-    border-bottom: 1px solid #f0f0f0;
-    flex-shrink: 0;
-    
-    .el-dialog__title {
-      font-weight: 600;
-      font-size: 18px;
-      color: #303133;
-    }
+    padding: 16px 20px;
+    background-color: #0a0a0a;
+    border-bottom: 1px solid var(--pan-border);
+  }
+
+  .el-dialog__title {
+    color: var(--pan-text-main) !important;
+    font-size: 14px !important;
+    font-weight: 600 !important;
   }
 
   .el-dialog__body {
     padding: 0;
-    background-color: #f9f9f9;
     flex: 1;
     overflow: hidden;
-    height: 0; /* Force flex child height */
+    background-color: #050505;
   }
 }
 

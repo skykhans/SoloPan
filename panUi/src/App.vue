@@ -36,8 +36,8 @@
       </el-menu>
       
       <div class="storage-info" v-show="!isCollapse">
-        <el-progress :percentage="storageUsage" :format="storageFormat" />
-        <p class="usage-text">已用 {{ usedSpaceStr }} / {{ totalSpaceStr }}</p>
+        <el-progress :percentage="storageUsage" :show-text="false" />
+        <p class="usage-text mono">已用 {{ usedSpaceStr }} / {{ totalSpaceStr }}</p>
       </div>
 
       <div class="user-profile">
@@ -55,7 +55,7 @@
       </div>
     </div>
     
-    <div class="main-content" :class="{ 'full-screen': !showSidebar }">
+    <div class="main-content main-content-border" :class="{ 'full-screen': !showSidebar, 'has-sidebar': showSidebar }">
       <div class="collapse-btn" v-if="showSidebar" @click="toggleSidebar">
         <el-icon :size="24"><component :is="isCollapse ? Expand : Fold" /></el-icon>
       </div>
@@ -156,49 +156,41 @@ onMounted(() => {
   height: 100vh;
   width: 100vw;
   overflow: hidden;
+  background-color: #000000;
 }
 
 .sidebar {
-  width: 260px;
-  background-color: var(--pan-sidebar-bg);
-  border-right: 1px solid var(--pan-border-strong);
-  display: flex;
-  flex-direction: column;
-  padding: 24px 0;
-  transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  position: relative;
-  z-index: 100;
+    width: 200px; /* Slimmer sidebar like typical Trae toolbars */
+    background-color: var(--pan-sidebar-bg);
+    border-right: 1px solid var(--pan-border);
+    display: flex;
+    flex-direction: column;
+    padding: 16px 0;
+    transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    z-index: 100;
 
-  &.collapsed {
-    width: 80px;
+    &.collapsed {
+      width: 60px;
+    }
 
     .logo {
-      padding: 0;
-      justify-content: center;
-      margin-bottom: 32px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 0 16px;
+      margin-bottom: 24px;
+      font-size: 16px;
+      font-weight: 800;
+      color: var(--pan-text-main);
+      letter-spacing: -0.5px;
+      
+      img {
+        width: 24px;
+        height: 24px;
+        filter: none;
+      }
     }
-  }
-
-  .logo {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 0 24px;
-    margin-bottom: 32px;
-    font-size: 20px;
-    font-weight: 800;
-    color: var(--pan-text-main);
-    letter-spacing: -0.5px;
-    overflow: hidden;
-    white-space: nowrap;
-    
-    img {
-      width: 36px;
-      height: 36px;
-      min-width: 36px;
-      filter: drop-shadow(0 4px 6px rgba(99, 102, 241, 0.2));
-    }
-  }
 
   .el-menu {
     border-right: none;
@@ -207,50 +199,49 @@ onMounted(() => {
     padding: 0 12px;
 
     :deep(.el-menu-item) {
-      height: 48px;
-      line-height: 48px;
+      height: 40px;
+      line-height: 40px;
       border-radius: var(--pan-radius-sm);
-      margin-bottom: 4px;
+      margin-bottom: 2px;
       color: var(--pan-text-body);
+      font-size: 13px;
       
       &:hover {
-        background-color: var(--pan-primary-light);
-        color: var(--pan-primary);
+        background-color: rgba(255, 255, 255, 0.03);
+        color: var(--pan-text-main);
       }
 
       &.is-active {
-        background-color: var(--pan-primary-light);
-        color: var(--pan-primary);
-        font-weight: 600;
+        background: rgba(255, 255, 255, 0.05);
+        color: var(--pan-text-main);
+        font-weight: 500;
       }
 
       .el-icon {
-        font-size: 20px;
-        margin-right: 12px;
+        font-size: 18px;
+        margin-right: 10px;
       }
     }
   }
 
   .storage-info {
-    padding: 24px;
+    padding: 16px;
     margin: 12px;
-    background: var(--pan-bg);
-    border-radius: var(--pan-radius-md);
+    background: transparent;
+    border-top: 1px solid var(--pan-border);
+    border-radius: 0;
     
     :deep(.el-progress-bar__inner) {
-      background-color: var(--pan-primary);
+      background: var(--pan-primary);
+      box-shadow: none;
     }
 
     p {
-      font-size: 12px;
+      font-size: 11px;
       color: var(--pan-text-muted);
       margin-top: 8px;
-      text-align: center;
+      text-align: left;
       font-weight: 500;
-    }
-
-    .usage-text {
-      white-space: nowrap;
     }
   }
 
@@ -283,13 +274,14 @@ onMounted(() => {
   position: relative;
   display: flex;
   flex-direction: column;
-  padding: 0; /* Changed to 0 to allow header to span full width */
-  background-color: var(--pan-bg);
+  padding: 0;
+  background-color: #000000;
+  min-height: 0; /* Important for flex children */
 
   .collapse-btn {
     position: absolute;
     left: 20px;
-    top: 13px; /* Adjusted for new header height */
+    top: 13px;
     z-index: 1000;
     cursor: pointer;
     color: var(--pan-text-muted);
@@ -298,15 +290,18 @@ onMounted(() => {
     align-items: center;
     padding: 8px;
     border-radius: var(--pan-radius-sm);
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid var(--pan-border);
 
     &:hover {
-      color: var(--pan-primary);
-      background-color: var(--pan-primary-light);
+      color: var(--pan-text-main);
+      background-color: rgba(255, 255, 255, 0.05);
+      border-color: var(--pan-border-strong);
     }
   }
 
   /* We need a header-like area to keep the button consistent */
-  &::before {
+  &.has-sidebar::before {
     content: '';
     height: 64px;
     background: transparent;
@@ -318,6 +313,10 @@ onMounted(() => {
     flex: 1;
     padding: 0 24px 24px; /* Internal content padding */
     overflow: auto;
+  }
+
+  &.full-screen > :not(.collapse-btn) {
+    padding: 0;
   }
 }
 </style>

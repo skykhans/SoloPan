@@ -26,7 +26,10 @@
 
     <div class="file-info-box" v-else>
       <div class="header">
-        <el-icon :size="48" class="icon"><Document /></el-icon>
+        <el-icon :size="48" class="icon" :class="fileInfo.isFolder ? 'folder-icon' : 'file-icon'">
+          <FolderOpened v-if="fileInfo.isFolder" />
+          <component :is="getFileIcon(fileInfo.name)" v-else />
+        </el-icon>
         <div class="info">
           <h3>{{ fileInfo.name }}</h3>
           <p>
@@ -49,7 +52,7 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { Document, Download } from '@element-plus/icons-vue'
+import { Document, Download, FolderOpened } from '@element-plus/icons-vue'
 import request from '../utils/request'
 import { ElMessage, ElMessageBox } from 'element-plus'
 
@@ -143,6 +146,24 @@ const formatSize = (bytes: number) => {
 const formatDate = (dateStr: string) => {
   return new Date(dateStr).toLocaleString()
 }
+
+const getFileIcon = (name: string) => {
+  const ext = name.split('.').pop()?.toLowerCase()
+  switch (ext) {
+    case 'pdf': return Document
+    case 'docx':
+    case 'doc': return Document
+    case 'xlsx':
+    case 'xls': return Document
+    case 'ppt':
+    case 'pptx': return Document
+    case 'jpg':
+    case 'jpeg':
+    case 'png':
+    case 'gif': return Document
+    default: return Document
+  }
+}
 </script>
 
 <style scoped lang="scss">
@@ -151,7 +172,7 @@ const formatDate = (dateStr: string) => {
   display: flex;
   justify-content: center;
   align-items: center;
-  background-color: #f5f7fa;
+  background-color: #000000;
   flex-direction: column;
 
   .top-bar {
@@ -159,26 +180,26 @@ const formatDate = (dateStr: string) => {
     top: 0;
     left: 0;
     width: 100%;
-    height: 60px;
-    background: white;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    height: 48px;
+    background: #000000;
+    border-bottom: 1px solid var(--pan-border);
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 0 40px;
+    padding: 0 24px;
     z-index: 100;
 
     .logo {
       display: flex;
       align-items: center;
       gap: 10px;
-      font-size: 18px;
-      font-weight: bold;
-      color: var(--pan-primary);
+      font-size: 14px;
+      font-weight: 800;
+      color: var(--pan-text-main);
       
       img {
-        width: 32px;
-        height: 32px;
+        width: 24px;
+        height: 24px;
       }
     }
 
@@ -189,21 +210,23 @@ const formatDate = (dateStr: string) => {
       font-size: 14px;
       
       .login-tip {
-        color: #909399;
+        color: var(--pan-text-muted);
       }
 
       .username {
-        color: #333;
+        color: var(--pan-text-main);
         font-weight: 500;
       }
     }
   }
 
   .share-box, .file-info-box {
-    background: white;
+    background: rgba(20, 20, 20, 0.6);
+    backdrop-filter: var(--pan-glass-blur);
     padding: 40px;
-    border-radius: 8px;
-    box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
+    border-radius: var(--pan-radius-lg);
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+    border: 1px solid var(--pan-border);
     text-align: center;
     width: 500px;
   }
@@ -211,8 +234,14 @@ const formatDate = (dateStr: string) => {
   .input-area {
     display: flex;
     justify-content: center;
-    gap: 10px;
-    margin-top: 20px;
+    gap: 12px;
+    margin-top: 24px;
+    
+    :deep(.el-input__wrapper) {
+      background-color: rgba(255, 255, 255, 0.05) !important;
+      border: 1px solid var(--pan-border) !important;
+      box-shadow: none !important;
+    }
   }
 
   .header {
@@ -224,20 +253,33 @@ const formatDate = (dateStr: string) => {
 
     .icon {
       color: var(--pan-primary);
+      filter: drop-shadow(0 0 15px var(--pan-primary-glow));
+      
+      &.folder-icon {
+        color: #FCD34D;
+        filter: drop-shadow(0 0 10px rgba(252, 211, 77, 0.3));
+      }
+      
+      &.file-icon {
+        color: var(--pan-accent);
+        filter: drop-shadow(0 0 10px rgba(61, 155, 255, 0.3));
+      }
     }
 
     h3 {
       margin: 0 0 10px 0;
+      color: var(--pan-text-main);
+      font-size: 20px;
     }
 
     p {
-      color: #999;
+      color: var(--pan-text-muted);
       font-size: 13px;
       margin: 0;
       
       .divider {
         margin: 0 10px;
-        color: #eee;
+        color: var(--pan-border);
       }
     }
   }

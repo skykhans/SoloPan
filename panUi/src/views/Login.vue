@@ -102,27 +102,27 @@ const handleSubmit = async () => {
   justify-content: center;
   align-items: center;
   background-color: var(--pan-bg);
-  background-image: 
-    radial-gradient(at 0% 0%, rgba(99, 102, 241, 0.05) 0px, transparent 50%),
-    radial-gradient(at 100% 100%, rgba(99, 102, 241, 0.05) 0px, transparent 50%);
   
   .brand {
     text-align: center;
     margin-bottom: 40px;
     
     img {
-      width: 64px;
-      height: 64px;
+      width: 80px;
+      height: 80px;
       margin-bottom: 16px;
-      filter: drop-shadow(0 10px 15px rgba(99, 102, 241, 0.2));
+      filter: drop-shadow(0 0 20px var(--pan-primary-glow));
     }
     
     h1 {
-      font-size: 32px;
+      font-size: 36px;
       font-weight: 800;
       color: var(--pan-text-main);
       margin: 0 0 8px;
-      letter-spacing: -1px;
+      letter-spacing: -1.5px;
+      background: linear-gradient(to bottom, #fff, #a1a1aa);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
     }
     
     p {
@@ -133,19 +133,20 @@ const handleSubmit = async () => {
   }
 
   .login-box {
-    width: 400px;
+    width: 420px;
     padding: 48px;
-    background: white;
+    background: rgba(20, 20, 20, 0.4);
+    backdrop-filter: var(--pan-glass-blur);
     border-radius: var(--pan-radius-lg);
-    box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
-    border: 1px solid var(--pan-border-strong);
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+    border: 1px solid var(--pan-border);
 
     .box-header {
       margin-bottom: 32px;
       text-align: center;
       
       h2 {
-        font-size: 24px;
+        font-size: 26px;
         font-weight: 700;
         color: var(--pan-text-main);
         margin: 0 0 8px;
@@ -159,21 +160,36 @@ const handleSubmit = async () => {
     }
 
     .el-form-item {
-      margin-bottom: 20px;
+      margin-bottom: 24px;
+    }
+
+    :deep(.el-input__wrapper) {
+      background-color: rgba(255, 255, 255, 0.03) !important;
+      border: 1px solid var(--pan-border) !important;
+      box-shadow: none !important;
+      height: 48px;
+      
+      &.is-focus {
+        border-color: var(--pan-primary) !important;
+        box-shadow: 0 0 10px var(--pan-primary-glow) !important;
+      }
     }
 
     .submit-btn {
       width: 100%;
-      margin-top: 8px;
-      height: 48px;
-      font-size: 16px;
+      margin-top: 12px;
+      height: 40px !important;
+      font-size: 14px;
       font-weight: 600;
-      border-radius: var(--pan-radius-md);
-      box-shadow: 0 4px 6px -1px rgba(99, 102, 241, 0.3);
+      border-radius: var(--pan-radius-sm) !important;
+      background: var(--pan-primary) !important;
+      border: none !important;
+      color: #000000 !important;
+      box-shadow: none !important;
       
       &:hover {
-        transform: translateY(-1px);
-        box-shadow: 0 10px 15px -3px rgba(99, 102, 241, 0.4);
+        background: var(--pan-primary-hover) !important;
+        transform: none !important;
       }
     }
 
@@ -193,7 +209,7 @@ const handleSubmit = async () => {
   }
 
   .footer-links {
-    margin-top: 48px;
+    margin-top: 60px;
     font-size: 13px;
     color: var(--pan-text-muted);
     display: flex;

@@ -13,10 +13,12 @@ namespace PanSystem.Controllers
     public class ShareController : ControllerBase
     {
         private readonly ISqlSugarClient _db;
+        private readonly IStorageService _storageService;
 
-        public ShareController(ISqlSugarClient db)
+        public ShareController(ISqlSugarClient db, IStorageService storageService)
         {
             _db = db;
+            _storageService = storageService;
         }
 
         private int GetUserId() => int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
@@ -133,6 +135,84 @@ namespace PanSystem.Controllers
 
             await _db.Deleteable(share).ExecuteCommandAsync();
             return Ok("取消分享成功");
+        }
+
+        [AllowAnonymous]
+        [HttpGet("download/{token}")]
+        public async Task<IActionResult> DownloadShare(string token, [FromQuery] string code)
+        {
+            var share = await _db.Queryable<ShareLink>()
+                .FirstAsync(s => s.ShareToken == token);
+
+            if (share == null) return NotFound("分享不存在");
+            if (share.ExpireTime.HasValue && share.ExpireTime < DateTime.Now) return BadRequest("分享已过期");
+            if (share.ShareCode != code) return BadRequest("提取码错误");
+
+            var item = await _db.Queryable<StorageItem>().InSingleAsync(share.StorageItemId);
+            if (item == null) return NotFound("文件不存在");
+
+            var fullPath = _storageService.GetFullPath(item.FilePath!);
+            if (!System.IO.File.Exists(fullPath)) return NotFound("物理文件丢失");
+
+            // 增加下载次数
+            await _db.Updateable<ShareLink>()
+                .SetColumns(s => s.DownloadCount == s.DownloadCount + 1)
+                .Where(s => s.Id == share.Id)
+                .ExecuteCommandAsync();
+
+            var ext = Path.GetExtension(item.Name).ToLower();
+            var contentType = ext switch
+            {
+                ".jpg" or ".jpeg" => "image/jpeg",
+                ".png" => "image/png",
+                ".pdf" => "application/pdf",
+                ".docx" => "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                ".xlsx" => "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                _ => "application/octet-stream"
+            };
+
+            return PhysicalFile(fullPath, contentType, item.Name, enableRangeProcessing: true);
+        }
+
+        [HttpPost("save")]
+        public async Task<IActionResult> SaveToDrive(SaveShareRequest request)
+        {
+            var userId = GetUserId();
+            var share = await _db.Queryable<ShareLink>()
+                .FirstAsync(s => s.ShareToken == request.ShareToken);
+
+            if (share == null) return NotFound("分享不存在");
+            if (share.ExpireTime.HasValue && share.ExpireTime < DateTime.Now) return BadRequest("分享已过期");
+            if (share.ShareCode != request.ShareCode) return BadRequest("提取码错误");
+
+            var sourceItem = await _db.Queryable<StorageItem>().InSingleAsync(share.StorageItemId);
+            if (sourceItem == null) return NotFound("源文件不存在");
+
+            // 秒传逻辑：在当前用户的目录下创建一个指向相同物理文件的新记录
+            var newItem = new StorageItem
+            {
+                Name = sourceItem.Name,
+                ParentId = request.TargetParentId,
+                UserId = userId,
+                IsFolder = sourceItem.IsFolder,
+                FileSize = sourceItem.FileSize,
+                FileMd5 = sourceItem.FileMd5,
+                FilePath = sourceItem.FilePath,
+                IsDeleted = false,
+                IsFavorite = false,
+                CreateTime = DateTime.Now,
+                UpdateTime = DateTime.Now
+            };
+
+            await _db.Insertable(newItem).ExecuteCommandAsync();
+
+            // 更新用户空间
+            await _db.Updateable<UserInfo>()
+                .SetColumns(u => u.UsedSpace == u.UsedSpace + sourceItem.FileSize)
+                .Where(u => u.Id == userId)
+                .ExecuteCommandAsync();
+
+            return Ok("保存成功");
         }
     }
 }

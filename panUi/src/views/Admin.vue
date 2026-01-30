@@ -32,22 +32,28 @@
     <div class="user-management">
       <h3>用户管理</h3>
       <el-table :data="userList" style="width: 100%" v-loading="loading">
-        <el-table-column prop="id" label="ID" width="80" />
+        <el-table-column label="ID" width="80">
+          <template #default="{ row }">
+            <span class="mono">{{ row.id }}</span>
+          </template>
+        </el-table-column>
         <el-table-column prop="userName" label="用户名" width="150" />
         <el-table-column prop="email" label="邮箱" width="200" />
         <el-table-column label="已用/总空间" min-width="180">
           <template #default="{ row }">
-            <span class="usage-cell">{{ formatSize(row.usedSpace) }} / {{ formatSize(row.totalSpace) }}</span>
+            <span class="usage-cell mono">{{ formatSize(row.usedSpace) }} / {{ formatSize(row.totalSpace) }}</span>
           </template>
         </el-table-column>
         <el-table-column label="注册时间" width="180">
           <template #default="{ row }">
-            {{ formatDate(row.createTime) }}
+            <span class="mono">{{ formatDate(row.createTime) }}</span>
           </template>
         </el-table-column>
         <el-table-column label="角色" width="100">
           <template #default="{ row }">
-            <el-tag :type="row.isAdmin ? 'danger' : 'info'">{{ row.isAdmin ? '管理员' : '用户' }}</el-tag>
+            <span class="status-badge" :style="row.isAdmin ? 'color: #ef4444; background: rgba(239, 68, 68, 0.1); border-color: rgba(239, 68, 68, 0.2)' : ''">
+              {{ row.isAdmin ? 'ADMIN' : 'USER' }}
+            </span>
           </template>
         </el-table-column>
         <el-table-column label="操作" width="150">
@@ -171,6 +177,7 @@ onMounted(() => {
       font-weight: 800;
       color: var(--pan-primary);
       margin-top: 8px;
+      text-shadow: 0 0 10px var(--pan-primary-glow);
     }
 
     :deep(.el-card__header) {
@@ -183,11 +190,10 @@ onMounted(() => {
   }
 
   .user-management {
-    background: white;
     padding: 32px;
-    border-radius: var(--pan-radius-lg);
-    border: 1px solid var(--pan-border-strong);
-    box-shadow: var(--pan-shadow-sm);
+    border-radius: var(--pan-radius-sm);
+    border: 1px solid var(--pan-border);
+    background: #050505;
 
     h3 {
       margin-top: 0;

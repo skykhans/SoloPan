@@ -313,22 +313,22 @@ onMounted(loadContent)
   height: 100%;
   display: flex;
   flex-direction: column;
-  background-color: white; /* White background as requested */
+  background-color: #050505;
 }
 
 .toolbar {
   padding: 10px 20px;
-  background-color: white;
-  border-bottom: 1px solid #e4e7ed;
+  background-color: #0a0a0a;
+  border-bottom: 1px solid var(--pan-border);
   display: flex;
   justify-content: space-between;
   align-items: center;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
   z-index: 100;
   
   .zoom-text {
     width: 60px;
     cursor: default;
+    color: var(--pan-text-main);
   }
 }
 
@@ -348,9 +348,10 @@ onMounted(loadContent)
 }
 
 .docx-container {
-  /* Remove shadow and fixed width limit to make it more like web doc */
   box-shadow: none; 
-  background: white;
+  background: white; /* Keep white for document content */
+  color: #333;
+  border-radius: 4px;
   
   :deep(.docx-wrapper) {
     background: transparent !important;
@@ -368,6 +369,8 @@ onMounted(loadContent)
   width: 100%;
   height: 100%;
   overflow: hidden;
+  background: white; /* PPT usually white */
+  border-radius: 4px;
 }
 
 .excel-wrapper {
@@ -375,6 +378,9 @@ onMounted(loadContent)
   height: 100%;
   display: flex;
   flex-direction: column;
+  background: white;
+  border-radius: 4px;
+  overflow: hidden;
 }
 
 .excel-tabs {
@@ -398,6 +404,7 @@ onMounted(loadContent)
     td, th {
       border: 1px solid #e0e0e0;
       padding: 8px;
+      color: #333;
     }
   }
 }
@@ -422,5 +429,9 @@ onMounted(loadContent)
   display: flex;
   justify-content: center;
   align-items: center;
+  
+  :deep(.el-empty__description) {
+    color: var(--pan-text-muted);
+  }
 }
 </style>

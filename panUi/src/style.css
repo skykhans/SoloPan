@@ -1,98 +1,309 @@
 :root {
-  font-family: 'Plus Jakarta Sans', 'Inter', system-ui, -apple-system, sans-serif;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
   
-  /* Modern Flat Palette */
-  --pan-primary: #6366f1; /* Modern Indigo */
-  --pan-primary-light: #eef2ff;
-  --pan-bg: #f8fafc; /* Slate 50 */
-  --pan-sidebar-bg: #ffffff;
-  --pan-card-bg: #ffffff;
-  --pan-text-main: #0f172a; /* Slate 900 */
-  --pan-text-body: #475569; /* Slate 600 */
-  --pan-text-muted: #94a3b8; /* Slate 400 */
-  --pan-border: #f1f5f9; /* Slate 100 */
-  --pan-border-strong: #e2e8f0; /* Slate 200 */
+  /* Trae Brand Palette */
+  --pan-primary: #10b981; /* Trae Green */
+  --pan-primary-hover: #059669;
+  --pan-bg: #000000;
+  --pan-sidebar-bg: #000000;
+  --pan-card-bg: #000000;
+  --pan-text-main: #ffffff;
+  --pan-text-body: #a1a1aa;
+  --pan-text-muted: #52525b;
+  --pan-border: #1a1a1a;
+  --pan-border-strong: #262626;
   
-  /* Design Tokens */
-  --pan-radius-sm: 8px;
-  --pan-radius-md: 12px;
-  --pan-radius-lg: 16px;
-  --pan-shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
-  --pan-shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
-  --pan-transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  /* Trae-style Design Tokens */
+  --pan-radius-xs: 2px;
+  --pan-radius-sm: 4px;
+  --pan-radius-md: 4px;
+  --pan-radius-lg: 4px;
+  --pan-transition: all 0.15s ease;
 }
 
-body {
+html, body {
   margin: 0;
   padding: 0;
   width: 100vw;
   height: 100vh;
   overflow: hidden;
-  background-color: var(--pan-bg);
+  background-color: #000000 !important;
   color: var(--pan-text-body);
+  font-size: 13px;
   -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
 }
 
-#app {
-  width: 100%;
-  height: 100%;
+/* Fix for Element Plus Table bottom border and white lines */
+.el-table__inner-wrapper::before,
+.el-table__inner-wrapper::after,
+.el-table::before,
+.el-table::after,
+.el-table__fixed::before,
+.el-table__fixed-right::before {
+  display: none !important;
+  background-color: transparent !important;
+  height: 0 !important;
+  width: 0 !important;
 }
 
-* {
-  box-sizing: border-box;
+.el-table__border-left-patch,
+.el-table__fixed-right-patch,
+.el-table__fixed-column--right::after,
+.el-table__fixed-column--left::after {
+  display: none !important;
+  background-color: transparent !important;
 }
 
-/* 滚动条美化 */
-::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+.el-table--border::after,
+.el-table--group::after,
+.el-table::before {
+  background-color: transparent !important;
 }
 
-::-webkit-scrollbar-track {
-  background: transparent;
+/* Fix for v-loading flicker and background */
+.el-loading-mask {
+  background-color: #000000 !important;
+  transition: opacity 0.2s ease-in-out;
 }
 
-::-webkit-scrollbar-thumb {
-  background: var(--pan-border-strong);
-  border-radius: 10px;
+.el-loading-spinner .path {
+  stroke: var(--pan-primary) !important;
 }
 
-::-webkit-scrollbar-thumb:hover {
-  background: var(--pan-text-muted);
+.el-loading-spinner .el-loading-text {
+  color: var(--pan-primary) !important;
 }
 
-/* Element Plus Global Modernization */
+/* Ensure table has no white background during mount */
+.el-table {
+  background-color: #000000 !important;
+}
+
+.el-table__body, 
+.el-table__header, 
+.el-table__footer {
+  background-color: #000000 !important;
+}
+
+/* Hide table before it is fully styled by Element Plus */
+.el-table:not(.el-table--layout-fixed) {
+  background-color: #000000 !important;
+}
+
+/* Extra aggressive cleanup for table parts */
+.el-table__inner-wrapper,
+.el-table__header-wrapper,
+.el-table__body-wrapper,
+.el-table__append-wrapper,
+.el-table__empty-block {
+  background-color: #000000 !important;
+}
+
+/* Fix for row background during transition/loading */
+.el-table tr, 
+.el-table th, 
+.el-table td {
+  background-color: #000000 !important;
+}
+
+/* Ensure row border is consistent and not white */
+.el-table td.el-table__cell {
+  border-bottom: 1px solid var(--pan-border) !important;
+}
+
+/* Specifically target the last row to ensure no extra line appears */
+.el-table__row:last-child td.el-table__cell {
+  border-bottom: 1px solid var(--pan-border) !important;
+}
+
+/* Fix for the "big white border" at the very bottom of the table inner wrapper */
+.el-table__inner-wrapper {
+  border-bottom: none !important;
+}
+
+/* Element Plus Table Header sticky background */
+.el-table th.el-table__cell.is-leaf {
+  border-bottom: 1px solid var(--pan-border) !important;
+}
+
+/* Trae Button Style: Sharp, High Contrast */
 .el-button {
-  border-radius: var(--pan-radius-sm);
-  font-weight: 500;
-  transition: var(--pan-transition);
+  border-radius: var(--pan-radius-sm) !important;
+  font-weight: 600 !important;
+  font-size: 12px !important;
+  height: 32px !important;
+  padding: 0 16px !important;
+  transition: var(--pan-transition) !important;
+  border: 1px solid var(--pan-border-strong) !important;
+  background: #000000 !important; /* Force black background for default buttons */
+  color: var(--pan-text-main) !important;
+  text-transform: none !important;
 }
 
 .el-button--primary {
-  --el-button-bg-color: var(--pan-primary);
-  --el-button-border-color: var(--pan-primary);
-  --el-button-hover-bg-color: #4f46e5;
-  --el-button-hover-border-color: #4f46e5;
+  background: var(--pan-primary) !important;
+  border: none !important;
+  color: #000000 !important;
 }
 
+.el-button--primary:hover {
+  background: var(--pan-primary-hover) !important;
+}
+
+.el-button--danger:not(.is-link) {
+  background: #ef4444 !important;
+  border: none !important;
+  color: #ffffff !important;
+}
+
+/* Link and Text buttons should be transparent */
+.el-button.is-link, 
+.el-button.is-text,
+.el-button.view-switch-btn,
+.el-button.view-switch-btn-grid {
+  background: transparent !important;
+  border: none !important;
+  padding: 4px 8px !important;
+  color: var(--pan-text-body) !important;
+  height: auto !important;
+  min-width: 0 !important;
+}
+
+.el-button.is-link:hover,
+.el-button.is-text:hover {
+  color: var(--pan-text-main) !important;
+  background: rgba(255, 255, 255, 0.05) !important;
+}
+
+/* Navigation Style: Minimalist */
+.el-menu {
+  background: transparent !important;
+  border: none !important;
+}
+
+.el-menu-item {
+  height: 40px !important;
+  line-height: 40px !important;
+  color: var(--pan-text-body) !important;
+  font-size: 13px !important;
+  padding: 0 20px !important;
+  margin: 0 !important;
+  border-radius: 0 !important;
+}
+
+.el-menu-item:hover {
+  background: transparent !important;
+  color: var(--pan-text-main) !important;
+}
+
+.el-menu-item.is-active {
+  color: var(--pan-text-main) !important;
+  font-weight: 700 !important;
+  background: transparent !important;
+}
+
+/* Element Plus Global Table Overrides */
+.el-table, .el-table__inner-wrapper {
+  background-color: transparent !important;
+}
+
+.el-table tr,
+.el-table th.el-table__cell,
+.el-table td.el-table__cell {
+  background-color: transparent !important;
+}
+
+.el-table__row {
+  background-color: transparent !important;
+}
+
+.el-table__row--striped td.el-table__cell {
+  background-color: rgba(255, 255, 255, 0.01) !important;
+}
+
+/* Fix for white background on table rows */
+.el-table th.el-table__cell {
+  background-color: #050505 !important;
+  border-bottom: 1px solid var(--pan-border) !important;
+}
+
+.el-table td.el-table__cell {
+  border-bottom: 1px solid var(--pan-border) !important;
+}
+
+/* Card and Dialog Overrides */
 .el-card {
-  border-radius: var(--pan-radius-md);
-  border: 1px solid var(--pan-border);
-  box-shadow: var(--pan-shadow-sm);
-  transition: var(--pan-transition);
+  background-color: #050505 !important;
+  border: 1px solid var(--pan-border) !important;
+  color: var(--pan-text-main) !important;
+  border-radius: var(--pan-radius-sm) !important;
 }
 
-.el-card:hover {
-  box-shadow: var(--pan-shadow-md);
-}
-
-.el-input__wrapper {
-  border-radius: var(--pan-radius-sm);
-  box-shadow: 0 0 0 1px var(--pan-border-strong) inset;
+.el-card__header {
+  border-bottom: 1px solid var(--pan-border) !important;
+  padding: 12px 20px !important;
 }
 
 .el-dialog {
-  border-radius: var(--pan-radius-lg);
-  overflow: hidden;
+  background-color: #050505 !important;
+  border: 1px solid var(--pan-border) !important;
+  border-radius: var(--pan-radius-sm) !important;
+}
+
+.el-dialog__header {
+  margin-right: 0 !important;
+  border-bottom: 1px solid var(--pan-border) !important;
+}
+
+.el-dialog__title {
+  color: var(--pan-text-main) !important;
+  font-size: 16px !important;
+  font-weight: 700 !important;
+}
+
+/* Icon Alignment */
+.el-button .el-icon {
+  margin-right: 4px;
+  color: inherit !important;
+}
+
+.el-button--primary .el-icon {
+  color: #000000 !important;
+}
+
+/* Fix for icons not showing in link buttons */
+.el-button.is-link .el-icon,
+.el-button.is-text .el-icon {
+  margin-right: 0;
+  font-size: 16px;
+}
+
+/* Input Styles */
+.el-input__wrapper {
+  background-color: transparent !important;
+  box-shadow: 0 0 0 1px var(--pan-border) inset !important;
+  border-radius: var(--pan-radius-sm) !important;
+}
+
+.el-input__inner {
+  color: var(--pan-text-main) !important;
+}
+
+/* Pagination Overrides */
+.el-pagination {
+  --el-pagination-bg-color: transparent !important;
+  --el-pagination-button-bg-color: transparent !important;
+  --el-pagination-hover-color: var(--pan-primary) !important;
+}
+
+/* Mono class for JetBrains style data */
+.mono {
+  font-family: var(--font-mono) !important;
+  font-variant-numeric: tabular-nums !important;
+}
+
+/* Global Container Border */
+.main-content-border {
+  border-left: 1px solid var(--pan-border);
 }

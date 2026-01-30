@@ -2,8 +2,14 @@
   <div class="app-container">
     <div class="sidebar" v-if="showSidebar" :class="{ collapsed: isCollapse }">
       <div class="logo">
-        <img src="./assets/vue.svg" alt="logo" />
-        <span v-show="!isCollapse">我的网盘</span>
+        <div class="logo-icon">
+          <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M12 4L4 8L12 12L20 8L12 4Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M4 12L12 16L20 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M4 16L12 20L20 16" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
+        <span v-show="!isCollapse" class="logo-text">Trae Pan</span>
       </div>
       
       <el-menu
@@ -219,11 +225,29 @@ onMounted(() => {
       font-weight: 800;
       color: var(--pan-text-main);
       letter-spacing: -0.5px;
+      white-space: nowrap;
+      overflow: hidden;
       
-      img {
+      .logo-icon {
         width: 24px;
         height: 24px;
-        filter: none;
+        color: var(--pan-primary);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+        
+        svg {
+          width: 100%;
+          height: 100%;
+        }
+      }
+
+      .logo-text {
+        background: linear-gradient(135deg, #ffffff 0%, var(--pan-primary) 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        font-weight: 800;
       }
     }
 
@@ -251,6 +275,9 @@ onMounted(() => {
         color: var(--pan-text-main);
         font-weight: 500;
       }
+
+      white-space: nowrap;
+      overflow: hidden;
 
       .el-icon {
         font-size: 18px;
@@ -280,6 +307,8 @@ onMounted(() => {
       font-size: 12px;
       color: var(--pan-text-body);
       font-weight: 600;
+      white-space: nowrap;
+      overflow: hidden;
 
       .percentage {
         color: var(--pan-primary);
@@ -310,6 +339,8 @@ onMounted(() => {
       text-align: left;
       font-weight: 500;
       letter-spacing: 0.01em;
+      white-space: nowrap;
+      overflow: hidden;
     }
   }
 

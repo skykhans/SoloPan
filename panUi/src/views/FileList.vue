@@ -821,12 +821,8 @@ const confirmCreateFolder = async () => {
     newFolderName.value = ''
     fetchFiles()
   } catch (error: any) {
+    // 错误已由全局拦截器处理
     console.error(error)
-    if (error.response && error.response.data) {
-      ElMessage.error(error.response.data)
-    } else {
-      ElMessage.error('创建失败')
-    }
   }
 }
 

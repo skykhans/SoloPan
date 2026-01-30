@@ -4,6 +4,7 @@ using SqlSugar;
 using System.Security.Claims;
 using PanSystem.Models;
 using PanSystem.DTOs;
+using PanSystem.Services;
 
 namespace PanSystem.Controllers
 {
@@ -28,7 +29,7 @@ namespace PanSystem.Controllers
         {
             var userId = GetUserId();
             var file = await _db.Queryable<StorageItem>().FirstAsync(f => f.Id == request.StorageItemId && f.UserId == userId);
-            
+
             if (file == null) return NotFound("文件不存在");
 
             var shareCode = Guid.NewGuid().ToString().Substring(0, 4); // 简单生成4位提取码
@@ -89,8 +90,8 @@ namespace PanSystem.Controllers
         [HttpPost("check-code")]
         public async Task<IActionResult> CheckCode(AccessShareRequest request)
         {
-             var share = await _db.Queryable<ShareLink>()
-                .FirstAsync(s => s.ShareToken == request.ShareToken);
+            var share = await _db.Queryable<ShareLink>()
+               .FirstAsync(s => s.ShareToken == request.ShareToken);
 
             if (share == null) return NotFound("分享不存在");
             if (share.ExpireTime.HasValue && share.ExpireTime < DateTime.Now) return BadRequest("分享已过期");
@@ -100,7 +101,7 @@ namespace PanSystem.Controllers
             // 返回 token 或 cookie 标识已有权限（此处简化处理，验证通过即可）
             return Ok(new { Token = request.ShareToken });
         }
-        
+
         [HttpGet("my-shares")]
         public async Task<IActionResult> MyShares()
         {
@@ -108,7 +109,7 @@ namespace PanSystem.Controllers
             var shares = await _db.Queryable<ShareLink>()
                 .LeftJoin<StorageItem>((s, f) => s.StorageItemId == f.Id)
                 .Where(s => s.UserId == userId)
-                .Select((s, f) => new 
+                .Select((s, f) => new
                 {
                     s.Id,
                     s.ShareCode,
@@ -130,7 +131,7 @@ namespace PanSystem.Controllers
         {
             var userId = GetUserId();
             var share = await _db.Queryable<ShareLink>().FirstAsync(s => s.Id == id && s.UserId == userId);
-            
+
             if (share == null) return NotFound("分享不存在");
 
             await _db.Deleteable(share).ExecuteCommandAsync();

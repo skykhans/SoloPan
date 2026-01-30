@@ -237,7 +237,7 @@ namespace PanSystem.Controllers
                 };
 
                 await _db.Insertable(storageItem).ExecuteCommandAsync();
-                
+
                 await _db.Updateable<UserInfo>()
                     .SetColumns(u => u.UsedSpace == u.UsedSpace + file.Length)
                     .Where(u => u.Id == userId)
@@ -256,7 +256,6 @@ namespace PanSystem.Controllers
         {
             var userId = GetUserId();
             var item = await _db.Queryable<StorageItem>()
-                .DisableQueryFilter()
                 .FirstAsync(f => f.Id == id && f.UserId == userId && !f.IsFolder);
 
             if (item == null) return NotFound("文件不存在");
@@ -265,12 +264,12 @@ namespace PanSystem.Controllers
             if (!System.IO.File.Exists(fullPath)) return NotFound("物理文件丢失");
 
             var contentType = GetContentType(item.Name);
-            
+
             // 如果是预览模式，不设置 fileDownloadName，这样浏览器会尝试内联显示
             if (preview)
             {
-                 Response.Headers.Append("Content-Disposition", "inline; filename=\"" + System.Web.HttpUtility.UrlEncode(item.Name) + "\"");
-                 return PhysicalFile(fullPath, contentType, enableRangeProcessing: true);
+                Response.Headers.Append("Content-Disposition", "inline; filename=\"" + System.Web.HttpUtility.UrlEncode(item.Name) + "\"");
+                return PhysicalFile(fullPath, contentType, enableRangeProcessing: true);
             }
 
             return PhysicalFile(fullPath, contentType, item.Name, enableRangeProcessing: true);
@@ -315,7 +314,6 @@ namespace PanSystem.Controllers
         {
             var userId = GetUserId();
             var item = await _db.Queryable<StorageItem>()
-                .DisableQueryFilter()
                 .FirstAsync(f => f.Id == id && f.UserId == userId && !f.IsFolder);
 
             if (item == null) return NotFound("文件不存在");
@@ -336,14 +334,14 @@ namespace PanSystem.Controllers
             // 特殊处理 HEIC/HEIF
             if (ext == ".heic" || ext == ".heif")
             {
-                try 
+                try
                 {
                     using var magickImage = new MagickImage(fullPath);
                     // 调整大小
                     magickImage.Resize(100, 100);
                     // 转换为 Jpeg
                     magickImage.Format = MagickFormat.Jpeg;
-                    
+
                     var memory = new MemoryStream();
                     await magickImage.WriteAsync(memory);
                     memory.Position = 0;
@@ -351,8 +349,8 @@ namespace PanSystem.Controllers
                 }
                 catch
                 {
-                     var token = Request.Query["access_token"];
-                     return RedirectToAction(nameof(Download), new { id = id, access_token = token });
+                    var token = Request.Query["access_token"];
+                    return RedirectToAction(nameof(Download), new { id = id, access_token = token });
                 }
             }
 
@@ -473,7 +471,7 @@ namespace PanSystem.Controllers
             {
                 // 删除物理文件
                 await _storageService.DeleteFileAsync(item.FilePath!);
-                
+
                 // 释放用户空间
                 await _db.Updateable<UserInfo>()
                     .SetColumns(u => u.UsedSpace == u.UsedSpace - item.FileSize)
@@ -555,7 +553,7 @@ namespace PanSystem.Controllers
         public async Task<IActionResult> Move(MoveRequest request)
         {
             var userId = GetUserId();
-            
+
             // 检查目标文件夹是否存在且属于该用户 (如果不是根目录)
             if (request.TargetParentId.HasValue)
             {
@@ -606,8 +604,8 @@ namespace PanSystem.Controllers
             string newName;
             do
             {
-                newName = string.IsNullOrEmpty(extension) 
-                    ? $"{nameWithoutExtension} ({count})" 
+                newName = string.IsNullOrEmpty(extension)
+                    ? $"{nameWithoutExtension} ({count})"
                     : $"{nameWithoutExtension} ({count}){extension}";
                 count++;
             } while (existingNames.Contains(newName));

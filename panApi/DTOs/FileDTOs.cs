@@ -40,5 +40,6 @@ namespace PanSystem.DTOs
         public DateTime CreateTime { get; set; }
         public int? ParentId { get; set; }
         public bool IsFavorite { get; set; }
+        public bool IsShared { get; set; }
     }
 }

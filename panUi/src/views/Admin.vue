@@ -152,10 +152,9 @@ onMounted(() => {
 
 <style scoped lang="scss">
 .admin-panel {
-  padding: 20px;
-
   h2 {
     margin-bottom: 20px;
+    padding-left: 35px; // 为左侧绝对定位的折叠按钮留出空间
   }
 
   .stats-cards {

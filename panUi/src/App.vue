@@ -6,15 +6,12 @@
         <span v-show="!isCollapse">我的网盘</span>
       </div>
       
-      <div class="collapse-btn" @click="toggleSidebar">
-        <el-icon><component :is="isCollapse ? Expand : Fold" /></el-icon>
-      </div>
-
       <el-menu
         :default-active="activeMenu"
         class="el-menu-vertical"
         router
         :collapse="isCollapse"
+        :collapse-transition="false"
       >
         <el-menu-item index="/files" @click="handleMenuClick('/files')">
           <el-icon><FolderOpened /></el-icon>
@@ -38,7 +35,7 @@
         </el-menu-item>
       </el-menu>
       
-      <div class="storage-info">
+      <div class="storage-info" v-show="!isCollapse">
         <el-progress :percentage="storageUsage" :format="storageFormat" />
         <p class="usage-text">已用 {{ usedSpaceStr }} / {{ totalSpaceStr }}</p>
       </div>
@@ -46,8 +43,8 @@
       <div class="user-profile">
          <el-dropdown>
           <span class="el-dropdown-link">
-            {{ username }}
-            <el-icon class="el-icon--right"><ArrowDown /></el-icon>
+            <span v-show="!isCollapse">{{ username }}</span>
+            <el-icon class="el-icon--right" :class="{ 'collapsed-icon': isCollapse }"><ArrowDown /></el-icon>
           </span>
           <template #dropdown>
             <el-dropdown-menu>
@@ -59,6 +56,9 @@
     </div>
     
     <div class="main-content" :class="{ 'full-screen': !showSidebar }">
+      <div class="collapse-btn" v-if="showSidebar" @click="toggleSidebar">
+        <el-icon :size="24"><component :is="isCollapse ? Expand : Fold" /></el-icon>
+      </div>
       <router-view />
     </div>
   </div>
@@ -165,6 +165,17 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   padding: 20px 0;
+  transition: width 0.3s;
+  position: relative;
+
+  &.collapsed {
+    width: 64px;
+
+    .logo {
+      padding: 0;
+      justify-content: center;
+    }
+  }
 
   .logo {
     display: flex;
@@ -174,20 +185,23 @@ onMounted(() => {
     font-size: 18px;
     font-weight: bold;
     color: var(--pan-primary);
+    overflow: hidden;
+    white-space: nowrap;
     
     img {
       width: 32px;
       height: 32px;
+      min-width: 32px;
     }
   }
 
   .el-menu {
     border-right: none;
     background-color: transparent;
+    flex: 1;
   }
 
   .storage-info {
-    margin-top: auto;
     padding: 20px;
     
     p {
@@ -203,17 +217,47 @@ onMounted(() => {
   }
 
   .user-profile {
-    padding: 0 20px;
+    padding: 20px;
     cursor: pointer;
-    text-align: center;
     border-top: 1px solid #e4e7ed;
-    padding-top: 20px;
+    display: flex;
+    justify-content: center;
+
+    .el-dropdown-link {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      color: #606266;
+      
+      .collapsed-icon {
+        margin: 0;
+      }
+    }
   }
 }
 
 .main-content {
   flex: 1;
+  overflow: hidden;
+  position: relative;
+  display: flex;
+  flex-direction: column;
   padding: 20px;
-  overflow: auto;
+
+  .collapse-btn {
+    position: absolute;
+    left: 20px;
+    top: 22px;
+    z-index: 1000;
+    cursor: pointer;
+    color: #606266;
+    transition: color 0.3s;
+    display: flex;
+    align-items: center;
+
+    &:hover {
+      color: var(--pan-primary);
+    }
+  }
 }
 </style>

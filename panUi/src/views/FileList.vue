@@ -909,6 +909,7 @@ onMounted(() => {
   justify-content: space-between;
   align-items: center;
   flex-shrink: 0;
+  padding-left: 35px; // 为左侧绝对定位的折叠按钮留出空间
 
   .buttons {
     display: flex;

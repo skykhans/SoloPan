@@ -14,7 +14,22 @@
               {{ item.name }}
             </span>
           </el-breadcrumb-item>
+          <el-breadcrumb-item v-if="route.query.q">
+            <span class="breadcrumb-link is-last">搜索: {{ route.query.q }}</span>
+          </el-breadcrumb-item>
         </el-breadcrumb>
+      </div>
+
+      <div class="search-wrapper">
+        <el-input
+          v-model="searchKeyword"
+          placeholder="搜索您的文件..."
+          :prefix-icon="Search"
+          clearable
+          @keyup.enter="handleSearch"
+          @clear="clearSearch"
+          class="search-input"
+        />
       </div>
 
       <div class="buttons">
@@ -31,6 +46,7 @@
         <el-button v-if="category === 'files'" :icon="Link" @click="showOfflineDownload = true">离线下载</el-button>
         <el-button v-if="selectedIds.length > 0 && category === 'files'" :icon="Rank" @click="handleBatchMove">批量移动</el-button>
         <el-button v-if="selectedIds.length > 0" type="danger" plain :icon="Delete" @click="handleBatchDelete">批量删除</el-button>
+        <el-button v-if="category === 'recycle-bin'" type="danger" :icon="Delete" @click="handleEmptyRecycleBin">清空回收站</el-button>
         
         <div class="view-switch-wrapper">
           <el-tooltip :content="viewMode === 'list' ? '切换到缩略图模式' : '切换到列表模式'" placement="top">
@@ -214,7 +230,7 @@
       </el-form>
       <template #footer>
         <el-button @click="showOfflineDownload = false">取消</el-button>
-        <el-button type="primary" class="pan-button-primary" @click="confirmOfflineDownload">开始下载</el-button>
+        <el-button type="primary" class="pan-button-primary" @click="confirmOfflineDownload" :loading="offlineLoading">开始下载</el-button>
       </template>
     </el-dialog>
 
@@ -397,6 +413,24 @@
         :file-type="previewState.fileType"
       />
     </el-dialog>
+    <!-- 上传任务列表 -->
+    <div class="upload-task-panel" v-if="uploadTasks.length > 0">
+      <div class="panel-header">
+        <span>上传中 ({{ activeUploadCount }}/{{ uploadTasks.length }})</span>
+        <div class="task-actions">
+          <el-button link :icon="Close" @click="clearFinishedTasks" />
+        </div>
+      </div>
+      <div class="task-list">
+        <div v-for="task in uploadTasks" :key="task.guid" class="task-item">
+          <div class="task-info">
+            <span class="task-name" :title="task.name">{{ task.name }}</span>
+            <span class="task-status">{{ task.statusText }}</span>
+          </div>
+          <el-progress :percentage="task.progress" :status="task.progressStatus" :stroke-width="4" />
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -407,11 +441,12 @@ import {
   Upload, FolderAdd, FolderOpened, Document, 
   Star, StarFilled, Download, More, Edit, Rank, Share, Delete, Link, Folder, RefreshLeft,
   Menu, Grid, Picture, VideoPlay, Notebook, Box, Headset,
-  ArrowRight, FullScreen, Aim
+  ArrowRight, FullScreen, Aim, Close, Search
 } from '@element-plus/icons-vue'
 import request from '../utils/request'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import FilePreview from '../components/FilePreview/FilePreview.vue'
+import SparkMD5 from 'spark-md5'
 
 const props = defineProps<{
   category?: string
@@ -422,6 +457,8 @@ const route = useRoute()
 const router = useRouter()
 const loading = ref(true)
 const fileList = ref<any[]>([])
+const uploadTasks = ref<any[]>([])
+const activeUploadCount = computed(() => uploadTasks.value.filter(t => t.status === 'uploading').length)
 const pathStack = ref<{ id: number; name: string }[]>(history.state?.pathStack || [])
 const selectedIds = ref<number[]>([])
 const currentParentId = ref<number | null>(route.query.folderId ? Number(route.query.folderId) : null)
@@ -439,6 +476,8 @@ const newFolderName = ref('')
 const showOfflineDownload = ref(false)
 const offlineUrl = ref('')
 const showMoveDialog = ref(false)
+const searchKeyword = ref((route.query.q as string) || '')
+const offlineLoading = ref(false)
 const moveTargetParentId = ref<number | null>(null)
 const moveDialogCurrentParentId = ref<number | null>(null)
 const moveDialogPathStack = ref<{ id: number; name: string }[]>([])
@@ -806,27 +845,138 @@ const handleBreadcrumbClick = (index: number) => {
   }
 }
 
-const handleUpload = async (options: any) => {
-  const formData = new FormData()
-  formData.append('file', options.file)
-  // 即使 parentId 为空，也最好不要传 undefined，后端模型绑定可能会有问题
-  // 这里可以显式判断一下
-  if (currentParentId.value !== null && currentParentId.value !== undefined) {
-    formData.append('parentId', currentParentId.value.toString())
-  }
+const generateGuid = () => {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+    const r = Math.random() * 16 | 0
+    const v = c === 'x' ? r : (r & 0x3 | 0x8)
+    return v.toString(16)
+  })
+}
 
-  try {
-    await request.post('/file/upload', formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data'
+const calculateMd5 = (file: File): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const chunkSize = 10 * 1024 * 1024 // 10MB
+    const chunks = Math.ceil(file.size / chunkSize)
+    let currentChunk = 0
+    const spark = new SparkMD5.ArrayBuffer()
+    const fileReader = new FileReader()
+
+    fileReader.onload = (e: any) => {
+      spark.append(e.target.result)
+      currentChunk++
+      if (currentChunk < chunks) {
+        loadNext()
+      } else {
+        resolve(spark.end())
       }
+    }
+
+    fileReader.onerror = () => {
+      reject(new Error('MD5 计算失败'))
+    }
+
+    const loadNext = () => {
+      const start = currentChunk * chunkSize
+      const end = ((start + chunkSize) >= file.size) ? file.size : start + chunkSize
+      fileReader.readAsArrayBuffer(file.slice(start, end))
+    }
+
+    loadNext()
+  })
+}
+
+const handleUpload = async (options: any) => {
+  const file = options.file
+  const fileSize = file.size
+  const fileName = file.name
+  const guid = generateGuid()
+  
+  const task = ref({
+    guid,
+    name: fileName,
+    progress: 0,
+    status: 'uploading',
+    statusText: '正在计算 MD5...',
+    progressStatus: '' as '' | 'success' | 'exception' | 'warning'
+  })
+  
+  uploadTasks.value.unshift(task.value)
+  
+  try {
+    // 1. 计算 MD5
+    const md5 = await calculateMd5(file)
+    task.value.statusText = '正在校验秒传...'
+    
+    // 2. 秒传校验
+    try {
+      const checkRes: any = await request.post('/file/check-md5', {
+        md5: md5,
+        fileName: fileName,
+        fileSize: fileSize,
+        parentId: currentParentId.value
+      })
+      if (checkRes) {
+        task.value.progress = 100
+        task.value.status = 'success'
+        task.value.statusText = '秒传成功'
+        task.value.progressStatus = 'success'
+        fetchFiles()
+        return
+      }
+    } catch (e: any) {
+      if (e.response && e.response.status !== 404) {
+        throw e
+      }
+    }
+
+    // 3. 分片上传
+    task.value.statusText = '正在上传分片...'
+    const chunkSize = 5 * 1024 * 1024 // 5MB 
+    const chunksCount = Math.ceil(fileSize / chunkSize)
+    
+    for (let i = 0; i < chunksCount; i++) {
+        const start = i * chunkSize
+        const end = Math.min(start + chunkSize, fileSize)
+        const chunk = file.slice(start, end)
+        
+        const chunkFormData = new FormData()
+        chunkFormData.append('file', chunk)
+        chunkFormData.append('guid', guid)
+        chunkFormData.append('chunkIndex', i.toString())
+        
+        await request.post('/file/upload-chunk', chunkFormData)
+        
+        // 更新进度 (假设合并占 5%)
+        task.value.progress = Math.floor(((i + 1) / chunksCount) * 95)
+    }
+    
+    // 4. 合并分片
+    task.value.statusText = '正在合并文件...'
+    await request.post('/file/merge-chunks', {
+        guid: guid,
+        fileName: fileName,
+        totalSize: fileSize,
+        parentId: currentParentId.value,
+        md5: md5
     })
-    ElMessage.success('上传成功')
+    
+    task.value.progress = 100
+    task.value.status = 'success'
+    task.value.statusText = '上传成功'
+    task.value.progressStatus = 'success'
     fetchFiles()
-  } catch (error) {
+  } catch (error: any) {
     console.error(error)
-    ElMessage.error('上传失败')
+    task.value.status = 'error'
+    task.value.statusText = error.response?.data || error.message || '上传失败'
+    task.value.progressStatus = 'exception'
+    const msg = error.response?.data || error.message || '上传失败'
+    ElMessage.error(msg)
   }
+}
+
+const clearFinishedTasks = () => {
+  uploadTasks.value = uploadTasks.value.filter(t => t.status === 'uploading')
 }
 
 const confirmCreateFolder = async () => {
@@ -848,17 +998,36 @@ const confirmCreateFolder = async () => {
 
 const confirmOfflineDownload = async () => {
   if (!offlineUrl.value) return
+  offlineLoading.value = true
   try {
     await request.post('/file/offline-download', {
       url: offlineUrl.value,
       parentId: currentParentId.value
     })
-    ElMessage.success('离线下载任务已提交')
+    ElMessage.success('离线下载完成')
     showOfflineDownload.value = false
     offlineUrl.value = ''
+    fetchFiles()
   } catch (error) {
     console.error(error)
+  } finally {
+    offlineLoading.value = false
   }
+}
+
+const handleSearch = () => {
+  if (searchKeyword.value.trim()) {
+    router.push({ query: { ...route.query, q: searchKeyword.value.trim(), folderId: undefined } })
+  } else {
+    clearSearch()
+  }
+}
+
+const clearSearch = () => {
+  searchKeyword.value = ''
+  const query = { ...route.query }
+  delete query.q
+  router.push({ query })
 }
 
 const handleToggleFavorite = async (row: any) => {
@@ -879,6 +1048,27 @@ const handleRestore = async (row: any) => {
   } catch (error) {
     console.error(error)
   }
+}
+
+const handleEmptyRecycleBin = () => {
+  ElMessageBox.confirm(
+    '确定要清空回收站吗？此操作不可撤销！',
+    '提示',
+    {
+      confirmButtonText: '确定',
+      cancelButtonText: '取消',
+      type: 'warning'
+    }
+  ).then(async () => {
+    try {
+      await request.post('/file/empty-recycle-bin')
+      ElMessage.success('回收站已清空')
+      fetchFiles()
+    } catch (error) {
+      console.error(error)
+      ElMessage.error('操作失败')
+    }
+  })
 }
 
 const handlePermanentDelete = (row: any) => {
@@ -1479,6 +1669,28 @@ onMounted(() => {
   }
 }
 
+.search-wrapper {
+  flex: 1;
+  max-width: 400px;
+  margin: 0 20px;
+
+  .search-input {
+    :deep(.el-input__wrapper) {
+      background-color: rgba(255, 255, 255, 0.05) !important;
+      border: 1px solid var(--pan-border) !important;
+      box-shadow: none !important;
+      border-radius: var(--pan-radius-lg) !important;
+      height: 36px;
+      transition: all 0.3s;
+
+      &:hover, &.is-focus {
+        background-color: rgba(255, 255, 255, 0.08) !important;
+        border-color: var(--pan-primary) !important;
+      }
+    }
+  }
+}
+
 .text-preview-wrapper {
   height: 100%;
   overflow: hidden;
@@ -1646,5 +1858,74 @@ onMounted(() => {
 /* Ensure Image Viewer is on top */
 :global(.el-image-viewer__wrapper) {
   z-index: 9999 !important;
+}
+
+.upload-task-panel {
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  width: 320px;
+  background: #0a0a0a;
+  border: 1px solid var(--pan-border);
+  border-radius: var(--pan-radius-md);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6);
+  z-index: 1000;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  max-height: 400px;
+
+  .panel-header {
+    padding: 12px 16px;
+    background: rgba(255, 255, 255, 0.03);
+    border-bottom: 1px solid var(--pan-border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--pan-text-main);
+  }
+
+  .task-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 8px 16px;
+    
+    .task-item {
+      padding: 12px 0;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+      
+      &:last-child {
+        border-bottom: none;
+      }
+
+      .task-info {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 8px;
+        gap: 12px;
+
+        .task-name {
+          font-size: 12px;
+          color: var(--pan-text-main);
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+          flex: 1;
+        }
+
+        .task-status {
+          font-size: 11px;
+          color: var(--pan-text-muted);
+        }
+      }
+      
+      :deep(.el-progress-bar__outer) {
+        background-color: rgba(255, 255, 255, 0.05);
+      }
+    }
+  }
 }
 </style>

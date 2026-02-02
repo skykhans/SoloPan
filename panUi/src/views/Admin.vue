@@ -38,39 +38,68 @@
         </el-col>
       </el-row>
 
-    <div class="user-management">
-      <h3>用户管理</h3>
-      <el-table :data="userList" style="width: 100%" v-loading="loading">
-        <el-table-column label="ID" width="80">
-          <template #default="{ row }">
-            <span class="mono">{{ row.id }}</span>
-          </template>
-        </el-table-column>
-        <el-table-column prop="userName" label="用户名" width="150" />
-        <el-table-column prop="email" label="邮箱" width="200" />
-        <el-table-column label="已用/总空间" min-width="180">
-          <template #default="{ row }">
-            <span class="usage-cell mono">{{ formatSize(row.usedSpace) }} / {{ formatSize(row.totalSpace) }}</span>
-          </template>
-        </el-table-column>
-        <el-table-column label="注册时间" width="180">
-          <template #default="{ row }">
-            <span class="mono">{{ formatDate(row.createTime) }}</span>
-          </template>
-        </el-table-column>
-        <el-table-column label="角色" width="100">
-          <template #default="{ row }">
-            <span class="status-badge" :style="row.isAdmin ? 'color: #ef4444; background: rgba(239, 68, 68, 0.1); border-color: rgba(239, 68, 68, 0.2)' : ''">
-              {{ row.isAdmin ? 'ADMIN' : 'USER' }}
-            </span>
-          </template>
-        </el-table-column>
-        <el-table-column label="操作" width="150">
-          <template #default="{ row }">
-            <el-button size="small" @click="handleEditQuota(row)">修改配额</el-button>
-          </template>
-        </el-table-column>
-      </el-table>
+    <div class="management-tabs">
+      <el-tabs v-model="activeTab" class="pan-tabs">
+        <el-tab-pane label="用户管理" name="users">
+          <div class="user-management">
+            <el-table :data="userList" style="width: 100%" v-loading="loading">
+              <el-table-column label="ID" width="80">
+                <template #default="{ row }">
+                  <span class="mono">{{ row.id }}</span>
+                </template>
+              </el-table-column>
+              <el-table-column prop="userName" label="用户名" width="150" />
+              <el-table-column prop="email" label="邮箱" width="200" />
+              <el-table-column label="已用/总空间" min-width="180">
+                <template #default="{ row }">
+                  <span class="usage-cell mono">{{ formatSize(row.usedSpace) }} / {{ formatSize(row.totalSpace) }}</span>
+                </template>
+              </el-table-column>
+              <el-table-column label="注册时间" width="180">
+                <template #default="{ row }">
+                  <span class="mono">{{ formatDate(row.createTime) }}</span>
+                </template>
+              </el-table-column>
+              <el-table-column label="角色" width="100">
+                <template #default="{ row }">
+                  <span class="status-badge" :style="row.isAdmin ? 'color: #ef4444; background: rgba(239, 68, 68, 0.1); border-color: rgba(239, 68, 68, 0.2)' : ''">
+                    {{ row.isAdmin ? 'ADMIN' : 'USER' }}
+                  </span>
+                </template>
+              </el-table-column>
+              <el-table-column label="操作" width="150">
+                <template #default="{ row }">
+                  <el-button size="small" @click="handleEditQuota(row)">修改配额</el-button>
+                </template>
+              </el-table-column>
+            </el-table>
+          </div>
+        </el-tab-pane>
+
+        <el-tab-pane label="审计日志" name="audit">
+          <div class="audit-management">
+            <el-table :data="auditLogs" style="width: 100%" v-loading="loadingLogs">
+              <el-table-column label="时间" width="180">
+                <template #default="{ row }">
+                  <span class="mono">{{ formatDate(row.createTime) }}</span>
+                </template>
+              </el-table-column>
+              <el-table-column prop="userName" label="用户" width="120" />
+              <el-table-column label="操作" width="120">
+                <template #default="{ row }">
+                   <el-tag :type="getActionType(row.action)">{{ row.action }}</el-tag>
+                </template>
+              </el-table-column>
+              <el-table-column prop="detail" label="详情" />
+              <el-table-column prop="ipAddress" label="IP 地址" width="150">
+                <template #default="{ row }">
+                  <span class="mono">{{ row.ipAddress }}</span>
+                </template>
+              </el-table-column>
+            </el-table>
+          </div>
+        </el-tab-pane>
+      </el-tabs>
     </div>
 
     <!-- 修改配额弹窗 -->
@@ -102,7 +131,10 @@ const stats = ref({
 })
 
 const userList = ref([])
+const auditLogs = ref([])
 const loading = ref(false)
+const loadingLogs = ref(false)
+const activeTab = ref('users')
 
 const showQuotaDialog = ref(false)
 const currentEditUser = ref<any>(null)
@@ -127,6 +159,25 @@ const fetchUsers = async () => {
   } finally {
     loading.value = false
   }
+}
+
+const fetchAuditLogs = async () => {
+  loadingLogs.value = true
+  try {
+    const res: any = await request.get('/admin/audit-logs')
+    auditLogs.value = res
+  } catch (error) {
+    console.error(error)
+  } finally {
+    loadingLogs.value = false
+  }
+}
+
+const getActionType = (action: string) => {
+  if (action.includes('删除')) return 'danger'
+  if (action.includes('上传') || action.includes('合并')) return 'success'
+  if (action.includes('移动') || action.includes('重命名')) return 'warning'
+  return ''
 }
 
 const handleEditQuota = (row: any) => {
@@ -163,6 +214,7 @@ const formatDate = (dateStr: string) => {
 onMounted(() => {
   fetchStats()
   fetchUsers()
+  fetchAuditLogs()
 })
 </script>
 
@@ -216,6 +268,13 @@ onMounted(() => {
 
   .admin-content {
     padding: 0 20px; /* Add some padding for content */
+  }
+
+  .audit-management {
+    padding: 32px;
+    border-radius: var(--pan-radius-sm);
+    border: 1px solid var(--pan-border);
+    background: #050505;
   }
 
   .stats-cards {

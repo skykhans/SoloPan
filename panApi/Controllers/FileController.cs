@@ -20,11 +20,17 @@ namespace PanSystem.Controllers
     {
         private readonly ISqlSugarClient _db;
         private readonly IStorageService _storageService;
+        private readonly IWebHostEnvironment _env;
+        private readonly IAuditService _auditService;
+        private readonly IHttpClientFactory _httpClientFactory;
 
-        public FileController(ISqlSugarClient db, IStorageService storageService)
+        public FileController(ISqlSugarClient db, IStorageService storageService, IWebHostEnvironment env, IAuditService auditService, IHttpClientFactory httpClientFactory)
         {
             _db = db;
             _storageService = storageService;
+            _env = env;
+            _auditService = auditService;
+            _httpClientFactory = httpClientFactory;
         }
 
         private int GetUserId() => int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
@@ -150,6 +156,8 @@ namespace PanSystem.Controllers
                     .Where(u => u.Id == userId)
                     .ExecuteCommandAsync();
 
+                await _auditService.LogAsync(userId, User.Identity!.Name!, "秒传文件", $"文件名: {uniqueName}, 大小: {request.FileSize}", Request.HttpContext.Connection.RemoteIpAddress?.ToString() ?? "");
+
                 return Ok(new { Message = "秒传成功", ItemId = newItem.Id });
             }
 
@@ -249,6 +257,122 @@ namespace PanSystem.Controllers
             {
                 return StatusCode(500, $"上传失败: {ex.Message}");
             }
+        }
+
+        [HttpPost("upload-chunk")]
+        public async Task<IActionResult> UploadChunk([FromForm] ChunkUploadRequest request, IFormFile file)
+        {
+            if (file == null || file.Length == 0) return BadRequest("分片为空");
+
+            var tempRoot = Path.Combine(_env.ContentRootPath, "Temp");
+            var tempPath = Path.Combine(tempRoot, request.Guid);
+            if (!Directory.Exists(tempPath)) Directory.CreateDirectory(tempPath);
+
+            var chunkPath = Path.Combine(tempPath, request.ChunkIndex.ToString());
+            using (var stream = new FileStream(chunkPath, FileMode.Create))
+            {
+                await file.CopyToAsync(stream);
+            }
+
+            return Ok("分片上传成功");
+        }
+
+        [HttpPost("merge-chunks")]
+        public async Task<IActionResult> MergeChunks(MergeChunksRequest request)
+        {
+            var userId = GetUserId();
+            var tempRoot = Path.Combine(_env.ContentRootPath, "Temp");
+            var tempPath = Path.Combine(tempRoot, request.Guid);
+
+            if (!Directory.Exists(tempPath)) return BadRequest("分片不存在或已过期");
+
+            // 处理文件名冲突
+            var uniqueName = await GetUniqueName(request.FileName, request.ParentId, userId);
+
+            // 检查 MD5 秒传
+            var existingFile = await _db.Queryable<StorageItem>()
+                .FirstAsync(f => f.FileMd5 == request.Md5 && !f.IsFolder);
+
+            var user = await _db.Queryable<UserInfo>().InSingleAsync(userId);
+            if (user.UsedSpace + request.TotalSize > user.TotalSpace)
+            {
+                return BadRequest("存储空间不足");
+            }
+
+            string relativePath;
+            if (existingFile != null)
+            {
+                relativePath = existingFile.FilePath!;
+                // 清理临时文件
+                try { Directory.Delete(tempPath, true); } catch { }
+            }
+            else
+            {
+                // 合并分片
+                var chunkFiles = Directory.GetFiles(tempPath)
+                    .Where(f => int.TryParse(Path.GetFileName(f), out _))
+                    .OrderBy(f => int.Parse(Path.GetFileName(f)))
+                    .ToList();
+                
+                if (!chunkFiles.Any()) return BadRequest("未找到有效分片");
+
+                // 暂时存到一个临时文件
+                var finalTempFile = Path.Combine(tempPath, "final_" + Guid.NewGuid());
+                try
+                {
+                    using (var finalStream = new FileStream(finalTempFile, FileMode.Create))
+                    {
+                        foreach (var chunkFile in chunkFiles)
+                        {
+                            using (var chunkStream = new FileStream(chunkFile, FileMode.Open))
+                            {
+                                await chunkStream.CopyToAsync(finalStream);
+                            }
+                        }
+                    }
+
+                    // 计算最终 MD5 校验
+                    using (var fs = new FileStream(finalTempFile, FileMode.Open))
+                    {
+                        var actualMd5 = HashHelper.ComputeMd5(fs);
+                        if (actualMd5 != request.Md5)
+                        {
+                            return BadRequest("MD5 校验失败，文件可能已损坏");
+                        }
+                        fs.Position = 0;
+                        relativePath = await _storageService.SaveFileAsync(fs, request.FileName);
+                    }
+                }
+                finally
+                {
+                    // 清理临时目录
+                    try { Directory.Delete(tempPath, true); } catch { }
+                }
+            }
+
+            var storageItem = new StorageItem
+            {
+                Name = uniqueName,
+                ParentId = request.ParentId,
+                UserId = userId,
+                IsFolder = false,
+                FileSize = request.TotalSize,
+                FileMd5 = request.Md5,
+                FilePath = relativePath,
+                CreateTime = DateTime.Now,
+                UpdateTime = DateTime.Now
+            };
+
+            await _db.Insertable(storageItem).ExecuteCommandAsync();
+
+            await _db.Updateable<UserInfo>()
+                .SetColumns(u => u.UsedSpace == u.UsedSpace + request.TotalSize)
+                .Where(u => u.Id == userId)
+                .ExecuteCommandAsync();
+
+            await _auditService.LogAsync(userId, User.Identity!.Name!, "合并上传", $"文件名: {storageItem.Name}, 大小: {storageItem.FileSize}", Request.HttpContext.Connection.RemoteIpAddress?.ToString() ?? "");
+
+            return Ok(new { Message = "上传成功", ItemId = storageItem.Id });
         }
 
         [HttpGet("download/{id}")]
@@ -394,6 +518,8 @@ namespace PanSystem.Controllers
             item.IsDeleted = true;
             item.UpdateTime = DateTime.Now;
             await _db.Updateable(item).ExecuteCommandAsync();
+
+            await _auditService.LogAsync(userId, User.Identity!.Name!, "删除文件", $"项目: {item.Name}", Request.HttpContext.Connection.RemoteIpAddress?.ToString() ?? "");
 
             return Ok("删除成功");
         }
@@ -571,6 +697,109 @@ namespace PanSystem.Controllers
             return Ok(items);
         }
 
+        [HttpPost("offline-download")]
+        public async Task<IActionResult> OfflineDownload([FromBody] OfflineDownloadRequest request)
+        {
+            var userId = GetUserId();
+            var user = await _db.Queryable<UserInfo>().InSingleAsync(userId);
+            if (user == null) return NotFound("用户不存在");
+
+            try
+            {
+                var client = _httpClientFactory.CreateClient();
+                client.Timeout = TimeSpan.FromMinutes(10);
+
+                var response = await client.GetAsync(request.Url, HttpCompletionOption.ResponseHeadersRead);
+                if (!response.IsSuccessStatusCode)
+                {
+                    return BadRequest($"无法从链接下载文件，状态码: {response.StatusCode}");
+                }
+
+                var fileName = "";
+                var contentDisposition = response.Content.Headers.ContentDisposition;
+                if (contentDisposition != null && !string.IsNullOrEmpty(contentDisposition.FileName))
+                {
+                    fileName = contentDisposition.FileName.Trim('\"');
+                }
+                
+                if (string.IsNullOrEmpty(fileName))
+                {
+                    try {
+                        fileName = Path.GetFileName(new Uri(request.Url).LocalPath);
+                    } catch { }
+                }
+
+                if (string.IsNullOrEmpty(fileName))
+                {
+                    fileName = "offline_file_" + DateTime.Now.Ticks;
+                }
+
+                var contentLength = response.Content.Headers.ContentLength ?? 0;
+                if (contentLength > 0 && user.UsedSpace + contentLength > user.TotalSpace)
+                {
+                    return BadRequest("存储空间不足");
+                }
+
+                var uniqueName = await GetUniqueName(fileName, request.ParentId, userId);
+
+                using (var stream = await response.Content.ReadAsStreamAsync())
+                {
+                    var relativePath = await _storageService.SaveFileAsync(stream, uniqueName);
+
+                    if (contentLength == 0) {
+                         var fullPath = _storageService.GetFullPath(relativePath);
+                         contentLength = new FileInfo(fullPath).Length;
+                    }
+
+                    var storageItem = new StorageItem
+                    {
+                        Name = uniqueName,
+                        ParentId = request.ParentId,
+                        UserId = userId,
+                        IsFolder = false,
+                        FileSize = contentLength,
+                        FilePath = relativePath,
+                        CreateTime = DateTime.Now,
+                        UpdateTime = DateTime.Now
+                    };
+
+                    await _db.Insertable(storageItem).ExecuteCommandAsync();
+
+                    if (contentLength > 0)
+                    {
+                        await _db.Updateable<UserInfo>()
+                            .SetColumns(u => u.UsedSpace == u.UsedSpace + contentLength)
+                            .Where(u => u.Id == userId)
+                            .ExecuteCommandAsync();
+                    }
+
+                    await _auditService.LogAsync(userId, User.Identity!.Name!, "离线下载", $"URL: {request.Url}, 文件: {uniqueName}", Request.HttpContext.Connection.RemoteIpAddress?.ToString() ?? "");
+
+                    return Ok(new { Message = "下载成功", ItemId = storageItem.Id });
+                }
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"离线下载失败: {ex.Message}");
+            }
+        }
+
+        [HttpPost("empty-recycle-bin")]
+        public async Task<IActionResult> EmptyRecycleBin()
+        {
+            var userId = GetUserId();
+            var items = await _db.Queryable<StorageItem>()
+                .Where(f => f.UserId == userId && f.IsDeleted)
+                .Select(f => f.Id)
+                .ToListAsync();
+
+            if (!items.Any()) return Ok("回收站已是空的");
+
+            // 直接重用批量彻底删除逻辑
+            var request = new BatchDeleteRequest { Ids = items };
+            return await BatchPermanentDelete(request);
+        }
+
         [HttpPost("move")]
         public async Task<IActionResult> Move(MoveRequest request)
         {
@@ -590,6 +819,8 @@ namespace PanSystem.Controllers
                 .Where(f => request.Ids.Contains(f.Id) && f.UserId == userId)
                 .ExecuteCommandAsync();
 
+            await _auditService.LogAsync(userId, User.Identity!.Name!, "移动文件", $"移动了 {request.Ids.Count} 个项目", Request.HttpContext.Connection.RemoteIpAddress?.ToString() ?? "");
+
             return Ok("移动成功");
         }
 
@@ -603,6 +834,8 @@ namespace PanSystem.Controllers
                 .SetColumns(f => f.UpdateTime == DateTime.Now)
                 .Where(f => request.Ids.Contains(f.Id) && f.UserId == userId)
                 .ExecuteCommandAsync();
+
+            await _auditService.LogAsync(userId, User.Identity!.Name!, "批量删除", $"删除了 {request.Ids.Count} 个项目", Request.HttpContext.Connection.RemoteIpAddress?.ToString() ?? "");
 
             return Ok("批量删除成功");
         }

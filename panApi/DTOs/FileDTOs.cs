@@ -42,4 +42,24 @@ namespace PanSystem.DTOs
         public bool IsFavorite { get; set; }
         public bool IsShared { get; set; }
     }
+    public class ChunkUploadRequest
+    {
+        public string Guid { get; set; }
+        public int ChunkIndex { get; set; }
+    }
+
+    public class MergeChunksRequest
+    {
+        public string Guid { get; set; }
+        public string FileName { get; set; }
+        public long TotalSize { get; set; }
+        public int? ParentId { get; set; }
+        public string Md5 { get; set; }
+    }
+
+    public class OfflineDownloadRequest
+    {
+        public string Url { get; set; }
+        public int? ParentId { get; set; }
+    }
 }

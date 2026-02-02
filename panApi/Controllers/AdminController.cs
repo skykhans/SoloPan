@@ -67,6 +67,19 @@ namespace PanSystem.Controllers
             });
         }
 
+        [HttpGet("audit-logs")]
+        public async Task<IActionResult> GetAuditLogs()
+        {
+            if (!await CheckIsAdmin()) return Forbid("无权访问管理员接口");
+
+            var logs = await _db.Queryable<AuditLog>()
+                .OrderBy(l => l.CreateTime, OrderByType.Desc)
+                .Take(500) // 仅返回最近500条
+                .ToListAsync();
+
+            return Ok(logs);
+        }
+
         [HttpPut("user-quota")]
         public async Task<IActionResult> UpdateUserQuota(int userId, long newTotalSpaceBytes)
         {

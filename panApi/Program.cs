@@ -12,6 +12,7 @@ var builder = WebApplication.CreateBuilder(args);
 // Add services to the container.
 
 builder.Services.AddControllers();
+builder.Services.AddHttpClient();
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddEndpointsApiExplorer();
 
@@ -60,6 +61,7 @@ builder.Services.AddScoped<ISqlSugarClient>(s =>
 
 // Configure Storage Service
 builder.Services.AddScoped<IStorageService, LocalStorageService>();
+builder.Services.AddScoped<IAuditService, AuditService>();
 
 // Configure JWT Authentication
 var key = Encoding.ASCII.GetBytes(builder.Configuration["Jwt:Key"]!);
@@ -120,7 +122,8 @@ using (var scope = app.Services.CreateScope())
     db.CodeFirst.InitTables(
         typeof(PanSystem.Models.UserInfo),
         typeof(PanSystem.Models.StorageItem),
-        typeof(PanSystem.Models.ShareLink)
+        typeof(PanSystem.Models.ShareLink),
+        typeof(PanSystem.Models.AuditLog)
     );
 
     // 强制检查并补全列 (针对已存在的表)

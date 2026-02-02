@@ -34,4 +34,13 @@ namespace PanSystem.DTOs
         public string ShareCode { get; set; }
         public int? TargetParentId { get; set; }
     }
+    public class ShareItemResponse
+    {
+        public int Id { get; set; }
+        public string Name { get; set; }
+        public bool IsFolder { get; set; }
+        public long FileSize { get; set; }
+        public DateTime CreateTime { get; set; }
+        public int? ParentId { get; set; }
+    }
 }

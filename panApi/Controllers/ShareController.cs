@@ -126,6 +126,52 @@ namespace PanSystem.Controllers
             return Ok(shares);
         }
 
+        [AllowAnonymous]
+        [HttpGet("list/{token}")]
+        public async Task<IActionResult> GetShareFolderList(string token, [FromQuery] string code, [FromQuery] int? folderId)
+        {
+            var share = await _db.Queryable<ShareLink>()
+                .FirstAsync(s => s.ShareToken == token);
+
+            if (share == null) return NotFound("分享不存在");
+            if (share.ExpireTime.HasValue && share.ExpireTime < DateTime.Now) return BadRequest("分享已过期");
+            if (share.ShareCode != code) return BadRequest("提取码错误");
+
+            var rootItem = await _db.Queryable<StorageItem>().InSingleAsync(share.StorageItemId);
+            if (rootItem == null || !rootItem.IsFolder) return BadRequest("该分享不是文件夹");
+
+            // 确定要查询的父目录 ID
+            // 如果 folderId 为空，显示分享的根目录下的文件
+            // 如果 folderId 不为空，必须验证该 folderId 是分享根目录的子节点
+            int targetParentId = folderId ?? rootItem.Id;
+
+            if (folderId.HasValue)
+            {
+                // 安全校验：验证 folderId 是否属于该分享根目录的子节点
+                if (!await IsDescendant(rootItem.Id, folderId.Value))
+                {
+                    return Forbid("无权访问该目录");
+                }
+            }
+
+            var items = await _db.Queryable<StorageItem>()
+                .Where(f => f.ParentId == targetParentId && f.UserId == share.UserId && !f.IsDeleted)
+                .OrderBy(f => f.IsFolder, OrderByType.Desc)
+                .OrderBy(f => f.Name)
+                .Select(f => new ShareItemResponse
+                {
+                    Id = f.Id,
+                    Name = f.Name,
+                    IsFolder = f.IsFolder,
+                    FileSize = f.FileSize,
+                    CreateTime = f.CreateTime,
+                    ParentId = f.ParentId
+                })
+                .ToListAsync();
+
+            return Ok(items);
+        }
+
         [HttpPost("cancel/{id}")]
         public async Task<IActionResult> CancelShare(int id)
         {
@@ -175,7 +221,67 @@ namespace PanSystem.Controllers
             return PhysicalFile(fullPath, contentType, item.Name, enableRangeProcessing: true);
         }
 
-        [HttpPost("save")]
+        [AllowAnonymous]
+        [HttpGet("download-file/{token}")]
+        public async Task<IActionResult> DownloadFileFromShare(string token, [FromQuery] string code, [FromQuery] int fileId)
+        {
+            var share = await _db.Queryable<ShareLink>()
+                .FirstAsync(s => s.ShareToken == token);
+
+            if (share == null) return NotFound("分享不存在");
+            if (share.ExpireTime.HasValue && share.ExpireTime < DateTime.Now) return BadRequest("分享已过期");
+            if (share.ShareCode != code) return BadRequest("提取码错误");
+
+            // 验证 fileId 是否属于该分享（或本身就是分享的根）
+            var rootItem = await _db.Queryable<StorageItem>().InSingleAsync(share.StorageItemId);
+            if (rootItem == null || !await IsDescendant(rootItem.Id, fileId))
+            {
+                return Forbid("无权访问该文件");
+            }
+
+            var item = await _db.Queryable<StorageItem>().InSingleAsync(fileId);
+            if (item == null || item.IsDeleted) return NotFound("文件不存在");
+
+            // 增加下载次数
+            await _db.Updateable<ShareLink>()
+                .SetColumns(s => s.DownloadCount == s.DownloadCount + 1)
+                .Where(s => s.Id == share.Id)
+                .ExecuteCommandAsync();
+
+            var fullPath = _storageService.GetFullPath(item.FilePath!);
+            if (!System.IO.File.Exists(fullPath)) return NotFound("物理文件丢失");
+
+            var contentType = GetContentType(item.Name);
+            return PhysicalFile(fullPath, contentType, item.Name, enableRangeProcessing: true);
+        }
+
+        private async Task<bool> IsDescendant(int rootId, int targetId)
+        {
+            if (rootId == targetId) return true;
+
+            var current = await _db.Queryable<StorageItem>().InSingleAsync(targetId);
+            while (current != null && current.ParentId != null)
+            {
+                if (current.ParentId == rootId) return true;
+                current = await _db.Queryable<StorageItem>().InSingleAsync(current.ParentId);
+            }
+
+            return false;
+        }
+
+        private string GetContentType(string fileName)
+        {
+            var ext = Path.GetExtension(fileName).ToLower();
+            return ext switch
+            {
+                ".jpg" or ".jpeg" => "image/jpeg",
+                ".png" => "image/png",
+                ".pdf" => "application/pdf",
+                ".docx" => "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                ".xlsx" => "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                _ => "application/octet-stream"
+            };
+        }
         public async Task<IActionResult> SaveToDrive(SaveShareRequest request)
         {
             var userId = GetUserId();
@@ -189,12 +295,20 @@ namespace PanSystem.Controllers
             var sourceItem = await _db.Queryable<StorageItem>().InSingleAsync(share.StorageItemId);
             if (sourceItem == null) return NotFound("源文件不存在");
 
-            // 秒传逻辑：在当前用户的目录下创建一个指向相同物理文件的新记录
+            // 开始递归保存
+            await SaveItemRecursive(sourceItem, request.TargetParentId, userId);
+
+            return Ok("保存成功");
+        }
+
+        private async Task SaveItemRecursive(StorageItem sourceItem, int? targetParentId, int currentUserId)
+        {
+            // 1. 保存当前节点
             var newItem = new StorageItem
             {
                 Name = sourceItem.Name,
-                ParentId = request.TargetParentId,
-                UserId = userId,
+                ParentId = targetParentId,
+                UserId = currentUserId,
                 IsFolder = sourceItem.IsFolder,
                 FileSize = sourceItem.FileSize,
                 FileMd5 = sourceItem.FileMd5,
@@ -205,15 +319,28 @@ namespace PanSystem.Controllers
                 UpdateTime = DateTime.Now
             };
 
-            await _db.Insertable(newItem).ExecuteCommandAsync();
+            var newId = await _db.Insertable(newItem).ExecuteReturnIdentityAsync();
 
-            // 更新用户空间
-            await _db.Updateable<UserInfo>()
-                .SetColumns(u => u.UsedSpace == u.UsedSpace + sourceItem.FileSize)
-                .Where(u => u.Id == userId)
-                .ExecuteCommandAsync();
+            // 2. 更新用户空间 (仅对文件)
+            if (!sourceItem.IsFolder)
+            {
+                await _db.Updateable<UserInfo>()
+                    .SetColumns(u => u.UsedSpace == u.UsedSpace + sourceItem.FileSize)
+                    .Where(u => u.Id == currentUserId)
+                    .ExecuteCommandAsync();
+            }
+            else
+            {
+                // 3. 如果是文件夹，递归保存子项
+                var children = await _db.Queryable<StorageItem>()
+                    .Where(f => f.ParentId == sourceItem.Id && f.UserId == sourceItem.UserId && !f.IsDeleted)
+                    .ToListAsync();
 
-            return Ok("保存成功");
+                foreach (var child in children)
+                {
+                    await SaveItemRecursive(child, newId, currentUserId);
+                }
+            }
         }
     }
 }

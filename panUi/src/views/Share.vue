@@ -30,7 +30,7 @@
       </div>
     </div>
 
-    <div class="file-info-box" v-else>
+    <div :class="['file-info-box', { 'is-folder-view': fileInfo.isFolder }]" v-else>
       <div class="header">
         <el-icon :size="48" class="icon" :class="fileInfo.isFolder ? 'folder-icon' : 'file-icon'">
           <FolderOpened v-if="fileInfo.isFolder" />
@@ -48,15 +48,63 @@
         </div>
       </div>
       <div class="actions">
-        <el-button type="primary" size="large" :icon="Download" @click="handleDownload">下载文件</el-button>
-        <el-button size="large" @click="saveToDrive">保存到我的网盘</el-button>
+        <template v-if="!fileInfo.isFolder">
+          <el-button type="primary" size="large" :icon="Download" @click="handleDownload()">下载文件</el-button>
+          <el-button size="large" @click="saveToDrive">保存到我的网盘</el-button>
+        </template>
+        <template v-else>
+           <el-button type="primary" size="large" @click="saveToDrive">保存整站到网盘</el-button>
+        </template>
+      </div>
+
+      <!-- Folder contents -->
+      <div v-if="fileInfo.isFolder" class="share-folder-content">
+        <div class="share-breadcrumb">
+          <el-breadcrumb separator="/">
+            <el-breadcrumb-item @click="handleBreadcrumbClick(-1)">
+              <span class="breadcrumb-link">{{ fileInfo.name }}</span>
+               </el-breadcrumb-item>
+            <el-breadcrumb-item 
+              v-for="(item, index) in pathStack" 
+              :key="item.id"
+              @click="handleBreadcrumbClick(index)"
+            >
+              <span class="breadcrumb-link">{{ item.name }}</span>
+            </el-breadcrumb-item>
+          </el-breadcrumb>
+        </div>
+
+        <el-table :data="shareFileList" style="width: 100%" v-loading="loadingList">
+          <el-table-column label="名称">
+            <template #default="{ row }">
+              <div class="file-name-cell" @click="handleRowClick(row)">
+                <el-icon :size="24" :class="row.isFolder ? 'folder-icon' : 'file-icon'">
+                  <FolderOpened v-if="row.isFolder" />
+                  <component :is="getFileIcon(row.name)" v-else />
+                </el-icon>
+                <span class="name">{{ row.name }}</span>
+              </div>
+            </template>
+          </el-table-column>
+          <el-table-column label="大小" width="120">
+            <template #default="{ row }">
+              <span v-if="!row.isFolder">{{ formatSize(row.fileSize) }}</span>
+              <span v-else>-</span>
+            </template>
+          </el-table-column>
+          <el-table-column label="操作" width="100">
+            <template #default="{ row }">
+              <el-button v-if="!row.isFolder" link :icon="Download" @click="handleDownload(row.id)"></el-button>
+            </template>
+          </el-table-column>
+        </el-table>
       </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue'
+import { ref, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { Document, Download, FolderOpened } from '@element-plus/icons-vue'
 import request from '../utils/request'
@@ -68,6 +116,10 @@ const shareToken = route.params.token as string
 const shareCode = ref('')
 const loading = ref(false)
 const fileInfo = ref<any>(null)
+const shareFileList = ref<any[]>([])
+const loadingList = ref(false)
+const pathStack = ref<{id: number, name: string}[]>([])
+const currentFolderId = ref<number | null>(null)
 
 const isLoggedIn = computed(() => !!localStorage.getItem('token'))
 const username = computed(() => localStorage.getItem('username'))
@@ -93,8 +145,13 @@ const checkCode = async () => {
     })
     
     // 验证通过，获取详情
-    const res = await request.get(`/share/detail/${shareToken}`)
+    const res: any = await request.get(`/share/detail/${shareToken}`)
     fileInfo.value = res
+    
+    if (res.isFolder) {
+      currentFolderId.value = null // Ensure we start at root
+      fetchShareFileList()
+    }
   } catch (error) {
     console.error(error)
   } finally {
@@ -102,15 +159,53 @@ const checkCode = async () => {
   }
 }
 
-const handleDownload = () => {
-  ElMessage.info('开始下载...')
+const fetchShareFileList = async () => {
+  loadingList.value = true
+  try {
+    const res: any = await request.get(`/share/list/${shareToken}`, {
+      params: {
+        code: shareCode.value,
+        folderId: currentFolderId.value
+      }
+    })
+    shareFileList.value = res
+  } catch (error) {
+    console.error(error)
+  } finally {
+    loadingList.value = false
+  }
+}
+
+const handleRowClick = (row: any) => {
+  if (row.isFolder) {
+    pathStack.value.push({ id: row.id, name: row.name })
+    currentFolderId.value = row.id
+    fetchShareFileList()
+  }
+}
+
+const handleBreadcrumbClick = (index: number) => {
+  if (index === -1) {
+    pathStack.value = []
+    currentFolderId.value = null
+  } else {
+    const newStack = pathStack.value.slice(0, index + 1)
+    pathStack.value = newStack
+    currentFolderId.value = newStack[newStack.length - 1]?.id ?? null
+  }
+  fetchShareFileList()
+}
+
+const handleDownload = (id?: number) => {
   const baseURL = request.defaults.baseURL || '/api'
-  const link = document.createElement('a')
-  link.href = `${baseURL}/share/download/${shareToken}?code=${shareCode.value}`
-  link.target = '_blank' // open in new tab to avoid disrupting current page
-  document.body.appendChild(link)
-  link.click()
-  document.body.removeChild(link)
+  
+  if (!id) {
+    // Downloading the root shared item
+    window.open(`${baseURL}/share/download/${shareToken}?code=${shareCode.value}`, '_blank')
+  } else {
+    // Downloading a specific file within the shared folder
+    window.open(`${baseURL}/share/download-file/${shareToken}?code=${shareCode.value}&fileId=${id}`, '_blank')
+  }
 }
 
 const saveToDrive = async () => {
@@ -255,6 +350,11 @@ const getFileIcon = (name: string) => {
     border: 1px solid var(--pan-border);
     text-align: center;
     width: 500px;
+    transition: width 0.3s ease;
+
+    &.is-folder-view {
+      width: 800px;
+    }
   }
 
   .input-area {
@@ -306,6 +406,55 @@ const getFileIcon = (name: string) => {
       .divider {
         margin: 0 10px;
         color: var(--pan-border);
+      }
+    }
+  }
+
+  .share-folder-content {
+    margin-top: 24px;
+    text-align: left;
+
+    .share-breadcrumb {
+      margin-bottom: 16px;
+      padding: 0 4px;
+
+      .breadcrumb-link {
+        cursor: pointer;
+        color: var(--pan-text-muted);
+        transition: var(--pan-transition);
+        
+        &:hover {
+          color: var(--pan-primary);
+        }
+      }
+    }
+
+    /* Table adjustments */
+    :deep(.el-table) {
+      background-color: transparent !important;
+      --el-table-bg-color: transparent;
+      --el-table-tr-bg-color: transparent;
+      --el-table-header-bg-color: rgba(255, 255, 255, 0.02);
+      border: 1px solid var(--pan-border);
+      border-radius: var(--pan-radius-sm);
+
+      td, th {
+        border-bottom: 1px solid var(--pan-border);
+      }
+
+      .file-name-cell {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        cursor: pointer;
+        color: var(--pan-text-main);
+
+        &:hover {
+          color: var(--pan-primary);
+        }
+
+        .folder-icon { color: #FCD34D; }
+        .file-icon { color: var(--pan-accent); }
       }
     }
   }

@@ -595,37 +595,64 @@ namespace PanSystem.Controllers
         public async Task<IActionResult> BatchPermanentDelete(BatchDeleteRequest request)
         {
             var userId = GetUserId();
-            var items = await _db.Queryable<StorageItem>()
-                .Where(f => request.Ids.Contains(f.Id) && f.UserId == userId && f.IsDeleted)
+
+            // 1. 递归查找所有需要删除的 ID (包括子文件/子文件夹)
+            var allIdsToDelete = new HashSet<int>(request.Ids);
+            var currentLevelIds = request.Ids;
+
+            while (true)
+            {
+                // 查找当前层级的所有子项 (无论是否标记为已删除，只要父级被彻底删除，子级也必须删除)
+                var childIds = await _db.Queryable<StorageItem>()
+                    .Where(f => f.ParentId != null && currentLevelIds.Contains((int)f.ParentId) && f.UserId == userId)
+                    .Select(f => f.Id)
+                    .ToListAsync();
+
+                if (!childIds.Any()) break;
+
+                // 仅添加尚未包含的 ID
+                var newIds = childIds.Where(id => !allIdsToDelete.Contains(id)).ToList();
+                if (!newIds.Any()) break;
+
+                foreach (var id in newIds) allIdsToDelete.Add(id);
+                currentLevelIds = newIds;
+            }
+
+            var allIdsList = allIdsToDelete.ToList();
+
+            // 2. 获取所有详细信息
+            var allItems = await _db.Queryable<StorageItem>()
+                .Where(f => allIdsList.Contains(f.Id) && f.UserId == userId)
                 .ToListAsync();
 
-            if (items.Count == 0) return Ok("没有需要删除的文件");
+            if (allItems.Count == 0) return Ok("没有需要删除的文件");
 
-            foreach (var item in items)
+            long totalSizeFreed = 0;
+
+            // 3. 删除物理文件 & 计算释放空间
+            foreach (var item in allItems)
             {
-                if (!item.IsFolder)
+                if (!item.IsFolder && !string.IsNullOrEmpty(item.FilePath))
                 {
-                    // 删除物理文件
-                    if (!string.IsNullOrEmpty(item.FilePath))
-                    {
-                        await _storageService.DeleteFileAsync(item.FilePath);
-                    }
-
-                    // 释放用户空间
-                    await _db.Updateable<UserInfo>()
-                        .SetColumns(u => u.UsedSpace == u.UsedSpace - item.FileSize)
-                        .Where(u => u.Id == userId)
-                        .ExecuteCommandAsync();
+                    await _storageService.DeleteFileAsync(item.FilePath);
+                    totalSizeFreed += item.FileSize;
                 }
             }
 
-            var ids = items.Select(i => i.Id).ToList();
+            // 4. 释放用户空间
+            if (totalSizeFreed > 0)
+            {
+                await _db.Updateable<UserInfo>()
+                    .SetColumns(u => u.UsedSpace == u.UsedSpace - totalSizeFreed)
+                    .Where(u => u.Id == userId)
+                    .ExecuteCommandAsync();
+            }
 
-            // 删除关联的分享记录
-            await _db.Deleteable<ShareLink>().Where(s => ids.Contains(s.StorageItemId)).ExecuteCommandAsync();
+            // 5. 删除关联的分享记录 (所有层级)
+            await _db.Deleteable<ShareLink>().Where(s => allIdsList.Contains(s.StorageItemId)).ExecuteCommandAsync();
 
-            // 批量删除数据库记录
-            await _db.Deleteable<StorageItem>().In(ids).ExecuteCommandAsync();
+            // 6. 批量删除数据库记录
+            await _db.Deleteable<StorageItem>().In(allIdsList).ExecuteCommandAsync();
 
             return Ok("批量永久删除成功");
         }

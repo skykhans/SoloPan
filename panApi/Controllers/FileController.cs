@@ -467,13 +467,29 @@ namespace PanSystem.Controllers
 
             if (item.IsFolder)
             {
-                // 如果是文件夹，递归删除所有子项 (此处简化处理，只删除文件夹记录)
-                // 实际生产中应递归物理删除所有子文件
-                await _db.Deleteable<StorageItem>().In(item.Id).ExecuteCommandAsync();
+                // 如果是文件夹，需要递归找到所有子文件进行处理
+                // 由于单项删除文件夹可能涉及很多子文件，建议重用批量删除的逻辑，或者仅调用批量删除方法
+                // 这里为了简化，直接调用 BatchPermanentDelete 逻辑，构造包含所有子 ID 的列表
+
+                // 为了避免代码重复，我们将复杂逻辑封装到 BatchPermanentDelete 中
+                // 但这里需要特殊的内部调用方式，或者我们直接重构本方法去调用 BatchPermanentDelete 的逻辑?
+                // 简单起见，我们在客户端通常调用 Batch 删除。这里为了完整性，手动处理递归比较繁琐。
+                // 我们可以构造一个 list，内部处理。
+
+                // 暂时简单处理：只允许删除空文件夹? 不，需求是彻底删除。
+                // 既然已经实现了 BatchPermanentDelete 的完善递归逻辑，我们构造一个 Request 调用它
+                return await BatchPermanentDelete(new BatchDeleteRequest { Ids = new List<int> { id } });
             }
             else
             {
-                await _storageService.DeleteFileAsync(item.FilePath!);
+                // Check if file is used by others
+                var isReferenced = await _db.Queryable<StorageItem>()
+                    .AnyAsync(f => f.FilePath == item.FilePath && f.Id != item.Id);
+
+                if (!string.IsNullOrEmpty(item.FilePath) && !isReferenced)
+                {
+                    await _storageService.DeleteFileAsync(item.FilePath);
+                }
 
                 // 释放用户空间
                 await _db.Updateable<UserInfo>()
@@ -628,15 +644,36 @@ namespace PanSystem.Controllers
             if (allItems.Count == 0) return Ok("没有需要删除的文件");
 
             long totalSizeFreed = 0;
+            var fileItems = allItems.Where(i => !i.IsFolder && !string.IsNullOrEmpty(i.FilePath)).ToList();
+            var filePaths = fileItems.Select(i => i.FilePath).Distinct().ToList();
+
+            // 找出仍被其他用户（或当前用户未删除的文件）引用的物理文件路径
+            // 条件：FilePath 在待删除集合中，但 StorageItemId 不在待删除集合中
+            var protectedPaths = new HashSet<string>();
+            if (filePaths.Any())
+            {
+                var protectedList = await _db.Queryable<StorageItem>()
+                    .Where(f => filePaths.Contains(f.FilePath) && !allIdsList.Contains(f.Id))
+                    .Select(f => f.FilePath)
+                    .Distinct()
+                    .ToListAsync();
+                protectedPaths = new HashSet<string>(protectedList);
+            }
+
+            var deletedPathSet = new HashSet<string>();
 
             // 3. 删除物理文件 & 计算释放空间
-            foreach (var item in allItems)
+            foreach (var item in fileItems)
             {
-                if (!item.IsFolder && !string.IsNullOrEmpty(item.FilePath))
+                // 只有当文件路径未被保护，且此时尚未执行过删除操作时，才进行物理删除
+                if (!protectedPaths.Contains(item.FilePath!) && !deletedPathSet.Contains(item.FilePath!))
                 {
-                    await _storageService.DeleteFileAsync(item.FilePath);
-                    totalSizeFreed += item.FileSize;
+                    await _storageService.DeleteFileAsync(item.FilePath!);
+                    deletedPathSet.Add(item.FilePath!); // 标记已删除，避免同一批次中重复删除
                 }
+
+                // 无论物理文件是否保留，该用户都释放了空间占用（因为他删除了自己的引用）
+                totalSizeFreed += item.FileSize;
             }
 
             // 4. 释放用户空间

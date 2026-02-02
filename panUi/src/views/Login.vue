@@ -1,8 +1,14 @@
 <template>
   <div class="login-container">
     <div class="brand">
-      <img src="../assets/vue.svg" alt="logo" />
-      <h1>我的网盘</h1>
+      <div class="logo-icon">
+        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M12 4L4 8L12 12L20 8L12 4Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M4 12L12 16L20 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M4 16L12 20L20 16" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </div>
+      <h1 class="logo-text">Trae Pan</h1>
       <p>安全、便捷、现代的文件管理专家</p>
     </div>
     <div class="login-box">
@@ -106,21 +112,31 @@ const handleSubmit = async () => {
   .brand {
     text-align: center;
     margin-bottom: 40px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
     
-    img {
-      width: 80px;
-      height: 80px;
+    .logo-icon {
+      width: 64px;
+      height: 64px;
+      color: var(--pan-primary);
       margin-bottom: 16px;
       filter: drop-shadow(0 0 20px var(--pan-primary-glow));
+      
+      svg {
+        width: 100%;
+        height: 100%;
+      }
     }
     
-    h1 {
+    h1.logo-text {
       font-size: 36px;
       font-weight: 800;
       color: var(--pan-text-main);
       margin: 0 0 8px;
       letter-spacing: -1.5px;
-      background: linear-gradient(to bottom, #fff, #a1a1aa);
+      background: linear-gradient(135deg, #ffffff 0%, var(--pan-primary) 100%);
+      background-clip: text;
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
     }

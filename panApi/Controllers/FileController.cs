@@ -657,7 +657,7 @@ namespace PanSystem.Controllers
                     .Select(f => f.FilePath)
                     .Distinct()
                     .ToListAsync();
-                protectedPaths = new HashSet<string>(protectedList);
+                protectedPaths = new HashSet<string>(protectedList.Where(p => p != null)!);
             }
 
             var deletedPathSet = new HashSet<string>();

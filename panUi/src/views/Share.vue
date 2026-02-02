@@ -2,8 +2,14 @@
   <div class="share-page">
     <div class="top-bar">
       <div class="logo">
-        <img src="../assets/vue.svg" alt="logo" />
-        <span>我的网盘</span>
+        <div class="logo-icon">
+          <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M12 4L4 8L12 12L20 8L12 4Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M4 12L12 16L20 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M4 16L12 20L20 16" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
+        <span class="logo-text">Trae Pan</span>
       </div>
       <div class="user-actions">
          <template v-if="!isLoggedIn">
@@ -196,14 +202,30 @@ const getFileIcon = (name: string) => {
     .logo {
       display: flex;
       align-items: center;
-      gap: 10px;
-      font-size: 14px;
+      gap: 12px;
+      font-size: 15px;
       font-weight: 800;
       color: var(--pan-text-main);
       
-      img {
+      .logo-icon {
         width: 24px;
         height: 24px;
+        color: var(--pan-primary);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        
+        svg {
+          width: 100%;
+          height: 100%;
+        }
+      }
+
+      .logo-text {
+        background: linear-gradient(135deg, #ffffff 0%, var(--pan-primary) 100%);
+        background-clip: text;
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
       }
     }
 

@@ -573,15 +573,25 @@ const handleBreadcrumbClickInMove = (index: number) => {
     moveDialogPathStack.value = []
     fetchFolderTree(null)
   } else {
-    moveDialogPathStack.value = moveDialogPathStack.value.slice(0, index + 1)
-    fetchFolderTree(moveDialogPathStack.value[index].id)
+    // Slice first, then get the target item (which is now the last item)
+    // Actually, handling should be: trim stack to index, then fetch that folder.
+    // The original code was: slice(0, index+1), then fetch stack[index].id.
+    // But slice returns a new array. moveDialogPathStack.value assignment happens first.
+    // So moveDialogPathStack.value[index] refers to the new array's last item.
+    const newStack = moveDialogPathStack.value.slice(0, index + 1)
+    moveDialogPathStack.value = newStack
+    const targetItem = newStack[index]
+    if (targetItem) {
+      fetchFolderTree(targetItem.id)
+    }
   }
 }
 
 const handleBackInMove = () => {
   moveDialogPathStack.value.pop()
-  const parentId = moveDialogPathStack.value.length > 0 
-    ? moveDialogPathStack.value[moveDialogPathStack.value.length - 1].id 
+  const lastItem = moveDialogPathStack.value[moveDialogPathStack.value.length - 1]
+  const parentId = moveDialogPathStack.value.length > 0 && lastItem
+    ? lastItem.id 
     : null
   fetchFolderTree(parentId)
 }
@@ -1021,7 +1031,7 @@ onMounted(() => {
 .file-list-view {
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  /* gap: 20px; Removed to control spacing manually via margins */
   height: 100%;
   overflow: hidden;
 }
@@ -1032,10 +1042,11 @@ onMounted(() => {
   align-items: center;
   gap: 20px;
   flex-wrap: nowrap;
-  padding: 0 20px 0 50px; /* Left padding for toggle button */
+  padding: 0 20px 0 50px;
   border-bottom: 1px solid var(--pan-border);
-  height: 60px; /* Fixed height for stability */
-  margin-bottom: 20px;
+  height: 60px;
+  /* margin-bottom: 20px; Removed to assume content handles its own spacing */
+  flex-shrink: 0;
 
   .breadcrumb {
     display: flex;
@@ -1044,7 +1055,7 @@ onMounted(() => {
     flex-shrink: 1;
     min-width: 0;
     overflow: hidden;
-
+    
     :deep(.el-breadcrumb__inner) {
       color: var(--pan-text-muted) !important;
       font-size: 13px;
@@ -1092,6 +1103,7 @@ onMounted(() => {
   border-radius: var(--pan-radius-sm);
   overflow: auto;
   animation: fadeIn 0.3s ease-in-out;
+  margin: 20px; /* Added consistent spacing */
 }
 
 .file-name-cell {

@@ -1,33 +1,42 @@
 <template>
   <div class="admin-panel">
-    <h2>管理员后台</h2>
+    <div class="header-actions">
+      <div class="breadcrumb">
+        <el-breadcrumb separator="/">
+          <el-breadcrumb-item>
+            <span class="breadcrumb-link">系统管理</span>
+          </el-breadcrumb-item>
+        </el-breadcrumb>
+      </div>
+    </div>
     
-    <el-row :gutter="20" class="stats-cards">
-      <el-col :span="6">
-        <el-card shadow="hover">
-          <template #header>用户总数</template>
-          <div class="card-value">{{ stats.totalUsers }}</div>
-        </el-card>
-      </el-col>
-      <el-col :span="6">
-        <el-card shadow="hover">
-          <template #header>文件总数</template>
-          <div class="card-value">{{ stats.totalFiles }}</div>
-        </el-card>
-      </el-col>
-      <el-col :span="6">
-        <el-card shadow="hover">
-          <template #header>文件夹总数</template>
-          <div class="card-value">{{ stats.totalFolders }}</div>
-        </el-card>
-      </el-col>
-      <el-col :span="6">
-        <el-card shadow="hover">
-          <template #header>已用存储 (GB)</template>
-          <div class="card-value">{{ stats.totalStorageUsedGB }}</div>
-        </el-card>
-      </el-col>
-    </el-row>
+    <div class="admin-content">
+      <el-row :gutter="20" class="stats-cards">
+        <el-col :span="6">
+          <el-card shadow="hover">
+            <template #header>用户总数</template>
+            <div class="card-value">{{ stats.totalUsers }}</div>
+          </el-card>
+        </el-col>
+        <el-col :span="6">
+          <el-card shadow="hover">
+            <template #header>文件总数</template>
+            <div class="card-value">{{ stats.totalFiles }}</div>
+          </el-card>
+        </el-col>
+        <el-col :span="6">
+          <el-card shadow="hover">
+            <template #header>文件夹总数</template>
+            <div class="card-value">{{ stats.totalFolders }}</div>
+          </el-card>
+        </el-col>
+        <el-col :span="6">
+          <el-card shadow="hover">
+            <template #header>已用存储 (GB)</template>
+            <div class="card-value">{{ stats.totalStorageUsedGB }}</div>
+          </el-card>
+        </el-col>
+      </el-row>
 
     <div class="user-management">
       <h3>用户管理</h3>
@@ -76,6 +85,7 @@
         <el-button type="primary" @click="confirmEditQuota">确定</el-button>
       </template>
     </el-dialog>
+    </div> 
   </div>
 </template>
 
@@ -158,15 +168,54 @@ onMounted(() => {
 
 <style scoped lang="scss">
 .admin-panel {
-  padding-top: 16px;
-  
-  h2 {
-    margin-bottom: 32px;
-    padding-left: 48px;
-    font-size: 24px;
-    font-weight: 800;
-    color: var(--pan-text-main);
-    letter-spacing: -0.5px;
+  padding-top: 0; /* Removed padding */
+
+  .header-actions {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0 20px 0 50px; /* Match FileList */
+    border-bottom: 1px solid var(--pan-border);
+    height: 60px; /* Fixed height for stability */
+    margin-bottom: 20px;
+
+    .breadcrumb {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      flex-shrink: 1;
+      min-width: 0;
+      overflow: hidden;
+      
+      :deep(.el-breadcrumb__inner) {
+        color: var(--pan-text-muted) !important;
+        font-size: 13px;
+        font-weight: 400;
+        
+        &.is-link:hover {
+          color: var(--pan-text-main) !important;
+        }
+      }
+
+      .breadcrumb-link {
+        cursor: pointer;
+        transition: var(--pan-transition);
+        
+        /* Default for single item is body color to match 'All Files' root */
+        font-weight: 600;
+        color: var(--pan-text-body);
+        
+        &.is-last {
+          color: var(--pan-text-main) !important;
+          font-weight: 600;
+          cursor: default;
+        }
+      }
+    }
+  }
+
+  .admin-content {
+    padding: 0 20px; /* Add some padding for content */
   }
 
   .stats-cards {
@@ -196,11 +245,11 @@ onMounted(() => {
     background: #050505;
 
     h3 {
-      margin-top: 0;
-      margin-bottom: 24px;
-      font-size: 18px;
-      font-weight: 700;
-      color: var(--pan-text-main);
+       margin-top: 0;
+       margin-bottom: 24px;
+       font-size: 18px;
+       font-weight: 700;
+       color: var(--pan-text-main);
     }
 
     .usage-cell {

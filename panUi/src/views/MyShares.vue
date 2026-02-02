@@ -1,7 +1,13 @@
 <template>
   <div class="my-shares-container">
     <div class="header-actions">
-      <h2>我的分享</h2>
+      <div class="breadcrumb">
+        <el-breadcrumb separator="/">
+          <el-breadcrumb-item>
+            <span class="breadcrumb-link">我的分享</span>
+          </el-breadcrumb-item>
+        </el-breadcrumb>
+      </div>
     </div>
 
     <div class="table-container">
@@ -55,7 +61,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import { FolderOpened, Document, Share, Delete, Link } from '@element-plus/icons-vue'
+import { FolderOpened, Document } from '@element-plus/icons-vue'
 import request from '../utils/request'
 import { ElMessage, ElMessageBox } from 'element-plus'
 
@@ -125,48 +131,65 @@ onMounted(fetchShares)
 
 <style scoped lang="scss">
 .my-shares-container {
-  padding: 0;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
   
   .header-actions {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 0 20px 0 50px; /* Match FileList */
+    padding: 0 20px 0 50px;
     border-bottom: 1px solid var(--pan-border);
-    height: 60px; /* Fixed height for stability */
-    margin-bottom: 20px;
+    height: 60px;
+    flex-shrink: 0;
 
-    h2 {
-      margin: 0;
-      font-size: 14px; /* Match breadcrumb size (approx 13-14px) */
-      font-weight: 600; /* Match breadcrumb weight */
-      color: var(--pan-text-main);
+    .breadcrumb {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      flex-shrink: 1;
+      min-width: 0;
+      overflow: hidden;
+      
+      :deep(.el-breadcrumb__inner) {
+        color: var(--pan-text-muted) !important;
+        font-size: 13px;
+        font-weight: 400;
+        
+        &.is-link:hover {
+          color: var(--pan-text-main) !important;
+        }
+      }
+
+      .breadcrumb-link {
+        cursor: pointer;
+        transition: var(--pan-transition);
+        
+        /* Default for single item is body color to match 'All Files' root */
+        font-weight: 600;
+        color: var(--pan-text-body);
+        
+        &.is-last {
+          color: var(--pan-text-main) !important;
+          font-weight: 600;
+          cursor: default;
+          /* Explicit size override if needed, though 13px from parent should apply */
+          font-size: 13px;
+        }
+      }
     }
   }
 
   .table-container {
-    background: rgba(255, 255, 255, 0.01);
+    flex: 1;
+    min-height: 0;
+    margin: 20px;
+    background-color: #000000 !important;
     border: 1px solid var(--pan-border);
-    border-radius: var(--pan-radius-lg);
-    overflow: hidden;
-
-    :deep(.el-table) {
-      background: transparent;
-      
-      th.el-table__cell {
-        background: rgba(255, 255, 255, 0.02);
-        color: var(--pan-text-main);
-        font-weight: 600;
-        text-transform: uppercase;
-        font-size: 12px;
-        letter-spacing: 0.05em;
-        padding: 16px 0;
-      }
-
-      td.el-table__cell {
-        padding: 12px 0;
-      }
-    }
+    border-radius: var(--pan-radius-sm);
+    overflow: auto;
   }
 
   .file-name-cell {

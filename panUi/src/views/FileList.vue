@@ -326,7 +326,9 @@
         <div class="dialog-header-custom">
           <span class="el-dialog__title">{{ videoName }}</span>
           <div class="header-actions">
-            <el-button link :icon="isPreviewFullscreen ? Aim : FullScreen" @click.stop="togglePreviewFullscreen" class="fullscreen-btn" />
+            <el-tooltip :content="isPreviewFullscreen ? '退出全屏' : '全屏'" placement="bottom">
+              <el-button link :icon="isPreviewFullscreen ? Aim : FullScreen" @click.stop="togglePreviewFullscreen" class="fullscreen-btn" />
+            </el-tooltip>
           </div>
         </div>
       </template>
@@ -357,7 +359,9 @@
         <div class="dialog-header-custom">
           <span class="el-dialog__title">{{ textFileName }}</span>
           <div class="header-actions">
-            <el-button link :icon="isPreviewFullscreen ? Aim : FullScreen" @click.stop="togglePreviewFullscreen" class="fullscreen-btn" />
+            <el-tooltip :content="isPreviewFullscreen ? '退出全屏' : '全屏'" placement="bottom">
+              <el-button link :icon="isPreviewFullscreen ? Aim : FullScreen" @click.stop="togglePreviewFullscreen" class="fullscreen-btn" />
+            </el-tooltip>
           </div>
         </div>
       </template>
@@ -380,7 +384,9 @@
         <div class="dialog-header-custom">
           <span class="el-dialog__title">{{ previewState.fileName }}</span>
           <div class="header-actions">
-            <el-button link :icon="isPreviewFullscreen ? Aim : FullScreen" @click.stop="togglePreviewFullscreen" class="fullscreen-btn" />
+            <el-tooltip :content="isPreviewFullscreen ? '退出全屏' : '全屏'" placement="bottom">
+              <el-button link :icon="isPreviewFullscreen ? Aim : FullScreen" @click.stop="togglePreviewFullscreen" class="fullscreen-btn" />
+            </el-tooltip>
           </div>
         </div>
       </template>
@@ -1539,73 +1545,82 @@ onMounted(() => {
   }
 
   .el-dialog__header {
-    margin: 0;
-    padding: 0; 
-    background-color: #0a0a0a;
-    border-bottom: 1px solid var(--pan-border);
+    margin: 0 !important;
+    padding: 0 8px 0 20px !important; /* Right padding adjusted for buttons */
+    background-color: #050505 !important;
+    border-bottom: 1px solid var(--pan-border) !important;
     flex-shrink: 0;
-    display: flex;
-    align-items: center;
+    height: 48px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
 
     .el-dialog__headerbtn {
-      top: 0;
-      margin-top: 0;
-      height: 48px; /* Match custom header height */
-      width: 48px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      z-index: 100;
+      position: static !important; /* Break absolute positioning to participate in flex row */
+      margin: 0 !important;
+      height: 48px !important;
+      width: 48px !important;
+      display: flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      padding: 0 !important;
+      order: 10; /* Ensure it is at the very end */
 
       .el-dialog__close {
-        color: var(--pan-text-muted);
-        font-size: 18px;
+        color: var(--pan-text-muted) !important;
+        font-size: 18px !important;
+        margin: 0 !important;
+        
         &:hover {
-          color: var(--pan-text-main);
+          color: var(--pan-text-main) !important;
         }
       }
     }
   }
-
+ 
   .dialog-header-custom {
+    flex: 1;
     display: flex;
-    justify-content: space-between;
     align-items: center;
-    padding: 0 20px;
-    height: 48px;
-    width: 100%;
-    position: relative;
-    z-index: 10;
-
+    justify-content: space-between;
+    height: 100%;
+    margin-right: 0;
+ 
     .el-dialog__title {
       color: var(--pan-text-main) !important;
       font-size: 14px !important;
       font-weight: 600 !important;
-      line-height: 48px;
+      line-height: normal !important;
+      margin: 0;
     }
-
+ 
     .header-actions {
       display: flex;
       align-items: center;
-      gap: 12px;
-      margin-right: 48px; /* Room for close button */
-      position: relative;
-      z-index: 20;
-
+      margin-left: auto; /* Push to right */
+      
       .el-button.fullscreen-btn {
-        padding: 8px;
+        padding: 0;
+        width: 48px;
+        height: 48px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
         font-size: 18px;
         color: var(--pan-text-muted);
         cursor: pointer;
         pointer-events: auto !important; 
+        border: none !important;
+        background: transparent !important;
         
         &:hover {
           color: var(--pan-text-main);
-          background-color: rgba(255, 255, 255, 0.05);
+          background-color: rgba(255, 255, 255, 0.05) !important;
         }
-
+ 
         :deep(.el-icon) {
           font-size: 18px;
+          margin: 0;
         }
       }
     }

@@ -107,8 +107,8 @@ namespace PanSystem.Controllers
         {
             var userId = GetUserId();
             var shares = await _db.Queryable<ShareLink>()
-                .LeftJoin<StorageItem>((s, f) => s.StorageItemId == f.Id)
-                .Where(s => s.UserId == userId)
+                .InnerJoin<StorageItem>((s, f) => s.StorageItemId == f.Id)
+                .Where((s, f) => s.UserId == userId && !f.IsDeleted) // 仅显示未删除文件的分享
                 .Select((s, f) => new
                 {
                     s.Id,

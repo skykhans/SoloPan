@@ -966,11 +966,21 @@ const handleDelete = (row: any) => {
 }
 
 const handleBatchDelete = () => {
-  ElMessageBox.confirm(`确定要删除选中的 ${selectedIds.value.length} 个项目吗？`, '提示', { type: 'warning' }).then(async () => {
+  const isRecycleBin = props.category === 'recycle-bin'
+  const message = isRecycleBin 
+    ? `确定要彻底删除选中的 ${selectedIds.value.length} 个项目吗？此操作不可恢复！`
+    : `确定要删除选中的 ${selectedIds.value.length} 个项目吗？`
+
+  ElMessageBox.confirm(message, '提示', { 
+    type: isRecycleBin ? 'error' : 'warning',
+    confirmButtonClass: isRecycleBin ? 'el-button--danger' : ''
+  }).then(async () => {
     try {
-      await request.post('/file/batch-delete', { ids: selectedIds.value })
-      ElMessage.success('批量删除成功')
+      const url = isRecycleBin ? '/file/batch-delete-permanent' : '/file/batch-delete'
+      await request.post(url, { ids: selectedIds.value })
+      ElMessage.success(isRecycleBin ? '批量彻底删除成功' : '批量删除成功')
       fetchFiles()
+      selectedIds.value = [] // clear selection
     } catch (error) {
       console.error(error)
     }

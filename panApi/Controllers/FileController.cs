@@ -469,7 +469,6 @@ namespace PanSystem.Controllers
             }
             else
             {
-                // 删除物理文件
                 await _storageService.DeleteFileAsync(item.FilePath!);
 
                 // 释放用户空间
@@ -477,6 +476,9 @@ namespace PanSystem.Controllers
                     .SetColumns(u => u.UsedSpace == u.UsedSpace - item.FileSize)
                     .Where(u => u.Id == userId)
                     .ExecuteCommandAsync();
+
+                // 删除关联的分享记录
+                await _db.Deleteable<ShareLink>().Where(s => s.StorageItemId == item.Id).ExecuteCommandAsync();
 
                 await _db.Deleteable<StorageItem>().In(item.Id).ExecuteCommandAsync();
             }
@@ -583,6 +585,45 @@ namespace PanSystem.Controllers
                 .ExecuteCommandAsync();
 
             return Ok("批量删除成功");
+        }
+
+        [HttpPost("batch-delete-permanent")]
+        public async Task<IActionResult> BatchPermanentDelete(BatchDeleteRequest request)
+        {
+            var userId = GetUserId();
+            var items = await _db.Queryable<StorageItem>()
+                .Where(f => request.Ids.Contains(f.Id) && f.UserId == userId && f.IsDeleted)
+                .ToListAsync();
+
+            if (items.Count == 0) return Ok("没有需要删除的文件");
+
+            foreach (var item in items)
+            {
+                if (!item.IsFolder)
+                {
+                    // 删除物理文件
+                    if (!string.IsNullOrEmpty(item.FilePath))
+                    {
+                        await _storageService.DeleteFileAsync(item.FilePath);
+                    }
+
+                    // 释放用户空间
+                    await _db.Updateable<UserInfo>()
+                        .SetColumns(u => u.UsedSpace == u.UsedSpace - item.FileSize)
+                        .Where(u => u.Id == userId)
+                        .ExecuteCommandAsync();
+                }
+            }
+
+            var ids = items.Select(i => i.Id).ToList();
+
+            // 删除关联的分享记录
+            await _db.Deleteable<ShareLink>().Where(s => ids.Contains(s.StorageItemId)).ExecuteCommandAsync();
+
+            // 批量删除数据库记录
+            await _db.Deleteable<StorageItem>().In(ids).ExecuteCommandAsync();
+
+            return Ok("批量永久删除成功");
         }
 
         private async Task<string> GetUniqueName(string name, int? parentId, int userId)

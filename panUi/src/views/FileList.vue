@@ -761,7 +761,10 @@ const handlePlayVideo = (row: any) => {
 const handlePreviewText = async (row: any) => {
   textFileName.value = row.name
   try {
-    const res = await request.get(`/file/download/${row.id}`, { responseType: 'text' })
+    const res = await request.get(`/file/download/${row.id}`, { 
+      params: { preview: true },
+      responseType: 'text' 
+    })
     textContent.value = res as unknown as string
     showTextPreview.value = true
   } catch (error) {

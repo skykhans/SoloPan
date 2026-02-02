@@ -129,7 +129,10 @@ const saveToDrive = async () => {
       shareCode: shareCode.value,
       targetParentId: null // 默认保存到根目录
     })
-    ElMessage.success('保存成功，请到我的网盘查看')
+    ElMessage.success('保存成功，正在跳转到我的网盘...')
+    setTimeout(() => {
+      router.push('/')
+    }, 1000)
   } catch (error) {
     console.error(error)
   }
@@ -181,6 +184,7 @@ const getFileIcon = (name: string) => {
     left: 0;
     width: 100%;
     height: 48px;
+    box-sizing: border-box;
     background: #000000;
     border-bottom: 1px solid var(--pan-border);
     display: flex;

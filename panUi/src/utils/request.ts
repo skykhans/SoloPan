@@ -30,11 +30,16 @@ service.interceptors.response.use(
     if (error.response) {
       switch (error.response.status) {
         case 401:
-          ElMessage.error('登录过期，请重新登录')
+          // 如果当前已经在登录页，或者是登录请求返回的 401，不重复提示
+          if (router.currentRoute.value.path !== '/login' && error.config.url !== '/user/login') {
+            ElMessage.error('登录过期，请重新登录')
+          }
           localStorage.removeItem('token')
           localStorage.removeItem('username')
-          router.push('/login')
-          break
+          if (router.currentRoute.value.path !== '/login') {
+            router.push('/login')
+          }
+          break;
         case 403:
           ElMessage.error('没有权限')
           break

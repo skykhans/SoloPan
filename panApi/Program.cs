@@ -54,14 +54,7 @@ builder.Services.AddScoped<ISqlSugarClient>(s =>
         DbType = DbType.SqlServer,
         IsAutoCloseConnection = true,
     });
-    
-    // Code First: create tables if not exist
-    db.CodeFirst.InitTables(
-        typeof(PanSystem.Models.UserInfo), 
-        typeof(PanSystem.Models.StorageItem),
-        typeof(PanSystem.Models.ShareLink)
-    );
-    
+
     return db;
 });
 
@@ -92,8 +85,8 @@ builder.Services.AddAuthentication(x =>
         {
             var accessToken = context.Request.Query["access_token"];
             var path = context.HttpContext.Request.Path;
-            if (!string.IsNullOrEmpty(accessToken) && 
-                (path.Value.Contains("/file/download") || path.Value.Contains("/file/thumbnail")))
+            if (!string.IsNullOrEmpty(accessToken) &&
+                path.HasValue && (path.Value.Contains("/file/download") || path.Value.Contains("/file/thumbnail")))
             {
                 context.Token = accessToken;
             }
@@ -109,7 +102,7 @@ builder.Services.AddCors(options =>
         builder =>
         {
             builder
-            .AllowAnyOrigin() 
+            .AllowAnyOrigin()
             .AllowAnyMethod()
             .AllowAnyHeader();
         });
@@ -117,10 +110,35 @@ builder.Services.AddCors(options =>
 
 var app = builder.Build();
 
-// Init Admin User
+// 数据库初始化与管理员用户创建
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<ISqlSugarClient>();
+
+    Console.WriteLine("正在执行数据库差异同步...");
+    // 基础建表
+    db.CodeFirst.InitTables(
+        typeof(PanSystem.Models.UserInfo),
+        typeof(PanSystem.Models.StorageItem),
+        typeof(PanSystem.Models.ShareLink)
+    );
+
+    // 强制检查并补全列 (针对已存在的表)
+    try
+    {
+        db.Ado.ExecuteCommand(@"
+            IF COL_LENGTH('UserInfo', 'Phone') IS NULL
+            ALTER TABLE UserInfo ADD Phone NVARCHAR(50) NULL;
+            IF COL_LENGTH('UserInfo', 'Email') IS NULL
+            ALTER TABLE UserInfo ADD Email NVARCHAR(100) NULL;
+        ");
+        Console.WriteLine("数据库列维护检查完成");
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"数据库维护错误: {ex.Message}");
+    }
+
     if (!db.Queryable<UserInfo>().Any(u => u.UserName == "admin"))
     {
         var adminUser = new UserInfo
@@ -132,6 +150,7 @@ using (var scope = app.Services.CreateScope())
             TotalSpace = 1024L * 1024 * 1024 * 100 // 100GB
         };
         db.Insertable(adminUser).ExecuteCommand();
+        Console.WriteLine("已初始化默认管理员账号");
     }
 }
 

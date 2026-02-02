@@ -20,7 +20,85 @@
   --pan-radius-sm: 4px;
   --pan-radius-md: 4px;
   --pan-radius-lg: 4px;
-  --pan-transition: all 0.15s ease;
+  --pan-transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.input-tip {
+  font-size: 12px;
+  color: var(--pan-text-muted);
+  margin-top: 4px;
+  line-height: 1.2;
+}
+
+/* 修复浏览器自动填充时的背景色和文字颜色 */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+input:-webkit-autofill:active {
+  -webkit-transition-delay: 99999s;
+  -webkit-transition: color 99999s ease-out, background-color 99999s ease-out;
+  transition-delay: 99999s;
+  transition: color 99999s ease-out, background-color 99999s ease-out;
+  -webkit-text-fill-color: var(--pan-text-main) !important;
+  caret-color: var(--pan-text-main);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+.verify-code-row {
+  display: flex !important;
+  gap: 12px !important;
+  width: 100% !important;
+  align-items: center !important;
+}
+
+.verify-code-row .el-input {
+  flex: 1 !important;
+}
+
+.verify-code-row .verify-btn {
+  width: 120px !important;
+  height: 48px !important;
+  margin: 0 !important;
+  background-color: rgba(255, 255, 255, 0.05) !important;
+  border: 1px solid var(--pan-border) !important;
+  color: var(--pan-text-main) !important;
+  transition: var(--pan-transition) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 0 !important;
+}
+
+.verify-code-row .verify-btn:hover:not(:disabled) {
+  border-color: var(--pan-primary) !important;
+  background-color: rgba(16, 185, 129, 0.1) !important;
+}
+
+.verify-code-row .verify-btn:disabled {
+  background-color: rgba(255, 255, 255, 0.02) !important;
+  color: var(--pan-text-muted) !important;
+}
+
+.submit-btn {
+  width: 100% !important;
+  height: 48px !important;
+  font-size: 15px !important;
+  font-weight: 600 !important;
+  border-radius: var(--pan-radius-sm) !important;
+  background: var(--pan-primary) !important;
+  border: none !important;
+  color: #000000 !important;
+  box-shadow: none !important;
+  margin-top: 12px !important;
+}
+
+.submit-btn:hover {
+  background: var(--pan-primary-hover) !important;
+  transform: translateY(-1px) !important;
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3) !important;
 }
 
 html,
@@ -181,6 +259,7 @@ body {
   border: 1px solid var(--pan-border) !important;
   box-shadow: none !important;
   color: var(--pan-text-main) !important;
+  height: 48px !important;
 }
 
 .el-dialog .el-input__wrapper:hover,

@@ -401,17 +401,16 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, watch, nextTick, computed } from 'vue'
+import { ref, onMounted, watch, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { 
   Upload, FolderAdd, FolderOpened, Document, 
-  Star, StarFilled, Download, More, Edit, Rank, Share, Delete, Link, Folder, RefreshLeft, Monitor,
-  Menu, Grid, Picture, VideoPlay, Notebook, Paperclip, Film, Headset, Monitor as MonitorIcon, Box,
+  Star, StarFilled, Download, More, Edit, Rank, Share, Delete, Link, Folder, RefreshLeft,
+  Menu, Grid, Picture, VideoPlay, Notebook, Box, Headset,
   ArrowRight, FullScreen, Aim
 } from '@element-plus/icons-vue'
 import request from '../utils/request'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import * as XLSX from 'xlsx'
 import FilePreview from '../components/FilePreview/FilePreview.vue'
 
 const props = defineProps<{
@@ -797,11 +796,13 @@ const handleBreadcrumbClick = (index: number) => {
     const targetItem = pathStack.value[index]
     const newPathStack = pathStack.value.slice(0, index + 1)
     
-    router.push({
-      path: route.path,
-      query: { ...route.query, folderId: targetItem.id },
-      state: { pathStack: JSON.parse(JSON.stringify(newPathStack)) }
-    })
+    if (targetItem) {
+      router.push({
+        path: route.path,
+        query: { ...route.query, folderId: targetItem.id },
+        state: { pathStack: JSON.parse(JSON.stringify(newPathStack)) }
+      })
+    }
   }
 }
 

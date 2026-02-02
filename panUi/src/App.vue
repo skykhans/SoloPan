@@ -59,7 +59,9 @@
           </span>
           <template #dropdown>
             <el-dropdown-menu>
-              <el-dropdown-item @click="logout">退出登录</el-dropdown-item>
+              <el-dropdown-item @click="showProfileDialog = true">个人中心</el-dropdown-item>
+              <el-dropdown-item @click="showPasswordDialog = true">修改密码</el-dropdown-item>
+              <el-dropdown-item divided @click="logout">退出登录</el-dropdown-item>
             </el-dropdown-menu>
           </template>
         </el-dropdown>
@@ -72,6 +74,55 @@
       </div>
       <router-view />
     </div>
+
+    <!-- 个人中心弹窗 -->
+    <el-dialog v-model="showProfileDialog" title="个人中心" width="400px" append-to-body>
+      <el-form :model="profileForm" label-width="70px" style="padding: 10px 20px">
+        <el-form-item label="头像">
+          <div class="profile-avatar-setup">
+            <div class="user-avatar big">{{ profileForm.username?.charAt(0).toUpperCase() }}</div>
+            <p class="avatar-tip">系统根据用户名自动生成</p>
+          </div>
+        </el-form-item>
+        <el-form-item label="用户名">
+          <el-input v-model="profileForm.username" disabled />
+        </el-form-item>
+        <el-form-item label="手机号" required>
+          <el-input v-model="profileForm.phone" placeholder="请输入手机号" />
+        </el-form-item>
+        <el-form-item label="邮箱" required>
+          <el-input v-model="profileForm.email" placeholder="请输入邮箱" />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <div class="dialog-footer">
+          <el-button @click="showProfileDialog = false">取消</el-button>
+          <el-button type="primary" @click="updateProfile" :loading="updating">保存修改</el-button>
+        </div>
+      </template>
+    </el-dialog>
+
+    <!-- 修改密码弹窗 -->
+    <el-dialog v-model="showPasswordDialog" title="修改密码" width="400px" append-to-body>
+      <el-form :model="passwordForm" label-width="80px" style="padding: 10px 20px">
+        <el-form-item label="原密码">
+          <el-input v-model="passwordForm.oldPassword" type="password" show-password placeholder="请输入原密码" />
+        </el-form-item>
+        <el-form-item label="新密码">
+          <el-input v-model="passwordForm.newPassword" type="password" show-password placeholder="请输入新密码" />
+          <div class="input-tip">密码至少8位，需包含字母和数字</div>
+        </el-form-item>
+        <el-form-item label="确认密码">
+          <el-input v-model="passwordForm.confirmPassword" type="password" show-password placeholder="请再次输入新密码" />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <div class="dialog-footer">
+          <el-button @click="showPasswordDialog = false">取消</el-button>
+          <el-button type="primary" @click="changePassword" :loading="updating">确认修改</el-button>
+        </div>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -79,9 +130,15 @@
 import { computed, ref, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import request from './utils/request'
-import { 
-  Upload, FolderAdd, FolderOpened, Document, 
-  Star, StarFilled, Download, More, Edit, Rank, Share, Delete, Link, Folder, RefreshLeft, Monitor, ArrowDown, Expand, Fold
+import {
+  FolderOpened,
+  Star,
+  Share,
+  Delete,
+  Monitor,
+  ArrowDown,
+  Expand,
+  Fold
 } from '@element-plus/icons-vue'
 
 const route = useRoute()
@@ -91,6 +148,31 @@ const usedSpace = ref(0)
 const totalSpace = ref(1024 * 1024 * 1024) // 1GB 默认
 const isAdmin = ref(false)
 const isCollapse = ref(false)
+const showProfileDialog = ref(false)
+const showPasswordDialog = ref(false)
+const updating = ref(false)
+
+const profileForm = ref({
+  username: '',
+  phone: '',
+  email: '',
+  avatar: ''
+})
+
+const passwordForm = ref({
+  oldPassword: '',
+  newPassword: '',
+  confirmPassword: ''
+})
+
+// 校验工具函数
+const validateEmail = (email: string) => /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(email)
+const validatePhone = (phone: string) => /^1[3-9]\d{9}$/.test(phone)
+const validatePassword = (pwd: string) => {
+  if (pwd.length < 8) return '密码长度至少为 8 位'
+  if (!/[a-zA-Z]/.test(pwd) || !/[0-9]/.test(pwd)) return '密码必须包含字母和数字'
+  return null
+}
 
 const showSidebar = computed(() => {
   return route.name !== 'Login' && route.name !== 'Share'
@@ -102,10 +184,6 @@ const toggleSidebar = () => {
 
 const handleMenuClick = (path: string) => {
   if (path === '/files' && route.path === '/files') {
-    // 如果已经在 /files 页面，再次点击则通过 EventBus 或 Query 变化来触发刷新
-    // 这里我们可以简单地添加一个时间戳 query 参数来触发组件更新，
-    // 或者依赖 FileList.vue 中对 query 的监听（如果后续实现了）
-    // 目前最简单的办法是利用 query
     router.push({ path: '/files', query: { t: Date.now() } })
   }
 }
@@ -115,8 +193,6 @@ const activeMenu = computed(() => route.path)
 const storageUsage = computed(() => {
   return Math.min(Math.round((usedSpace.value / totalSpace.value) * 100), 100)
 })
-
-const storageFormat = (percentage: number) => (percentage === 100 ? 'Full' : `${percentage}%`)
 
 const usedSpaceStr = computed(() => formatSize(usedSpace.value))
 const totalSpaceStr = computed(() => formatSize(totalSpace.value))
@@ -136,16 +212,78 @@ const logout = () => {
 }
 
 const fetchUserInfo = async () => {
-  if (!showSidebar.value) return
+  const token = localStorage.getItem('token')
+  if (!showSidebar.value || !token) return
+  
   try {
     const res: any = await request.get('/user/info')
-    // 兼容后端可能返回的不同大小写 (UserName vs username vs userName)
     username.value = res.userName || res.username || res.UserName || '用户'
     usedSpace.value = res.usedSpace
     totalSpace.value = res.totalSpace
     isAdmin.value = res.isAdmin
+    
+    // 同步到个人中心表单
+    profileForm.value.username = username.value
+    profileForm.value.phone = res.phone || ''
+    profileForm.value.email = res.email || ''
+    profileForm.value.avatar = res.avatar || ''
   } catch (error) {
     console.error(error)
+  }
+}
+
+const updateProfile = async () => {
+  if (profileForm.value.email && !validateEmail(profileForm.value.email)) {
+    import('element-plus').then(({ ElMessage }) => ElMessage.warning('请输入有效的邮箱地址'))
+    return
+  }
+  if (profileForm.value.phone && !validatePhone(profileForm.value.phone)) {
+    import('element-plus').then(({ ElMessage }) => ElMessage.warning('请输入有效的手机号'))
+    return
+  }
+
+  updating.value = true
+  try {
+    await request.post('/user/update-profile', {
+      email: profileForm.value.email,
+      phone: profileForm.value.phone,
+      avatar: profileForm.value.avatar
+    })
+    import('element-plus').then(({ ElMessage }) => ElMessage.success('资料更新成功'))
+    showProfileDialog.value = false
+    fetchUserInfo()
+  } catch (error) {
+    console.error(error)
+  } finally {
+    updating.value = false
+  }
+}
+
+const changePassword = async () => {
+  const pwdError = validatePassword(passwordForm.value.newPassword)
+  if (pwdError) {
+    import('element-plus').then(({ ElMessage }) => ElMessage.warning(pwdError))
+    return
+  }
+
+  if (passwordForm.value.newPassword !== passwordForm.value.confirmPassword) {
+    import('element-plus').then(({ ElMessage }) => ElMessage.warning('两次输入的新密码不一致'))
+    return
+  }
+  
+  updating.value = true
+  try {
+    await request.post('/user/change-password', {
+      oldPassword: passwordForm.value.oldPassword,
+      newPassword: passwordForm.value.newPassword
+    })
+    import('element-plus').then(({ ElMessage }) => ElMessage.success('密码修改成功，请重新登录'))
+    showPasswordDialog.value = false
+    logout()
+  } catch (error) {
+    console.error(error)
+  } finally {
+    updating.value = false
   }
 }
 
@@ -491,5 +629,33 @@ onMounted(() => {
   &.full-screen > :not(.collapse-btn) {
     padding: 0;
   }
+}
+
+.profile-avatar-setup {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  padding: 10px 0;
+
+  .user-avatar.big {
+    width: 64px;
+    height: 64px;
+    font-size: 24px;
+    margin-bottom: 8px;
+  }
+
+  .avatar-tip {
+    font-size: 12px;
+    color: var(--pan-text-muted);
+    margin: 0;
+  }
+}
+
+.dialog-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  padding-top: 10px;
 }
 </style>

@@ -128,15 +128,18 @@ onMounted(fetchShares)
   padding: 0;
   
   .header-actions {
-    margin-bottom: 24px;
     display: flex;
     justify-content: space-between;
     align-items: center;
+    padding: 0 20px 0 50px; /* Match FileList */
+    border-bottom: 1px solid var(--pan-border);
+    height: 60px; /* Fixed height for stability */
+    margin-bottom: 20px;
 
     h2 {
       margin: 0;
-      font-size: 24px;
-      font-weight: 700;
+      font-size: 14px; /* Match breadcrumb size (approx 13-14px) */
+      font-weight: 600; /* Match breadcrumb weight */
       color: var(--pan-text-main);
     }
   }

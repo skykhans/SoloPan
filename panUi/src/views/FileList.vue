@@ -1027,15 +1027,15 @@ onMounted(() => {
 }
 
 .action-bar {
-  margin-bottom: 24px;
   display: flex;
   justify-content: space-between;
   align-items: center;
   gap: 20px;
   flex-wrap: nowrap;
-  padding: 0 4px;
+  padding: 0 20px 0 50px; /* Left padding for toggle button */
   border-bottom: 1px solid var(--pan-border);
-  padding-bottom: 16px;
+  height: 60px; /* Fixed height for stability */
+  margin-bottom: 20px;
 
   .breadcrumb {
     display: flex;

@@ -459,7 +459,7 @@ onMounted(() => {
   .collapse-btn {
     position: absolute;
     left: 20px;
-    top: 13px;
+    top: 10px; /* Center in 60px header */
     z-index: 1000;
     cursor: pointer;
     color: var(--pan-text-muted);
@@ -468,23 +468,18 @@ onMounted(() => {
     align-items: center;
     padding: 8px;
     border-radius: var(--pan-radius-sm);
-    background: rgba(255, 255, 255, 0.02);
-    border: 1px solid var(--pan-border);
+    background: transparent; /* Remove background to blend in */
+    border: 1px solid transparent; /* Remove border */
 
     &:hover {
       color: var(--pan-text-main);
       background-color: rgba(255, 255, 255, 0.05);
-      border-color: var(--pan-border-strong);
     }
   }
 
-  /* We need a header-like area to keep the button consistent */
+  /* Remove the spacer */
   &.has-sidebar::before {
-    content: '';
-    height: 64px;
-    background: transparent;
-    width: 100%;
-    pointer-events: none;
+    display: none;
   }
 
   & > :not(.collapse-btn) {

@@ -309,150 +309,144 @@ const handleSubmit = async () => {
 <style scoped lang="scss">
 .login-container {
   height: 100vh;
+  width: 100vw;
   display: flex;
   flex-direction: column;
   justify-content: center;
   align-items: center;
   background-color: var(--pan-bg);
+  position: relative;
+  overflow: hidden;
+
+  /* Decorative Background Elements */
+  &::before, &::after {
+    content: '';
+    position: absolute;
+    width: 400px;
+    height: 400px;
+    background-color: var(--pan-primary);
+    filter: blur(150px);
+    opacity: 0.08;
+    border-radius: 50%;
+    z-index: 0;
+  }
+  
+  &::before { top: -100px; left: -100px; }
+  &::after { bottom: -100px; right: -100px; }
   
   .brand {
     text-align: center;
     margin-bottom: 40px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
+    z-index: 10;
     
     .logo-icon {
-      width: 64px;
-      height: 64px;
+      width: 56px;
+      height: 56px;
       color: var(--pan-primary);
-      margin-bottom: 16px;
-      filter: drop-shadow(0 0 20px var(--pan-primary-glow));
+      margin: 0 auto 16px;
+      filter: drop-shadow(0 0 15px rgba(16, 185, 129, 0.4));
       
-      svg {
-        width: 100%;
-        height: 100%;
-      }
+      svg { width: 100%; height: 100%; }
     }
     
-    h1.logo-text {
-      font-size: 36px;
+    .logo-text {
+      font-size: 32px;
       font-weight: 800;
-      color: var(--pan-text-main);
-      margin: 0 0 8px;
-      letter-spacing: -1.5px;
+      letter-spacing: -0.04em;
+      margin-bottom: 12px;
       background: linear-gradient(135deg, #ffffff 0%, var(--pan-primary) 100%);
-      background-clip: text;
       -webkit-background-clip: text;
+      background-clip: text;
       -webkit-text-fill-color: transparent;
     }
     
-    p {
-      color: var(--pan-text-muted);
-      font-size: 16px;
-      margin: 0;
-    }
+    p { color: var(--pan-text-muted); font-size: 15px; font-weight: 500; }
   }
 
   .login-box {
     width: 420px;
-    padding: 48px;
-    background: rgba(20, 20, 20, 0.4);
-    backdrop-filter: var(--pan-glass-blur);
+    padding: 40px;
+    background: rgba(255, 255, 255, 0.015);
+    backdrop-filter: blur(20px);
+    border: 1px solid var(--pan-border-strong);
     border-radius: var(--pan-radius-lg);
-    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
-    border: 1px solid var(--pan-border);
+    box-shadow: 0 40px 100px -20px rgba(0, 0, 0, 0.8);
+    position: relative;
+    z-index: 10;
+    animation: slideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1);
 
     .box-header {
-      margin-bottom: 32px;
       text-align: center;
-      
-      h2 {
-        font-size: 26px;
-        font-weight: 700;
-        color: var(--pan-text-main);
-        margin: 0 0 8px;
-      }
-      
-      p {
-        font-size: 14px;
-        color: var(--pan-text-muted);
-        margin: 0;
-      }
+      margin-bottom: 32px;
+      h2 { font-size: 24px; font-weight: 700; color: var(--pan-text-main); margin-bottom: 8px; }
+      p { font-size: 14px; color: var(--pan-text-muted); }
     }
 
-    .el-form-item {
-      margin-bottom: 24px;
+    .el-form-item { margin-bottom: 20px; }
+    
+    .input-tip { font-size: 11px; color: var(--pan-text-muted); margin-top: 4px; font-weight: 500; }
+    
+    .submit-btn {
+      width: 100%;
+      height: 48px !important;
+      margin-top: 12px;
+      font-size: 15px !important;
+      font-weight: 700 !important;
+      letter-spacing: 0.02em;
     }
 
-    :deep(.el-input__wrapper) {
-      background-color: rgba(255, 255, 255, 0.03) !important;
-      border: 1px solid var(--pan-border) !important;
-      box-shadow: none !important;
-      height: 48px;
-      
-      &.is-focus {
-        border-color: var(--pan-primary) !important;
-        box-shadow: 0 0 10px var(--pan-primary-glow) !important;
-      }
-    }
-  }
-
-  .login-box {
     .form-actions {
       display: flex;
       justify-content: space-between;
-      align-items: center;
       margin-top: 24px;
-      padding: 0 4px;
-
+      font-size: 13px;
+      
       .toggle-mode {
-        font-size: 14px;
         color: var(--pan-text-body);
         cursor: pointer;
-        font-weight: 500;
+        font-weight: 600;
         transition: var(--pan-transition);
-        margin: 0;
-        
-        &:hover {
-          color: var(--pan-primary);
-        }
+        &:hover { color: var(--pan-primary); }
       }
 
       .forgot-pwd {
-        font-size: 14px;
         color: var(--pan-text-muted);
         cursor: pointer;
         transition: var(--pan-transition);
-
-        &:hover {
-          color: var(--pan-primary);
-        }
+        &:hover { color: var(--pan-primary); }
       }
     }
   }
 
   .footer-links {
     margin-top: 60px;
-    font-size: 13px;
-    color: var(--pan-text-muted);
     display: flex;
     gap: 12px;
-    align-items: center;
+    font-size: 12px;
+    color: var(--pan-text-muted);
+    font-weight: 500;
+    z-index: 10;
     
-    span {
+    span:not(.divider) {
       cursor: pointer;
-      &:hover {
-        color: var(--pan-text-body);
-      }
-    }
-    
-    .divider {
-      cursor: default;
-      &:hover {
-        color: var(--pan-text-muted);
-      }
+      &:hover { color: var(--pan-text-body); }
     }
   }
+
+  .verify-code-row {
+    display: flex;
+    gap: 12px;
+    .verify-btn { width: 120px; flex-shrink: 0; }
+  }
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+:deep(.el-dialog) {
+  .submit-btn { margin-top: 16px; }
 }
 </style>
+

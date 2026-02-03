@@ -2,149 +2,52 @@
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
   --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
 
-  /* Trae Brand Palette */
+  /* Modern Dark Theme - Black & Emerald Green */
   --pan-primary: #10b981;
-  /* Trae Green */
-  --pan-primary-hover: #059669;
+  --pan-primary-light: #34d399;
+  --pan-primary-dim: rgba(16, 185, 129, 0.1);
+  --pan-primary-glow: 0 0 12px rgba(16, 185, 129, 0.3);
+
   --pan-bg: #000000;
+  --pan-surface-elevated: #09090b;
+  --pan-surface-card: #0c0c0e;
   --pan-sidebar-bg: #000000;
-  --pan-card-bg: #000000;
+
   --pan-text-main: #ffffff;
   --pan-text-body: #a1a1aa;
+  /* Zinc 400 */
   --pan-text-muted: #52525b;
-  --pan-border: #1a1a1a;
-  --pan-border-strong: #262626;
+  /* Zinc 600 */
 
-  /* Trae-style Design Tokens */
-  --pan-radius-xs: 2px;
+  --pan-border: #1a1a1b;
+  --pan-border-strong: #27272a;
+
   --pan-radius-sm: 4px;
-  --pan-radius-md: 4px;
-  --pan-radius-lg: 4px;
-  --pan-transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  --pan-radius-md: 8px;
+  --pan-radius-lg: 12px;
+
+  --pan-transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* Element Plus Variable Overrides */
+  --el-color-primary: var(--pan-primary) !important;
+  --el-bg-color: var(--pan-bg) !important;
+  --el-bg-color-overlay: var(--pan-surface-elevated) !important;
+  --el-border-color: var(--pan-border) !important;
+  --el-border-color-light: var(--pan-border) !important;
+  --el-border-color-lighter: #121214 !important;
+  --el-text-color-primary: var(--pan-text-main) !important;
+  --el-text-color-regular: var(--pan-text-body) !important;
+  --el-text-color-placeholder: var(--pan-text-muted) !important;
+  --el-fill-color-blank: transparent !important;
+  --el-mask-color: rgba(0, 0, 0, 0.7) !important;
 }
 
-/* Tooltip & Popper Dark Mode Refinement */
-.el-popper.is-dark {
-  background: #18181b !important;
-  border: 1px solid #3f3f46 !important;
-  /* Stone 700 for better visibility */
-  color: #ffffff !important;
-  font-size: 12px !important;
-  font-weight: 500 !important;
-  padding: 6px 12px !important;
-  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.6) !important;
-}
-
-.el-popper.is-dark .el-popper__arrow::before {
-  background: #18181b !important;
-  border: 1px solid #3f3f46 !important;
-}
-
-/* Dropdown Menu Refinement */
-.el-dropdown__menu {
-  background-color: #0c0c0e !important;
-  border: 1px solid #262626 !important;
-  padding: 4px !important;
-  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5) !important;
-}
-
-.el-dropdown-menu__item {
-  color: #a1a1aa !important;
-  border-radius: 4px !important;
-  margin: 2px 0 !important;
-  font-size: 13px !important;
-  padding: 8px 12px !important;
-}
-
-.el-dropdown-menu__item:hover {
-  background-color: rgba(255, 255, 255, 0.05) !important;
-  color: #ffffff !important;
-}
-
-.el-dropdown-menu__item.is-disabled {
-  color: #3f3f46 !important;
-}
-
-.el-dropdown-menu__item--divided {
-  border-top-color: #1a1a1c !important;
-}
-
-.input-tip {
-  font-size: 12px;
-  color: var(--pan-text-muted);
-  margin-top: 4px;
-  line-height: 1.2;
-}
-
-/* 修复浏览器自动填充时的背景色和文字颜色 */
-input:-webkit-autofill,
-input:-webkit-autofill:hover,
-input:-webkit-autofill:focus,
-input:-webkit-autofill:active {
-  -webkit-transition-delay: 99999s;
-  -webkit-transition: color 99999s ease-out, background-color 99999s ease-out;
-  transition-delay: 99999s;
-  transition: color 99999s ease-out, background-color 99999s ease-out;
-  -webkit-text-fill-color: var(--pan-text-main) !important;
-  caret-color: var(--pan-text-main);
-}
-
+/* ===============================
+   Global Resets & Normalization
+   =============================== */
 * {
   box-sizing: border-box;
-}
-
-.verify-code-row {
-  display: flex !important;
-  gap: 12px !important;
-  width: 100% !important;
-  align-items: center !important;
-}
-
-.verify-code-row .el-input {
-  flex: 1 !important;
-}
-
-.verify-code-row .verify-btn {
-  width: 120px !important;
-  height: 48px !important;
-  margin: 0 !important;
-  background-color: rgba(255, 255, 255, 0.05) !important;
-  border: 1px solid var(--pan-border) !important;
-  color: var(--pan-text-main) !important;
-  transition: var(--pan-transition) !important;
-  display: flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  padding: 0 !important;
-}
-
-.verify-code-row .verify-btn:hover:not(:disabled) {
-  border-color: var(--pan-primary) !important;
-  background-color: rgba(16, 185, 129, 0.1) !important;
-}
-
-.verify-code-row .verify-btn:disabled {
-  background-color: rgba(255, 255, 255, 0.02) !important;
-  color: var(--pan-text-muted) !important;
-}
-
-.submit-btn {
-  width: 100% !important;
-  height: 48px !important;
-  font-size: 15px !important;
-  font-weight: 600 !important;
-  border-radius: var(--pan-radius-sm) !important;
-  background: var(--pan-primary) !important;
-  border: none !important;
-  color: #000000 !important;
-  box-shadow: none !important;
-  margin-top: 12px !important;
-}
-
-.submit-btn:hover {
-  background: var(--pan-primary-hover) !important;
-  transform: translateY(-1px) !important;
-  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3) !important;
+  -webkit-tap-highlight-color: transparent;
 }
 
 html,
@@ -154,491 +57,242 @@ body {
   width: 100vw;
   height: 100vh;
   overflow: hidden;
-  background-color: #000000 !important;
+  background-color: var(--pan-bg) !important;
   color: var(--pan-text-body);
-  font-size: 13px;
+  font-size: 14px;
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-/* 
-   GLOBAL ELEMENT PLUS DARK OVERRIDES
-   Force variables that usually default to white
-*/
-:root {
-  --el-bg-color: #000000 !important;
-  --el-bg-color-overlay: #0a0a0a !important;
-  --el-fill-color-blank: #000000 !important;
-  --el-fill-color-light: #0a0a0a !important;
-  --el-fill-color-lighter: #050505 !important;
-  --el-fill-color-extra-light: #020202 !important;
-  --el-mask-color: rgba(0, 0, 0, 0.8) !important;
+/* Scrollbar Modernization */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
 }
 
-/* Fix for Element Plus Table bottom border and white lines */
-.el-table__inner-wrapper::before,
-.el-table__inner-wrapper::after,
-.el-table::before,
-.el-table::after,
-.el-table__fixed::before,
-.el-table__fixed-right::before {
-  display: none !important;
-  background-color: transparent !important;
-  height: 0 !important;
-  width: 0 !important;
+::-webkit-scrollbar-track {
+  background: transparent;
 }
 
-/* 
-   SUPER AGGRESSIVE FIX FOR WHITE FLICKER 
-   Target every possible internal wrapper of Element Plus table
-*/
-.el-table,
-.el-table__inner-wrapper,
-.el-table__header-wrapper,
-.el-table__body-wrapper,
-.el-table__footer-wrapper,
-.el-table__fixed,
-.el-table__fixed-right,
-.el-table__empty-block,
-.el-table__append-wrapper,
-.el-table tr,
-.el-table th,
-.el-table td,
-.el-table__cell,
-.el-table__body,
-.el-table__header,
-.el-table__row {
-  background-color: #000000 !important;
-  color: var(--pan-text-body) !important;
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
 }
 
-/* Fix for striped rows and hover states */
-.el-table--striped .el-table__row--striped td.el-table__cell {
-  background-color: #050505 !important;
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.15);
 }
 
-.el-table__row:hover>td.el-table__cell {
-  background-color: #0a0a0a !important;
-}
+/* ===============================
+   Element Plus Component Polish
+   =============================== */
 
-/* Prevent white background during v-loading mount */
-[v-loading] {
-  background-color: #000000 !important;
-}
-
-.el-loading-mask {
-  background-color: #000000 !important;
-  transition: opacity 0.2s ease-in-out;
-  z-index: 2000 !important;
-}
-
-.el-loading-spinner {
-  background-color: transparent !important;
-}
-
-/* Ensure the empty block is also black */
-.el-table__empty-block {
-  background-color: #000000 !important;
-}
-
-.el-table__border-left-patch,
-.el-table__fixed-right-patch,
-.el-table__fixed-column--right::after,
-.el-table__fixed-column--left::after {
-  display: none !important;
-  background-color: transparent !important;
-}
-
-.el-table--border::after,
-.el-table--group::after,
-.el-table::before {
-  background-color: transparent !important;
-}
-
-/* Global Dark Dialog Styles */
-.el-dialog {
-  background-color: #050505 !important;
-  border: 1px solid var(--pan-border) !important;
-  border-radius: var(--pan-radius-lg) !important;
-  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5) !important;
-  overflow: hidden;
-}
-
-.el-dialog__header {
-  margin: 0 !important;
-  padding: 16px 20px !important;
-  background-color: #050505 !important;
-  border-bottom: 1px solid var(--pan-border) !important;
-}
-
-.el-dialog__title {
-  color: var(--pan-text-main) !important;
-  font-size: 15px !important;
-  font-weight: 600 !important;
-}
-
-.el-dialog__body {
-  background-color: #050505 !important;
-  color: var(--pan-text-body) !important;
-  padding: 24px !important;
-}
-
-.el-dialog__footer {
-  background-color: #050505 !important;
-  border-top: 1px solid var(--pan-border) !important;
-  padding: 16px 20px !important;
-}
-
-.el-dialog__headerbtn .el-dialog__close {
-  color: var(--pan-text-muted) !important;
-  font-size: 18px !important;
-  transition: var(--pan-transition);
-}
-
-.el-dialog__headerbtn .el-dialog__close:hover {
-  color: var(--pan-text-main) !important;
-}
-
-/* Fix Input styles in Dialogs */
-.el-dialog .el-input__wrapper,
-.el-dialog .el-textarea__inner {
-  background-color: rgba(255, 255, 255, 0.03) !important;
-  border: 1px solid var(--pan-border) !important;
-  box-shadow: none !important;
-  color: var(--pan-text-main) !important;
-  height: 48px !important;
-}
-
-.el-dialog .el-input__wrapper:hover,
-.el-dialog .el-textarea__inner:hover {
-  border-color: var(--pan-text-muted) !important;
-}
-
-.el-dialog .el-input__wrapper.is-focus,
-.el-dialog .el-textarea__inner:focus {
-  border-color: var(--pan-primary) !important;
-  box-shadow: 0 0 0 1px var(--pan-primary) !important;
-}
-
-/* Message Box Dark Mode */
-.el-message-box {
-  background-color: #050505 !important;
-  border: 1px solid var(--pan-border) !important;
-  border-radius: var(--pan-radius-lg) !important;
-}
-
-.el-message-box__title {
-  color: var(--pan-text-main) !important;
-}
-
-.el-message-box__message {
-  color: var(--pan-text-body) !important;
-}
-
-.el-message-box__content {
-  color: var(--pan-text-body) !important;
-}
-
-/* Fix Preview Dialog Header Override */
-.preview-dialog .el-dialog__header {
-  padding: 0 !important;
-  display: flex !important;
-  align-items: center !important;
-}
-
-.preview-dialog .el-dialog__body {
-  padding: 0 !important;
-}
-
-/* Ensure table has no white background during mount */
-.el-table {
-  background-color: #000000 !important;
-}
-
-.el-table__body,
-.el-table__header,
-.el-table__footer {
-  background-color: #000000 !important;
-}
-
-/* Hide table before it is fully styled by Element Plus */
-.el-table:not(.el-table--layout-fixed) {
-  background-color: #000000 !important;
-}
-
-/* Extra aggressive cleanup for table parts */
-.el-table__inner-wrapper,
-.el-table__header-wrapper,
-.el-table__body-wrapper,
-.el-table__append-wrapper,
-.el-table__empty-block {
-  background-color: #000000 !important;
-}
-
-/* Fix for row background during transition/loading */
-.el-table tr,
-.el-table th,
-.el-table td {
-  background-color: #000000 !important;
-}
-
-/* Ensure row border is consistent and not white */
-.el-table td.el-table__cell {
-  border-bottom: 1px solid var(--pan-border) !important;
-}
-
-/* Specifically target the last row to ensure no extra line appears */
-.el-table__row:last-child td.el-table__cell {
-  border-bottom: 1px solid var(--pan-border) !important;
-}
-
-/* Fix for the "big white border" at the very bottom of the table inner wrapper */
-.el-table__inner-wrapper {
-  border-bottom: none !important;
-}
-
-/* Element Plus Table Header sticky background */
-.el-table th.el-table__cell.is-leaf {
-  border-bottom: 1px solid var(--pan-border) !important;
-}
-
-/* Dark mode for ElEmpty */
-.el-empty__description p {
-  color: var(--pan-text-muted) !important;
-}
-
-.el-empty__image {
-  opacity: 0.6;
-  filter: invert(1) hue-rotate(180deg);
-}
-
-.el-table__empty-text {
-  color: var(--pan-text-muted) !important;
-}
-
+/* Buttons */
 .el-button {
   border-radius: var(--pan-radius-sm) !important;
   font-weight: 600 !important;
-  font-size: 12px !important;
-  height: 32px !important;
-  padding: 0 16px !important;
   transition: var(--pan-transition) !important;
+  height: 36px !important;
+  padding: 0 16px !important;
   border: 1px solid var(--pan-border-strong) !important;
-  background: #000000 !important;
-  /* Force black background for default buttons */
+  background-color: transparent !important;
   color: var(--pan-text-main) !important;
-  text-transform: none !important;
+}
+
+.el-button:hover:not(.el-button--primary) {
+  border-color: var(--pan-primary) !important;
+  background-color: rgba(16, 185, 129, 0.05) !important;
+  color: var(--pan-primary) !important;
 }
 
 .el-button--primary {
-  background: var(--pan-primary) !important;
+  background-color: var(--pan-primary) !important;
   border: none !important;
   color: #000000 !important;
 }
 
 .el-button--primary:hover {
-  background: var(--pan-primary-hover) !important;
+  background-color: var(--pan-primary-light) !important;
+  box-shadow: var(--pan-primary-glow) !important;
+  transform: translateY(-1px);
 }
 
-.el-button--danger:not(.is-link) {
-  background: #ef4444 !important;
-  border: none !important;
-  color: #ffffff !important;
-}
-
-/* Link and Text buttons should be transparent */
 .el-button.is-link,
-.el-button.is-text,
-.el-button.view-switch-btn,
-.el-button.view-switch-btn-grid {
-  background: transparent !important;
-  border: none !important;
-  padding: 4px 8px !important;
-  color: var(--pan-text-body) !important;
-  height: auto !important;
-  min-width: 0 !important;
-}
-
-.el-button.is-link:hover,
-.el-button.is-text:hover {
-  color: var(--pan-text-main) !important;
-  background: rgba(255, 255, 255, 0.05) !important;
-}
-
-/* Navigation Style: Base Reset */
-.el-menu {
-  background: transparent !important;
-  border: none !important;
-}
-
-/* Element Plus Global Table Overrides */
-.el-table,
-.el-table__inner-wrapper {
-  background-color: #000000 !important;
-}
-
-.el-table tr,
-.el-table th.el-table__cell,
-.el-table td.el-table__cell {
-  background-color: #000000 !important;
-}
-
-.el-table__row {
-  background-color: #000000 !important;
-}
-
-.el-table__row--striped td.el-table__cell {
-  background-color: rgba(255, 255, 255, 0.01) !important;
-}
-
-/* Fix for white background on table rows */
-.el-table th.el-table__cell {
-  background-color: #050505 !important;
-  border-bottom: 1px solid var(--pan-border) !important;
-}
-
-.el-table td.el-table__cell {
-  border-bottom: 1px solid var(--pan-border) !important;
-}
-
-/* Card and Dialog Overrides */
-.el-card {
-  background-color: #050505 !important;
-  border: 1px solid var(--pan-border) !important;
-  color: var(--pan-text-main) !important;
-  border-radius: var(--pan-radius-sm) !important;
-}
-
-.el-card__header {
-  border-bottom: 1px solid var(--pan-border) !important;
-  padding: 12px 20px !important;
-}
-
-.el-dialog {
-  background-color: #050505 !important;
-  border: 1px solid var(--pan-border) !important;
-  border-radius: var(--pan-radius-sm) !important;
-}
-
-.el-dialog__header {
-  margin-right: 0 !important;
-  border-bottom: 1px solid var(--pan-border) !important;
-}
-
-.el-dialog__title {
-  color: var(--pan-text-main) !important;
-  font-size: 16px !important;
-  font-weight: 700 !important;
-}
-
-/* Icon Alignment */
-.el-button .el-icon {
-  margin-right: 4px;
-  color: inherit !important;
-}
-
-.el-button--primary .el-icon {
-  color: #000000 !important;
-}
-
-/* Fix for icons not showing in link buttons */
-.el-button.is-link .el-icon,
-.el-button.is-text .el-icon {
-  margin-right: 0;
-  font-size: 16px;
-}
-
-/* Input Styles */
-.el-input__wrapper {
+.el-button.is-text {
   background-color: transparent !important;
-  box-shadow: 0 0 0 1px var(--pan-border) inset !important;
-  border-radius: var(--pan-radius-sm) !important;
+  border: none !important;
+  padding: 0 8px !important;
+}
+
+.el-button-group .el-button {
+  background-color: transparent !important;
+}
+
+/* Inputs */
+.el-input__wrapper,
+.el-textarea__inner {
+  background-color: rgba(255, 255, 255, 0.03) !important;
+  box-shadow: none !important;
+  border: 1px solid var(--pan-border) !important;
+  transition: var(--pan-transition) !important;
+}
+
+.el-input__wrapper:hover {
+  border-color: var(--pan-text-muted) !important;
+}
+
+.el-input__wrapper.is-focus {
+  border-color: var(--pan-primary) !important;
+  background-color: rgba(16, 185, 129, 0.02) !important;
 }
 
 .el-input__inner {
   color: var(--pan-text-main) !important;
+  font-size: 13px !important;
 }
 
-/* Pagination Overrides */
-.el-pagination {
-  --el-pagination-bg-color: transparent !important;
-  --el-pagination-button-bg-color: transparent !important;
-  --el-pagination-hover-color: var(--pan-primary) !important;
+/* Tables */
+.el-table {
+  --el-table-border-color: var(--pan-border) !important;
+  --el-table-header-bg-color: var(--pan-bg) !important;
+  --el-table-row-hover-bg-color: rgba(255, 255, 255, 0.02) !important;
+  background-color: transparent !important;
 }
 
-/* Mono class for JetBrains style data */
+.el-table__inner-wrapper::before {
+  display: none !important;
+}
+
+.el-table th.el-table__cell {
+  font-weight: 600 !important;
+  color: var(--pan-text-muted) !important;
+  font-size: 12px !important;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-bottom: 2px solid var(--pan-border) !important;
+}
+
+.el-table td.el-table__cell {
+  border-bottom: 1px solid var(--pan-border) !important;
+  padding: 12px 0 !important;
+}
+
+.el-table tr {
+  background-color: transparent !important;
+}
+
+/* Checkbox Style */
+.el-checkbox__inner {
+  background-color: transparent !important;
+  border: 1px solid var(--pan-border-strong) !important;
+}
+
+.el-checkbox__input.is-checked .el-checkbox__inner {
+  background-color: var(--pan-primary) !important;
+  border-color: var(--pan-primary) !important;
+}
+
+/* Dialogs */
+.el-dialog {
+  background-color: var(--pan-surface-elevated) !important;
+  border: 1px solid var(--pan-border-strong) !important;
+  border-radius: var(--pan-radius-lg) !important;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7) !important;
+  backdrop-filter: blur(8px);
+}
+
+.el-dialog__header {
+  padding: 20px 24px !important;
+  border-bottom: 1px solid var(--pan-border) !important;
+  margin-right: 0 !important;
+}
+
+.el-dialog__title {
+  font-size: 16px !important;
+  font-weight: 700 !important;
+  color: var(--pan-text-main) !important;
+}
+
+.el-dialog__body {
+  padding: 32px 24px !important;
+}
+
+/* Tooltips & Poppers */
+.el-popper {
+  --el-popper-bg-color: var(--pan-surface-elevated) !important;
+  --el-popper-border-color: var(--pan-border-strong) !important;
+  --el-popper-text-color: #ffffff !important;
+}
+
+.el-popper.is-dark,
+.el-popper.is-light {
+  background: var(--pan-surface-elevated) !important;
+  border: 1px solid var(--pan-border-strong) !important;
+  border-radius: var(--pan-radius-sm) !important;
+  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.5) !important;
+  color: #ffffff !important;
+}
+
+.el-popper .el-popper__arrow::before {
+  background: var(--pan-surface-elevated) !important;
+  border: 1px solid var(--pan-border-strong) !important;
+  box-sizing: border-box;
+}
+
+/* Fix for tooltip arrow border visibility */
+.el-popper[data-popper-placement^=top] .el-popper__arrow::before {
+  border-top: transparent !important;
+  border-left: transparent !important;
+}
+
+.el-popper[data-popper-placement^=bottom] .el-popper__arrow::before {
+  border-bottom: transparent !important;
+  border-right: transparent !important;
+}
+
+.el-popper[data-popper-placement^=left] .el-popper__arrow::before {
+  border-left: transparent !important;
+  border-bottom: transparent !important;
+}
+
+.el-popper[data-popper-placement^=right] .el-popper__arrow::before {
+  border-right: transparent !important;
+  border-top: transparent !important;
+}
+
+/* ===============================
+   Utility Classes
+   =============================== */
+.pan-card {
+  background-color: var(--pan-surface-card);
+  border: 1px solid var(--pan-border);
+  border-radius: var(--pan-radius-md);
+  transition: var(--pan-transition);
+}
+
+.pan-card:hover {
+  border-color: var(--pan-border-strong);
+}
+
 .mono {
-  font-family: var(--font-mono) !important;
-  font-variant-numeric: tabular-nums !important;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
 }
 
-/* Global Container Border */
-.main-content-border {
-  border-left: 1px solid var(--pan-border);
+.text-gradient {
+  background: linear-gradient(135deg, #ffffff 0%, var(--pan-primary) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
 }
 
-/* ========================
-   Custom Scrollbar Styles
-   ======================== */
-
-/* Webkit browsers (Chrome, Safari, Edge) */
-::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+/* Empty State Fix */
+.el-empty__image {
+  filter: grayscale(1) invert(1) brightness(0.8);
+  opacity: 0.3;
 }
 
-::-webkit-scrollbar-track {
-  background: transparent;
-  border-radius: 4px;
-}
-
-::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 4px;
-  transition: background 0.2s ease;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.2);
-}
-
-::-webkit-scrollbar-thumb:active {
-  background: rgba(255, 255, 255, 0.3);
-}
-
-::-webkit-scrollbar-corner {
-  background: transparent;
-}
-
-/* Firefox */
-* {
-  scrollbar-width: thin;
-  scrollbar-color: rgba(255, 255, 255, 0.1) transparent;
-}
-
-/* Element Plus table scrollbar override */
-.el-table__body-wrapper::-webkit-scrollbar,
-.el-scrollbar__wrap::-webkit-scrollbar,
-.table-container::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
-
-.el-table__body-wrapper::-webkit-scrollbar-thumb,
-.el-scrollbar__wrap::-webkit-scrollbar-thumb,
-.table-container::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.08);
-  border-radius: 3px;
-}
-
-.el-table__body-wrapper::-webkit-scrollbar-thumb:hover,
-.el-scrollbar__wrap::-webkit-scrollbar-thumb:hover,
-.table-container::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.15);
-}
-
-.el-table__body-wrapper::-webkit-scrollbar-track,
-.el-scrollbar__wrap::-webkit-scrollbar-track,
-.table-container::-webkit-scrollbar-track {
-  background: rgba(255, 255, 255, 0.02);
-  border-radius: 3px;
+.el-empty__description p {
+  color: var(--pan-text-muted) !important;
 }

@@ -72,7 +72,9 @@
       <div class="collapse-btn" v-if="showSidebar" @click="toggleSidebar">
         <el-icon :size="24"><component :is="isCollapse ? Expand : Fold" /></el-icon>
       </div>
-      <router-view />
+      <div class="view-container">
+        <router-view />
+      </div>
     </div>
 
     <!-- 个人中心弹窗 -->
@@ -305,95 +307,70 @@ onMounted(() => {
   height: 100vh;
   width: 100vw;
   overflow: hidden;
-  background-color: #000000;
+  background-color: var(--pan-bg);
 }
 
 .sidebar {
-    width: 200px; /* Slimmer sidebar like typical Trae toolbars */
-    background-color: var(--pan-sidebar-bg);
-    border-right: 1px solid var(--pan-border);
-    display: flex;
-    flex-direction: column;
-    padding: 16px 0;
-    transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    position: relative;
-    z-index: 100;
+  width: 220px;
+  background-color: var(--pan-sidebar-bg);
+  border-right: 1px solid var(--pan-border);
+  display: flex;
+  flex-direction: column;
+  padding: 20px 0;
+  transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  z-index: 100;
 
-    &.collapsed {
-      width: 60px;
-
-      .logo {
-        padding: 0;
-        justify-content: center;
-        margin-bottom: 24px;
-      }
-
-      .el-menu {
-        padding: 0 8px;
-        
-        :deep(.el-menu-item) {
-          padding: 0 !important;
-          display: flex;
-          justify-content: center;
-          padding-left: 0 !important;
-          
-          // 折叠时激活指示器保持可见
-          &.is-active::before {
-            left: 0;
-          }
-          
-          .el-icon {
-            margin: 0;
-          }
-        }
-      }
-
-      .user-profile {
-        padding: 12px 0;
-        justify-content: center;
-
-        .el-dropdown-link {
-          justify-content: center;
-          gap: 0;
-        }
-      }
-    }
+  &.collapsed {
+    width: 68px;
 
     .logo {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      padding: 0 16px;
-      margin-bottom: 24px;
-      font-size: 16px;
-      font-weight: 800;
-      color: var(--pan-text-main);
-      letter-spacing: -0.5px;
-      white-space: nowrap;
-      overflow: hidden;
-      
-      .logo-icon {
-        width: 24px;
-        height: 24px;
-        color: var(--pan-primary);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        flex-shrink: 0;
-        
-        svg {
-          width: 100%;
-          height: 100%;
-        }
-      }
+      padding: 0;
+      justify-content: center;
+      .logo-text { display: none; }
+    }
 
-      .logo-text {
-        background: linear-gradient(135deg, #ffffff 0%, var(--pan-primary) 100%);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        font-weight: 800;
+    .el-menu {
+      padding: 0 10px;
+      :deep(.el-menu-item) {
+        justify-content: center;
+        padding-left: 0 !important;
+        .el-icon { margin: 0; }
       }
     }
+
+    .storage-info { display: none; }
+    .user-profile {
+      padding: 12px 0;
+      justify-content: center;
+      .username-text, .el-icon--right { display: none; }
+    }
+  }
+
+  .logo {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 0 20px;
+    margin-bottom: 28px;
+    height: 32px;
+    
+    .logo-icon {
+      width: 26px;
+      height: 26px;
+      color: var(--pan-primary);
+      flex-shrink: 0;
+      filter: drop-shadow(0 0 8px rgba(16, 185, 129, 0.3));
+    }
+
+    .logo-text {
+      font-size: 17px;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      color: var(--pan-text-main);
+      white-space: nowrap;
+    }
+  }
 
   .el-menu {
     border-right: none;
@@ -402,156 +379,81 @@ onMounted(() => {
     padding: 0 12px;
 
     :deep(.el-menu-item) {
-      height: 42px;
-      line-height: 42px;
+      height: 44px;
       border-radius: var(--pan-radius-sm);
       margin-bottom: 4px;
       color: var(--pan-text-body);
-      font-size: 13px;
+      font-size: 13.5px;
       font-weight: 500;
-      position: relative;
-      transition: all 0.2s ease;
-      padding-left: 14px !important;
+      transition: var(--pan-transition);
       
-      // 左侧激活指示器
-      &::before {
-        content: '';
-        position: absolute;
-        left: 0;
-        top: 50%;
-        transform: translateY(-50%);
-        width: 3px;
-        height: 0;
-        background: var(--pan-primary);
-        border-radius: 0 2px 2px 0;
-        transition: height 0.2s ease;
+      .el-icon {
+        font-size: 18px;
+        margin-right: 10px;
+        color: var(--pan-text-muted);
       }
-      
+
       &:hover {
         background-color: rgba(255, 255, 255, 0.04);
         color: var(--pan-text-main);
-        
-        .el-icon {
-          color: var(--pan-primary);
-          transform: scale(1.05);
-        }
+        .el-icon { color: var(--pan-primary); }
       }
 
       &.is-active {
-        background: linear-gradient(90deg, rgba(16, 185, 129, 0.08) 0%, transparent 100%);
-        color: var(--pan-text-main);
-        font-weight: 600;
-        
-        &::before {
-          height: 20px;
-        }
-        
-        .el-icon {
-          color: var(--pan-primary);
-          filter: drop-shadow(0 0 6px rgba(16, 185, 129, 0.4));
-        }
-      }
-
-      white-space: nowrap;
-      overflow: hidden;
-
-      .el-icon {
-        font-size: 18px;
-        margin-right: 12px;
-        transition: all 0.2s ease;
-        color: var(--pan-text-muted);
+        background-color: var(--pan-primary-dim);
+        color: var(--pan-primary);
+        font-weight: 700;
+        .el-icon { color: var(--pan-primary); }
       }
     }
   }
 
   .storage-info {
     padding: 16px;
-    margin: 0 12px 16px;
+    margin: 16px 12px;
     background: rgba(255, 255, 255, 0.02);
     border: 1px solid var(--pan-border);
     border-radius: var(--pan-radius-md);
-    transition: var(--pan-transition);
-
-    &:hover {
-      background: rgba(255, 255, 255, 0.04);
-      border-color: var(--pan-border-strong);
-    }
 
     .storage-label {
       display: flex;
       justify-content: space-between;
-      align-items: center;
-      margin-bottom: 10px;
-      font-size: 12px;
-      color: var(--pan-text-body);
-      font-weight: 600;
-      white-space: nowrap;
-      overflow: hidden;
+      margin-bottom: 8px;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--pan-text-muted);
 
-      .percentage {
-        color: var(--pan-primary);
-        font-family: var(--font-mono);
-        font-size: 12px;
-      }
+      .percentage { color: var(--pan-primary); }
     }
     
     :deep(.el-progress) {
-      margin-bottom: 10px;
-
-      .el-progress-bar__outer {
-        background-color: rgba(255, 255, 255, 0.05) !important;
-        border-radius: 2px;
-      }
-      
-      .el-progress-bar__inner {
-        background: var(--pan-primary) !important;
-        border-radius: 2px;
-        transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);
-      }
+      margin-bottom: 8px;
+      .el-progress-bar__outer { background: rgba(255, 255, 255, 0.05) !important; }
     }
 
     .usage-text {
       font-size: 11px;
       color: var(--pan-text-muted);
-      margin: 0;
-      text-align: left;
       font-weight: 500;
-      letter-spacing: 0.01em;
-      white-space: nowrap;
-      overflow: hidden;
     }
   }
 
   .user-profile {
     padding: 12px 16px;
-    cursor: pointer;
     border-top: 1px solid var(--pan-border);
-    display: flex;
-    align-items: center;
-    transition: var(--pan-transition);
-    margin-top: 4px;
     
-    &:hover {
-      background: rgba(255, 255, 255, 0.03);
-    }
-
-    :deep(.el-dropdown) {
-      width: 100%;
-    }
-
     .el-dropdown-link {
       display: flex;
       align-items: center;
       gap: 10px;
-      color: var(--pan-text-main);
-      font-weight: 500;
-      font-size: 13px;
-      width: 100%;
+      cursor: pointer;
       outline: none;
       
       .user-avatar {
-        width: 24px;
-        height: 24px;
+        width: 28px;
+        height: 28px;
         background: var(--pan-primary);
         color: #000;
         border-radius: 4px;
@@ -560,102 +462,65 @@ onMounted(() => {
         justify-content: center;
         font-weight: 800;
         font-size: 12px;
-        flex-shrink: 0;
       }
 
       .username-text {
         flex: 1;
+        font-size: 13px;
+        font-weight: 600;
+        color: var(--pan-text-main);
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
-        text-align: left;
       }
-      
-      .collapsed-icon {
-        margin-left: auto;
-        font-size: 12px;
-        color: var(--pan-text-muted);
-        
-        &.is-collapse {
-          margin: 0;
-        }
-      }
+
+      .el-icon--right { color: var(--pan-text-muted); font-size: 12px; }
     }
   }
 }
 
 .main-content {
   flex: 1;
-  overflow: hidden;
-  position: relative;
   display: flex;
   flex-direction: column;
-  padding: 0;
-  background-color: #000000;
-  min-height: 0; /* Important for flex children */
+  background-color: var(--pan-bg);
+  min-width: 0;
 
   .collapse-btn {
-    position: absolute;
-    left: 20px;
-    top: 10px; /* Center in 60px header */
-    z-index: 1000;
-    cursor: pointer;
-    color: var(--pan-text-muted);
-    transition: var(--pan-transition);
+    padding: 16px 24px;
     display: flex;
     align-items: center;
-    padding: 8px;
-    border-radius: var(--pan-radius-sm);
-    background: transparent; /* Remove background to blend in */
-    border: 1px solid transparent; /* Remove border */
-
-    &:hover {
-      color: var(--pan-text-main);
-      background-color: rgba(255, 255, 255, 0.05);
-    }
+    color: var(--pan-text-muted);
+    cursor: pointer;
+    transition: var(--pan-transition);
+    
+    &:hover { color: var(--pan-text-main); }
   }
 
-  /* Remove the spacer */
-  &.has-sidebar::before {
-    display: none;
-  }
-
-  & > :not(.collapse-btn) {
+  .view-container {
     flex: 1;
-    padding: 0 24px 24px; /* Internal content padding */
-    overflow: auto;
+    padding: 0 24px 24px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
   }
 
-  &.full-screen > :not(.collapse-btn) {
-    padding: 0;
-  }
+  &.full-screen .view-container { padding: 0; }
 }
 
 .profile-avatar-setup {
   display: flex;
   flex-direction: column;
   align-items: center;
-  width: 100%;
-  padding: 10px 0;
-
+  padding: 12px 0;
   .user-avatar.big {
-    width: 64px;
-    height: 64px;
-    font-size: 24px;
-    margin-bottom: 8px;
+    width: 56px; height: 56px; font-size: 22px; margin-bottom: 12px;
+    background: var(--pan-primary); color: #000; border-radius: 8px;
+    display: flex; align-items: center; justify-content: center; font-weight: 800;
   }
-
-  .avatar-tip {
-    font-size: 12px;
-    color: var(--pan-text-muted);
-    margin: 0;
-  }
+  .avatar-tip { font-size: 12px; color: var(--pan-text-muted); }
 }
 
-.dialog-footer {
-  display: flex;
-  justify-content: flex-end;
-  gap: 12px;
-  padding-top: 10px;
-}
+.dialog-footer { display: flex; justify-content: flex-end; gap: 12px; }
 </style>
+

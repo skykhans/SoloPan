@@ -273,53 +273,62 @@ const getFileIcon = (name: string) => {
 <style scoped lang="scss">
 .share-page {
   height: 100vh;
+  width: 100vw;
   display: flex;
+  flex-direction: column;
   justify-content: center;
   align-items: center;
-  background-color: #000000;
-  flex-direction: column;
+  background-color: var(--pan-bg);
+  position: relative;
+  overflow: hidden;
+
+  /* Decorative Background Elements */
+  &::before, &::after {
+    content: '';
+    position: absolute;
+    width: 500px;
+    height: 500px;
+    background-color: var(--pan-primary);
+    filter: blur(180px);
+    opacity: 0.06;
+    border-radius: 50%;
+    z-index: 0;
+  }
+  &::before { top: -150px; left: -150px; }
+  &::after { bottom: -150px; right: -150px; }
 
   .top-bar {
     position: fixed;
     top: 0;
     left: 0;
     width: 100%;
-    height: 48px;
-    box-sizing: border-box;
-    background: #000000;
+    height: 60px;
+    background: rgba(0, 0, 0, 0.4);
+    backdrop-filter: blur(10px);
     border-bottom: 1px solid var(--pan-border);
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 0 24px;
+    padding: 0 40px;
     z-index: 100;
 
     .logo {
       display: flex;
       align-items: center;
       gap: 12px;
-      font-size: 15px;
-      font-weight: 800;
-      color: var(--pan-text-main);
-      
       .logo-icon {
-        width: 24px;
-        height: 24px;
+        width: 28px;
+        height: 28px;
         color: var(--pan-primary);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        
-        svg {
-          width: 100%;
-          height: 100%;
-        }
+        filter: drop-shadow(0 0 8px rgba(16, 185, 129, 0.4));
       }
-
       .logo-text {
+        font-size: 18px;
+        font-weight: 800;
+        letter-spacing: -0.02em;
         background: linear-gradient(135deg, #ffffff 0%, var(--pan-primary) 100%);
-        background-clip: text;
         -webkit-background-clip: text;
+        background-clip: text;
         -webkit-text-fill-color: transparent;
       }
     }
@@ -327,136 +336,110 @@ const getFileIcon = (name: string) => {
     .user-actions {
       display: flex;
       align-items: center;
-      gap: 15px;
+      gap: 16px;
       font-size: 14px;
-      
-      .login-tip {
-        color: var(--pan-text-muted);
-      }
-
-      .username {
-        color: var(--pan-text-main);
-        font-weight: 500;
-      }
+      .login-tip { color: var(--pan-text-muted); }
+      .username { color: var(--pan-text-main); font-weight: 600; }
     }
   }
 
   .share-box, .file-info-box {
-    background: rgba(20, 20, 20, 0.6);
-    backdrop-filter: var(--pan-glass-blur);
-    padding: 40px;
+    background: rgba(255, 255, 255, 0.015);
+    backdrop-filter: blur(20px);
+    padding: 48px;
     border-radius: var(--pan-radius-lg);
-    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
-    border: 1px solid var(--pan-border);
+    box-shadow: 0 40px 100px -20px rgba(0, 0, 0, 0.8);
+    border: 1px solid var(--pan-border-strong);
+    position: relative;
+    z-index: 10;
     text-align: center;
     width: 500px;
-    transition: width 0.3s ease;
+    transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+    animation: slideUp 0.6s ease-out;
 
-    &.is-folder-view {
-      width: 800px;
-    }
+    &.is-folder-view { width: 850px; padding: 40px; }
+    h2 { font-size: 24px; font-weight: 700; color: var(--pan-text-main); margin-bottom: 24px; }
   }
 
   .input-area {
     display: flex;
     justify-content: center;
     gap: 12px;
-    margin-top: 24px;
-    
-    :deep(.el-input__wrapper) {
-      background-color: rgba(255, 255, 255, 0.05) !important;
-      border: 1px solid var(--pan-border) !important;
-      box-shadow: none !important;
-    }
+    :deep(.el-input__wrapper) { height: 44px; }
   }
 
   .header {
     display: flex;
-    align-items: center;
-    gap: 20px;
-    margin-bottom: 30px;
+    align-items: flex-start;
+    gap: 24px;
+    margin-bottom: 32px;
     text-align: left;
 
     .icon {
+      flex-shrink: 0;
       color: var(--pan-primary);
-      filter: drop-shadow(0 0 15px var(--pan-primary-glow));
-      
-      &.folder-icon {
-        color: #FCD34D;
-        filter: drop-shadow(0 0 10px rgba(252, 211, 77, 0.3));
-      }
-      
-      &.file-icon {
-        color: var(--pan-accent);
-        filter: drop-shadow(0 0 10px rgba(61, 155, 255, 0.3));
-      }
+      filter: drop-shadow(0 0 12px rgba(16, 185, 129, 0.3));
+      &.folder-icon { color: #facc15; }
     }
 
-    h3 {
-      margin: 0 0 10px 0;
-      color: var(--pan-text-main);
-      font-size: 20px;
-    }
-
-    p {
-      color: var(--pan-text-muted);
-      font-size: 13px;
-      margin: 0;
-      
-      .divider {
-        margin: 0 10px;
-        color: var(--pan-border);
+    .info {
+      flex: 1;
+      h3 { margin: 0 0 8px; font-size: 22px; font-weight: 700; color: var(--pan-text-main); line-height: 1.3; }
+      p {
+        color: var(--pan-text-muted);
+        font-size: 13px;
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 8px;
+        .divider { color: var(--pan-border); font-weight: 300; }
       }
     }
   }
 
+  .actions {
+    display: flex;
+    gap: 12px;
+    justify-content: flex-start;
+    margin-bottom: 32px;
+  }
+
   .share-folder-content {
-    margin-top: 24px;
+    border-top: 1px solid var(--pan-border);
+    padding-top: 24px;
     text-align: left;
 
     .share-breadcrumb {
       margin-bottom: 16px;
-      padding: 0 4px;
-
       .breadcrumb-link {
         cursor: pointer;
-        color: var(--pan-text-muted);
+        color: var(--pan-text-body);
+        font-weight: 600;
+        font-size: 14px;
         transition: var(--pan-transition);
-        
-        &:hover {
-          color: var(--pan-primary);
-        }
+        &:hover { color: var(--pan-primary); }
       }
     }
 
-    /* Table adjustments */
-    :deep(.el-table) {
-      background-color: transparent !important;
-      --el-table-bg-color: transparent;
-      --el-table-tr-bg-color: transparent;
-      --el-table-header-bg-color: rgba(255, 255, 255, 0.02);
-      border: 1px solid var(--pan-border);
-      border-radius: var(--pan-radius-sm);
-
-      td, th {
-        border-bottom: 1px solid var(--pan-border);
-      }
-
-      .file-name-cell {
-        display: flex;
-        align-items: center;
-        gap: 12px;
-        cursor: pointer;
-        color: var(--pan-text-main);
-
-        &:hover {
-          color: var(--pan-primary);
-        }
-
-        .folder-icon { color: #FCD34D; }
-        .file-icon { color: var(--pan-accent); }
-      }
+    .file-name-cell {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      cursor: pointer;
+      color: var(--pan-text-main);
+      font-weight: 500;
+      &:hover { color: var(--pan-primary); .folder-icon, .file-icon { transform: scale(1.1); } }
+      .folder-icon { color: #facc15; transition: transform 0.2s; }
+      .file-icon { color: var(--pan-primary); transition: transform 0.2s; }
     }
   }
+}
+
+@keyframes slideUp { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
+
+:deep(.el-table) {
+  background: transparent !important;
+  --el-table-border-color: var(--pan-border);
+  --el-table-header-bg-color: rgba(255, 255, 255, 0.02);
 }
 </style>

@@ -220,100 +220,153 @@ onMounted(() => {
 
 <style scoped lang="scss">
 .admin-panel {
-  padding-top: 0; /* Removed padding */
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background-color: var(--pan-bg);
+  animation: fadeIn 0.4s ease-out;
+}
 
-  .header-actions {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 0 20px 0 50px; /* Match FileList */
-    border-bottom: 1px solid var(--pan-border);
-    height: 60px; /* Fixed height for stability */
-    margin-bottom: 20px;
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
 
-    .breadcrumb {
-      display: flex;
-      gap: 12px;
-      align-items: center;
-      flex-shrink: 1;
-      min-width: 0;
-      overflow: hidden;
-      
-      :deep(.el-breadcrumb__inner) {
-        color: var(--pan-text-muted) !important;
-        font-size: 13px;
-        font-weight: 400;
-        
-        &.is-link:hover {
-          color: var(--pan-text-main) !important;
-        }
-      }
+.header-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 0;
+  margin-bottom: 8px;
+  flex-shrink: 0;
 
-      .breadcrumb-link {
-        cursor: pointer;
-        transition: var(--pan-transition);
-        
-        /* Default for single item is body color to match 'All Files' root */
-        font-weight: 600;
-        color: var(--pan-text-body);
-        
-        &.is-last {
-          color: var(--pan-text-main) !important;
-          font-weight: 600;
-          cursor: default;
-        }
-      }
-    }
-  }
-
-  .admin-content {
-    padding: 0 20px; /* Add some padding for content */
-  }
-
-  .audit-management {
-    padding: 32px;
-    border-radius: var(--pan-radius-sm);
-    border: 1px solid var(--pan-border);
-    background: #050505;
-  }
-
-  .stats-cards {
-    margin-bottom: 32px;
-    
-    .card-value {
-      font-size: 28px;
-      font-weight: 800;
-      color: var(--pan-primary);
-      margin-top: 8px;
-      text-shadow: 0 0 10px var(--pan-primary-glow);
-    }
-
-    :deep(.el-card__header) {
-      font-weight: 600;
-      color: var(--pan-text-body);
+  .breadcrumb {
+    .breadcrumb-link {
+      font-weight: 700;
+      color: var(--pan-text-main);
       font-size: 14px;
-      border-bottom: none;
-      padding-bottom: 0;
+    }
+  }
+}
+
+.admin-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0; /* Important for flex child with overflow */
+  padding-bottom: 24px;
+}
+
+.stats-cards {
+  margin-bottom: 24px;
+  flex-shrink: 0;
+  
+  :deep(.el-card) {
+    background: var(--pan-surface-elevated);
+    border: 1px solid var(--pan-border-strong);
+    border-radius: var(--pan-radius-lg);
+    transition: var(--pan-transition);
+    
+    &:hover {
+      border-color: var(--pan-primary);
+      background: rgba(16, 185, 129, 0.02);
+      box-shadow: 0 8px 30px rgba(0, 0, 0, 0.4);
+    }
+
+    .el-card__header {
+      border: none;
+      padding: 16px 20px 0;
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--pan-text-muted);
+    }
+
+    .el-card__body {
+      padding: 12px 20px 20px;
     }
   }
 
-  .user-management {
-    padding: 32px;
-    border-radius: var(--pan-radius-sm);
-    border: 1px solid var(--pan-border);
-    background: #050505;
-
-    h3 {
-       margin-top: 0;
-       margin-bottom: 24px;
-       font-size: 18px;
-       font-weight: 700;
-       color: var(--pan-text-main);
-    }
-
-    .usage-cell {
-      white-space: nowrap;
+  .card-value {
+    font-size: 28px;
+    font-weight: 800;
+    color: var(--pan-text-main);
+    letter-spacing: -0.02em;
+    position: relative;
+    padding-bottom: 12px;
+    
+    &::after {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      width: 24px;
+      height: 3px;
+      background: var(--pan-primary);
+      border-radius: 2px;
     }
   }
+}
+
+.management-tabs {
+  flex: 1;
+  min-height: 0;
+  background: var(--pan-surface-elevated);
+  border: 1px solid var(--pan-border);
+  border-radius: var(--pan-radius-lg);
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  
+  :deep(.pan-tabs) {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    
+    .el-tabs__content {
+      flex: 1;
+      overflow-y: auto;
+      min-height: 0;
+    }
+    
+    .el-tabs__header {
+      margin: 0 0 16px;
+      padding: 4px 12px 0;
+      flex-shrink: 0;
+    }
+    .el-tabs__item {
+      font-weight: 600;
+      font-size: 14px;
+      height: 44px;
+      &.is-active { color: var(--pan-primary); }
+    }
+    .el-tabs__active-bar {
+      height: 2px;
+      border-radius: 2px;
+    }
+    .el-tabs__nav-wrap::after { background-color: var(--pan-border); }
+  }
+}
+
+.user-management, .audit-management {
+  padding: 0 12px 12px;
+}
+
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--pan-border-strong);
+}
+
+.usage-cell {
+  color: var(--pan-text-body);
+  font-size: 13px;
 }
 </style>

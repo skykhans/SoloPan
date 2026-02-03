@@ -349,33 +349,55 @@ onMounted(loadContent)
   height: 100%;
   display: flex;
   flex-direction: column;
-  background-color: #050505;
-  transition: opacity 0.3s ease;
+  background-color: var(--pan-bg);
+  position: relative;
 }
 
 .toolbar {
-  padding: 10px 20px;
-  background-color: #0a0a0a;
+  height: 56px;
+  padding: 0 24px;
+  background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(10px);
   border-bottom: 1px solid var(--pan-border);
   display: flex;
   justify-content: space-between;
   align-items: center;
+  flex-shrink: 0;
   z-index: 100;
   
+  :deep(.el-button) {
+    background-color: transparent !important;
+    border-color: var(--pan-border-strong) !important;
+    color: var(--pan-text-body) !important;
+    
+    &:hover {
+      color: var(--pan-primary) !important;
+      border-color: var(--pan-primary) !important;
+      background-color: rgba(16, 185, 129, 0.05) !important;
+    }
+  }
+
   .zoom-text {
     width: 60px;
-    cursor: default;
+    text-align: center;
+    font-weight: 600;
+    font-family: var(--font-mono);
     color: var(--pan-text-main);
+    font-size: 13px;
+    cursor: default;
+    border-left: none !important;
+    border-right: none !important;
   }
 }
 
 .preview-content-wrapper {
   flex: 1;
-  padding: 20px;
+  padding: 24px;
   display: flex;
-  justify-content: flex-start; /* Fix: never center overflowed content as it clips the left side */
-  align-items: flex-start; 
-  overflow: auto; /* Ensure parent can scroll if children don't handle it */
+  justify-content: center;
+  align-items: flex-start;
+  overflow: auto;
+  background-color: #0c0d0d; /* Slightly darker than bg for contrast */
 
   &.full-height {
     padding: 0;
@@ -385,39 +407,24 @@ onMounted(loadContent)
 }
 
 .docx-container {
-  box-shadow: none; 
-  background: white; /* Keep white for document content */
-  color: #333;
-  border-radius: 4px;
-  opacity: 0; /* Hidden by default, shown via JS after render */
-  transition: opacity 0.3s ease;
+  background: white;
+  border-radius: var(--pan-radius-md);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   
-  :deep(.docx-wrapper) {
-    background: transparent !important;
-    padding: 0 !important;
-  }
-
+  :deep(.docx-wrapper) { background: transparent !important; padding: 0 !important; }
   :deep(.docx) {
     background: white !important;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2) !important;
     margin: 0 auto !important;
+    border-radius: var(--pan-radius-md);
   }
 }
 
 .pdf-frame {
-  display: block;
   width: 100%;
   height: 100%;
   border: none;
   background: white;
-}
-
-.ppt-container {
-  width: 100%;
-  height: 100%;
-  overflow: hidden;
-  background: white; /* PPT usually white */
-  border-radius: 4px;
 }
 
 .excel-wrapper {
@@ -425,116 +432,74 @@ onMounted(loadContent)
   height: 100%;
   display: flex;
   flex-direction: column;
-  background: #050505;
-  border-radius: var(--pan-radius-sm);
+  background: white;
+  border-radius: var(--pan-radius-md);
   overflow: hidden;
-  animation: fadeIn 0.3s ease;
-}
-
-@keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
 }
 
 .excel-tabs {
-  padding: 0 20px;
-  background-color: #0a0a0a;
-  border-bottom: 1px solid var(--pan-border);
-  flex-shrink: 0;
+  background-color: #f8f9fa;
+  border-bottom: 1px solid #dee2e6;
+  padding: 0 16px;
+  :deep(.el-tabs__header) { margin: 0; }
 }
 
 .excel-container {
-  width: 100%;
-  overflow: auto;
   flex: 1;
-  padding: 5px; /* Reduced padding for more space */
-  background: white; /* Excel usually looks better on white bg */
-  border: 1px solid var(--pan-border);
+  overflow: auto;
+  padding: 16px;
   
-  .excel-content {
-    display: inline-block;
-  }
-
-  :deep(.empty-sheet) {
-    padding: 40px;
-    text-align: center;
-    color: #999;
-    font-size: 14px;
-    width: 100%;
-  }
-
   :deep(table) {
-    background: white;
     border-collapse: collapse;
-    width: auto;
     font-size: 13px;
     color: #333;
-    font-family: Arial, sans-serif;
-    border: 1px solid #e0e0e0;
-    border-radius: 4px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    background: white;
     
     td, th {
-      border-right: 1px solid #e0e0e0;
-      border-bottom: 1px solid #e0e0e0;
+      border: 1px solid #dee2e6;
       padding: 8px 12px;
       min-width: 80px;
-      text-align: left;
-      
-      &:last-child {
-        border-right: none;
-      }
     }
 
     th {
       background-color: #f8f9fa;
-      font-weight: 600;
-      color: #495057;
-      border-bottom: 2px solid #dee2e6;
+      font-weight: 700;
       position: sticky;
       top: 0;
-      z-index: 10;
+      z-index: 1;
     }
 
-    tr:last-child td {
-      border-bottom: none;
-    }
-
-    tr:nth-child(even) {
-      background-color: #fcfcfc;
-    }
-
-    tr:hover td {
-      background-color: #e8f0fe;
-      color: #1967d2;
-    }
+    tr:hover td { background-color: rgba(16, 185, 129, 0.05); }
   }
 }
 
-.image-container {
+.ppt-container {
   width: 100%;
   height: 100%;
+  background: white;
+  border-radius: var(--pan-radius-md);
+  overflow: hidden;
+}
+
+.image-container {
   display: flex;
   justify-content: center;
   align-items: center;
-  animation: fadeIn 0.3s ease;
-  
   img {
     max-width: 100%;
-    max-height: 100%;
-    object-fit: contain;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+    border-radius: 4px;
+    transition: transform 0.2s;
   }
 }
 
 .fallback-container {
-  width: 100%;
   height: 100%;
   display: flex;
-  justify-content: center;
   align-items: center;
-  
-  :deep(.el-empty__description) {
-    color: var(--pan-text-muted);
-  }
+  justify-content: center;
 }
+
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 </style>

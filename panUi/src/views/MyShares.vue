@@ -131,86 +131,64 @@ onMounted(fetchShares)
 
 <style scoped lang="scss">
 .my-shares-container {
+  height: 100%;
   display: flex;
   flex-direction: column;
-  height: 100%;
-  overflow: hidden;
-  
-  .header-actions {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 0 20px 0 50px;
-    border-bottom: 1px solid var(--pan-border);
-    height: 60px;
-    flex-shrink: 0;
+  background-color: var(--pan-bg);
+  animation: fadeIn 0.4s ease-out;
+}
 
-    .breadcrumb {
-      display: flex;
-      gap: 12px;
-      align-items: center;
-      flex-shrink: 1;
-      min-width: 0;
-      overflow: hidden;
-      
-      :deep(.el-breadcrumb__inner) {
-        color: var(--pan-text-muted) !important;
-        font-size: 13px;
-        font-weight: 400;
-        
-        &.is-link:hover {
-          color: var(--pan-text-main) !important;
-        }
-      }
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
 
-      .breadcrumb-link {
-        cursor: pointer;
-        transition: var(--pan-transition);
-        
-        /* Default for single item is body color to match 'All Files' root */
-        font-weight: 600;
-        color: var(--pan-text-body);
-        
-        &.is-last {
-          color: var(--pan-text-main) !important;
-          font-weight: 600;
-          cursor: default;
-          /* Explicit size override if needed, though 13px from parent should apply */
-          font-size: 13px;
-        }
-      }
-    }
-  }
+.header-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 0;
+  margin-bottom: 8px;
+  flex-shrink: 0;
 
-  .table-container {
-    flex: 1;
-    min-height: 0;
-    margin: 20px;
-    background-color: #000000 !important;
-    border: 1px solid var(--pan-border);
-    border-radius: var(--pan-radius-sm);
-    overflow: auto;
-  }
-
-  .file-name-cell {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    
-    .folder-icon {
-      color: #FCD34D;
-      filter: drop-shadow(0 0 5px rgba(252, 211, 77, 0.3));
-    }
-    
-    .file-icon {
-      color: #3D9BFF;
-      filter: drop-shadow(0 0 5px rgba(61, 155, 255, 0.3));
-    }
-    
-    .name {
+  .breadcrumb {
+    .breadcrumb-link {
+      font-weight: 700;
       color: var(--pan-text-main);
-      font-weight: 500;
+      font-size: 14px;
     }
   }
+}
+
+.table-container {
+  flex: 1;
+  overflow: hidden;
+  background: var(--pan-surface-elevated);
+  border: 1px solid var(--pan-border);
+  border-radius: var(--pan-radius-lg);
+  padding: 8px;
+}
+
+.file-name-cell {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  
+  .name {
+    font-weight: 500;
+    color: var(--pan-text-main);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .folder-icon { color: #facc15; }
+  .file-icon { color: var(--pan-primary); }
+}
+
+.mono {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--pan-text-body);
 }
 </style>

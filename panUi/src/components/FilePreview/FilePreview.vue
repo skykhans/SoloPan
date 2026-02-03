@@ -43,7 +43,6 @@
         <el-tabs 
           v-if="excelWorkbook && excelWorkbook.SheetNames.length > 1" 
           v-model="activeSheet" 
-          @tab-change="renderExcelSheet"
           class="excel-tabs"
         >
           <el-tab-pane 
@@ -53,7 +52,9 @@
             :name="sheet" 
           />
         </el-tabs>
-        <div class="excel-container" :style="scaleStyle" v-html="excelHtml"></div>
+        <div class="excel-container" ref="excelContainerRef">
+          <div :style="excelStyle" v-html="excelHtml" class="excel-content"></div>
+        </div>
       </div>
 
       <!-- Image Preview -->
@@ -112,7 +113,6 @@ const props = defineProps<{
 
 const loading = ref(false)
 const scale = ref(1.0)
-const wrapperRef = ref<HTMLElement | null>(null)
 
 // Docx refs
 const docxContainer = ref<HTMLElement | null>(null)
@@ -122,6 +122,7 @@ const excelHtml = ref('')
 const excelWorkbook = ref<any>(null)
 const activeSheet = ref('')
 const renderError = ref(false)
+const excelContainerRef = ref<HTMLElement | null>(null)
 
 // Computed
 const showZoom = computed(() => ['docx', 'excel', 'image'].includes(props.fileType))
@@ -147,9 +148,18 @@ const docxStyle = computed(() => ({
   margin: '0 auto'
 }))
 
+const excelStyle = computed(() => ({
+  // Use zoom for Excel as it handles scroll area much better than transform:scale for tables
+  // Zoom is non-standard but widely supported in Chromium-based browsers (which most use)
+  zoom: scale.value,
+  display: 'inline-block',
+  minWidth: '100%'
+}))
+
 const scaleStyle = computed(() => ({
   transform: `scale(${scale.value})`,
-  transformOrigin: 'top center'
+  transformOrigin: 'top center',
+  display: 'inline-block'
 }))
 
 const pdfUrl = computed(() => {
@@ -183,13 +193,30 @@ const onPptError = (e: any) => {
   loading.value = false
 }
 
-const renderExcelSheet = (name: any) => {
-  // tab-change event returns name directly
-  const sheetName = typeof name === 'string' ? name : name.props.name
-  if (!excelWorkbook.value) return
+const renderExcelSheet = (sheetName: string) => {
+  if (!excelWorkbook.value || !sheetName) return
   const worksheet = excelWorkbook.value.Sheets[sheetName]
+  
+  // Check if worksheet exists and has data
+  // Empty worksheets exist but have no !ref (range) property
+  if (!worksheet || !worksheet['!ref']) {
+    excelHtml.value = '<div class="empty-sheet">此工作表没有内容</div>'
+    return
+  }
+  
+  // Convert to HTML
   excelHtml.value = XLSX.utils.sheet_to_html(worksheet)
 }
+
+watch(activeSheet, async (newSheet) => {
+  if (newSheet) {
+    renderExcelSheet(newSheet)
+    await nextTick()
+    if (excelContainerRef.value) {
+      excelContainerRef.value.scrollTo(0, 0)
+    }
+  }
+})
 
 const handleDownload = () => {
   const link = document.createElement('a')
@@ -282,8 +309,7 @@ const loadContent = async () => {
           ignoreWidth: false,
           ignoreHeight: false,
           experimental: true,
-          useBase64URL: true,
-          padding: 20
+          useBase64URL: true
         })
         docxContainer.value.style.opacity = '1'
       }
@@ -293,8 +319,15 @@ const loadContent = async () => {
       const workbook = XLSX.read(data, { type: 'array' })
       excelWorkbook.value = workbook
       if (workbook.SheetNames.length > 0) {
-        activeSheet.value = workbook.SheetNames[0]
-        renderExcelSheet(workbook.SheetNames[0])
+        const firstSheet = workbook.SheetNames[0]
+        if (firstSheet) {
+          const isSameSheet = activeSheet.value === firstSheet
+          activeSheet.value = firstSheet
+          // If name is same, watcher won't fire, so we force render
+          if (isSameSheet) {
+            renderExcelSheet(firstSheet)
+          }
+        }
       }
     }
     // PDF and Image handled by src binding
@@ -338,11 +371,11 @@ onMounted(loadContent)
 
 .preview-content-wrapper {
   flex: 1;
-  overflow: auto;
   padding: 20px;
   display: flex;
-  justify-content: center;
-  align-items: stretch; /* Ensure it fills the height */
+  justify-content: flex-start; /* Fix: never center overflowed content as it clips the left side */
+  align-items: flex-start; 
+  overflow: auto; /* Ensure parent can scroll if children don't handle it */
 
   &.full-height {
     padding: 0;
@@ -414,20 +447,29 @@ onMounted(loadContent)
   width: 100%;
   overflow: auto;
   flex: 1;
-  padding: 20px;
-  background: #050505;
-  display: flex;
-  justify-content: center;
+  padding: 5px; /* Reduced padding for more space */
+  background: white; /* Excel usually looks better on white bg */
+  border: 1px solid var(--pan-border);
   
+  .excel-content {
+    display: inline-block;
+  }
+
+  :deep(.empty-sheet) {
+    padding: 40px;
+    text-align: center;
+    color: #999;
+    font-size: 14px;
+    width: 100%;
+  }
+
   :deep(table) {
     background: white;
-    border-collapse: separate;
-    border-spacing: 0;
+    border-collapse: collapse;
     width: auto;
-    min-width: 100%;
     font-size: 13px;
     color: #333;
-    font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    font-family: Arial, sans-serif;
     border: 1px solid #e0e0e0;
     border-radius: 4px;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);

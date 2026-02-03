@@ -23,6 +23,7 @@ namespace PanSystem.Controllers
         private readonly IWebHostEnvironment _env;
         private readonly IAuditService _auditService;
         private readonly IHttpClientFactory _httpClientFactory;
+        private static readonly System.Threading.SemaphoreSlim _folderLock = new System.Threading.SemaphoreSlim(1, 1);
 
         public FileController(ISqlSugarClient db, IStorageService storageService, IWebHostEnvironment env, IAuditService auditService, IHttpClientFactory httpClientFactory)
         {
@@ -118,12 +119,16 @@ namespace PanSystem.Controllers
         {
             var userId = GetUserId();
 
+            // 如果有文件夹路径，先创建/获取文件夹结构
+            var effectiveParentId = await GetOrCreateFolderPath(request.FolderPath, request.ParentId, userId);
+
             // 处理文件名冲突
-            var uniqueName = await GetUniqueName(request.FileName, request.ParentId, userId);
+            var uniqueName = await GetUniqueName(request.FileName, effectiveParentId, userId);
 
             // 查找系统中是否存在该 MD5 的文件（不分用户，实现全局秒传）
             var existingFile = await _db.Queryable<StorageItem>()
-                .FirstAsync(f => f.FileMd5 == request.Md5 && !f.IsFolder);
+                .Where(f => f.FileMd5 == request.Md5 && !f.IsFolder && !f.IsDeleted)
+                .FirstAsync();
 
             if (existingFile != null)
             {
@@ -138,7 +143,7 @@ namespace PanSystem.Controllers
                 var newItem = new StorageItem
                 {
                     Name = uniqueName,
-                    ParentId = request.ParentId,
+                    ParentId = effectiveParentId,
                     UserId = userId,
                     IsFolder = false,
                     FileSize = request.FileSize,
@@ -186,6 +191,43 @@ namespace PanSystem.Controllers
 
             var newId = await _db.Insertable(folder).ExecuteReturnIdentityAsync();
             return Ok(new { Message = "文件夹创建成功", ItemId = newId });
+        }
+
+        [HttpPost("batch-create-folders")]
+        public async Task<IActionResult> BatchCreateFolders(BatchCreateFoldersRequest request)
+        {
+            var userId = GetUserId();
+
+            if (request.FolderPaths == null || !request.FolderPaths.Any())
+            {
+                return Ok(new { Message = "无需创建文件夹" });
+            }
+
+            // 获取所有唯一的文件夹路径
+            var allFolderPaths = new HashSet<string>();
+            foreach (var path in request.FolderPaths)
+            {
+                if (string.IsNullOrEmpty(path)) continue;
+
+                // 添加所有层级的路径
+                var parts = path.Split(new[] { '/', '\\' }, StringSplitOptions.RemoveEmptyEntries);
+                var currentPath = "";
+                foreach (var part in parts)
+                {
+                    currentPath = string.IsNullOrEmpty(currentPath) ? part : $"{currentPath}/{part}";
+                    allFolderPaths.Add(currentPath);
+                }
+            }
+
+            // 按路径深度排序，确保父文件夹先创建
+            var sortedPaths = allFolderPaths.OrderBy(p => p.Split('/').Length).ToList();
+
+            foreach (var folderPath in sortedPaths)
+            {
+                await GetOrCreateFolderPath(folderPath, request.ParentId, userId);
+            }
+
+            return Ok(new { Message = $"成功创建 {sortedPaths.Count} 个文件夹结构" });
         }
 
         [HttpPost("upload")]
@@ -284,14 +326,18 @@ namespace PanSystem.Controllers
             var tempRoot = Path.Combine(_env.ContentRootPath, "Temp");
             var tempPath = Path.Combine(tempRoot, request.Guid);
 
-            if (!Directory.Exists(tempPath)) return BadRequest("分片不存在或已过期");
+            if (request.TotalSize > 0 && !Directory.Exists(tempPath)) return BadRequest("分片不存在或已过期");
+
+            // 如果有文件夹路径，先创建/获取文件夹结构
+            var effectiveParentId = await GetOrCreateFolderPath(request.FolderPath, request.ParentId, userId);
 
             // 处理文件名冲突
-            var uniqueName = await GetUniqueName(request.FileName, request.ParentId, userId);
+            var uniqueName = await GetUniqueName(request.FileName, effectiveParentId, userId);
 
             // 检查 MD5 秒传
             var existingFile = await _db.Queryable<StorageItem>()
-                .FirstAsync(f => f.FileMd5 == request.Md5 && !f.IsFolder);
+                .Where(f => f.FileMd5 == request.Md5 && !f.IsFolder && !f.IsDeleted)
+                .FirstAsync();
 
             var user = await _db.Queryable<UserInfo>().InSingleAsync(userId);
             if (user.UsedSpace + request.TotalSize > user.TotalSpace)
@@ -308,52 +354,62 @@ namespace PanSystem.Controllers
             }
             else
             {
-                // 合并分片
-                var chunkFiles = Directory.GetFiles(tempPath)
-                    .Where(f => int.TryParse(Path.GetFileName(f), out _))
-                    .OrderBy(f => int.Parse(Path.GetFileName(f)))
-                    .ToList();
-                
-                if (!chunkFiles.Any()) return BadRequest("未找到有效分片");
-
-                // 暂时存到一个临时文件
-                var finalTempFile = Path.Combine(tempPath, "final_" + Guid.NewGuid());
-                try
+                if (request.TotalSize == 0)
                 {
-                    using (var finalStream = new FileStream(finalTempFile, FileMode.Create))
+                    using (var ms = new MemoryStream())
                     {
-                        foreach (var chunkFile in chunkFiles)
-                        {
-                            using (var chunkStream = new FileStream(chunkFile, FileMode.Open))
-                            {
-                                await chunkStream.CopyToAsync(finalStream);
-                            }
-                        }
-                    }
-
-                    // 计算最终 MD5 校验
-                    using (var fs = new FileStream(finalTempFile, FileMode.Open))
-                    {
-                        var actualMd5 = HashHelper.ComputeMd5(fs);
-                        if (actualMd5 != request.Md5)
-                        {
-                            return BadRequest("MD5 校验失败，文件可能已损坏");
-                        }
-                        fs.Position = 0;
-                        relativePath = await _storageService.SaveFileAsync(fs, request.FileName);
+                        relativePath = await _storageService.SaveFileAsync(ms, request.FileName);
                     }
                 }
-                finally
+                else
                 {
-                    // 清理临时目录
-                    try { Directory.Delete(tempPath, true); } catch { }
+                    // 合并分片
+                    var chunkFiles = Directory.GetFiles(tempPath)
+                        .Where(f => int.TryParse(Path.GetFileName(f), out _))
+                        .OrderBy(f => int.Parse(Path.GetFileName(f)))
+                        .ToList();
+
+                    if (!chunkFiles.Any()) return BadRequest("未找到有效分片");
+
+                    // 暂时存到一个临时文件
+                    var finalTempFile = Path.Combine(tempPath, "final_" + Guid.NewGuid());
+                    try
+                    {
+                        using (var finalStream = new FileStream(finalTempFile, FileMode.Create))
+                        {
+                            foreach (var chunkFile in chunkFiles)
+                            {
+                                using (var chunkStream = new FileStream(chunkFile, FileMode.Open))
+                                {
+                                    await chunkStream.CopyToAsync(finalStream);
+                                }
+                            }
+                        }
+
+                        // 计算最终 MD5 校验
+                        using (var fs = new FileStream(finalTempFile, FileMode.Open))
+                        {
+                            var actualMd5 = HashHelper.ComputeMd5(fs);
+                            if (actualMd5 != request.Md5)
+                            {
+                                return BadRequest("MD5 校验失败，文件可能已损坏");
+                            }
+                            fs.Position = 0;
+                            relativePath = await _storageService.SaveFileAsync(fs, request.FileName);
+                        }
+                    }
+                    finally
+                    {
+                        // 清理临时目录
+                        try { Directory.Delete(tempPath, true); } catch { }
+                    }
                 }
             }
 
             var storageItem = new StorageItem
             {
                 Name = uniqueName,
-                ParentId = request.ParentId,
+                ParentId = effectiveParentId,
                 UserId = userId,
                 IsFolder = false,
                 FileSize = request.TotalSize,
@@ -721,12 +777,14 @@ namespace PanSystem.Controllers
                 {
                     fileName = contentDisposition.FileName.Trim('\"');
                 }
-                
+
                 if (string.IsNullOrEmpty(fileName))
                 {
-                    try {
+                    try
+                    {
                         fileName = Path.GetFileName(new Uri(request.Url).LocalPath);
-                    } catch { }
+                    }
+                    catch { }
                 }
 
                 if (string.IsNullOrEmpty(fileName))
@@ -746,9 +804,10 @@ namespace PanSystem.Controllers
                 {
                     var relativePath = await _storageService.SaveFileAsync(stream, uniqueName);
 
-                    if (contentLength == 0) {
-                         var fullPath = _storageService.GetFullPath(relativePath);
-                         contentLength = new FileInfo(fullPath).Length;
+                    if (contentLength == 0)
+                    {
+                        var fullPath = _storageService.GetFullPath(relativePath);
+                        contentLength = new FileInfo(fullPath).Length;
                     }
 
                     var storageItem = new StorageItem
@@ -930,7 +989,9 @@ namespace PanSystem.Controllers
         private async Task<string> GetUniqueName(string name, int? parentId, int userId)
         {
             var existingNames = await _db.Queryable<StorageItem>()
-                .Where(f => f.ParentId == parentId && f.UserId == userId && !f.IsDeleted)
+                .Where(f => f.UserId == userId && !f.IsDeleted)
+                .WhereIF(parentId == null, f => f.ParentId == null)
+                .WhereIF(parentId != null, f => f.ParentId == parentId)
                 .Select(f => f.Name)
                 .ToListAsync();
 
@@ -953,6 +1014,56 @@ namespace PanSystem.Controllers
             } while (existingNames.Contains(newName));
 
             return newName;
+        }
+
+        private async Task<int?> GetOrCreateFolderPath(string? folderPath, int? parentId, int userId)
+        {
+            if (string.IsNullOrEmpty(folderPath)) return parentId;
+
+            var folders = folderPath.Split(new[] { '/', '\\' }, StringSplitOptions.RemoveEmptyEntries);
+            var currentParentId = parentId;
+
+            await _folderLock.WaitAsync();
+            try
+            {
+                foreach (var folderName in folders)
+                {
+                    var name = folderName.Trim();
+                    if (string.IsNullOrEmpty(name)) continue;
+
+                    var query = _db.Queryable<StorageItem>()
+                        .Where(f => f.UserId == userId && f.Name == name && f.IsFolder && !f.IsDeleted)
+                        .WhereIF(currentParentId == null, f => f.ParentId == null)
+                        .WhereIF(currentParentId != null, f => f.ParentId == currentParentId);
+
+                    var existingFolder = await query.FirstAsync();
+
+                    if (existingFolder != null)
+                    {
+                        currentParentId = existingFolder.Id;
+                    }
+                    else
+                    {
+                        var newFolder = new StorageItem
+                        {
+                            Name = name,
+                            ParentId = currentParentId,
+                            UserId = userId,
+                            IsFolder = true,
+                            CreateTime = DateTime.Now,
+                            UpdateTime = DateTime.Now,
+                            IsDeleted = false
+                        };
+                        currentParentId = await _db.Insertable(newFolder).ExecuteReturnIdentityAsync();
+                    }
+                }
+            }
+            finally
+            {
+                _folderLock.Release();
+            }
+
+            return currentParentId;
         }
     }
 }

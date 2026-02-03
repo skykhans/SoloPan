@@ -23,6 +23,52 @@
   --pan-transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
+/* Tooltip & Popper Dark Mode Refinement */
+.el-popper.is-dark {
+  background: #18181b !important;
+  border: 1px solid #3f3f46 !important;
+  /* Stone 700 for better visibility */
+  color: #ffffff !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  padding: 6px 12px !important;
+  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.6) !important;
+}
+
+.el-popper.is-dark .el-popper__arrow::before {
+  background: #18181b !important;
+  border: 1px solid #3f3f46 !important;
+}
+
+/* Dropdown Menu Refinement */
+.el-dropdown__menu {
+  background-color: #0c0c0e !important;
+  border: 1px solid #262626 !important;
+  padding: 4px !important;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5) !important;
+}
+
+.el-dropdown-menu__item {
+  color: #a1a1aa !important;
+  border-radius: 4px !important;
+  margin: 2px 0 !important;
+  font-size: 13px !important;
+  padding: 8px 12px !important;
+}
+
+.el-dropdown-menu__item:hover {
+  background-color: rgba(255, 255, 255, 0.05) !important;
+  color: #ffffff !important;
+}
+
+.el-dropdown-menu__item.is-disabled {
+  color: #3f3f46 !important;
+}
+
+.el-dropdown-menu__item--divided {
+  border-top-color: #1a1a1c !important;
+}
+
 .input-tip {
   font-size: 12px;
   color: var(--pan-text-muted);

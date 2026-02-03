@@ -1,5 +1,11 @@
 <template>
-  <div class="file-list-view">
+  <div 
+    class="file-list-view" 
+    @dragover.prevent="handleGlobalDragOver"
+    @dragleave.prevent="handleGlobalDragLeave"
+    @drop.prevent="handleGlobalDrop"
+    :class="{ 'drag-over': isDragOver }"
+  >
     <div class="action-bar">
       <div class="breadcrumb">
         <el-breadcrumb separator="/">
@@ -38,10 +44,23 @@
           :auto-upload="true"
           :show-file-list="false"
           :http-request="handleUpload"
+          multiple
           class="upload-btn"
         >
           <el-button type="primary" class="pan-button-primary" :icon="Upload">上传文件</el-button>
         </el-upload>
+
+        <div v-if="category === 'files'" class="upload-btn">
+          <input
+            type="file"
+            ref="folderInputRef"
+            style="display: none"
+            webkitdirectory
+            multiple
+            @change="handleFolderSelect"
+          />
+          <el-button :icon="Folder" @click="folderInputRef?.click()">上传文件夹</el-button>
+        </div>
         <el-button v-if="category === 'files'" :icon="FolderAdd" @click="showCreateFolder = true">新建文件夹</el-button>
         <el-button v-if="category === 'files'" :icon="Link" @click="showOfflineDownload = true">离线下载</el-button>
         <el-button v-if="selectedIds.length > 0 && category === 'files'" :icon="Rank" @click="handleBatchMove">批量移动</el-button>
@@ -465,24 +484,6 @@ const currentParentId = ref<number | null>(route.query.folderId ? Number(route.q
 const sortState = ref<{ prop: string, order: string } | null>(null)
 const viewMode = ref<'list' | 'grid'>(localStorage.getItem('viewMode') as 'list' | 'grid' || 'list')
 
-const rootName = computed(() => {
-  if (props.category === 'favorites') return '我的收藏'
-  if (props.category === 'recycle-bin') return '回收站'
-  return '全部文件'
-})
-
-const showCreateFolder = ref(false)
-const newFolderName = ref('')
-const showOfflineDownload = ref(false)
-const offlineUrl = ref('')
-const showMoveDialog = ref(false)
-const searchKeyword = ref((route.query.q as string) || '')
-const offlineLoading = ref(false)
-const moveTargetParentId = ref<number | null>(null)
-const moveDialogCurrentParentId = ref<number | null>(null)
-const moveDialogPathStack = ref<{ id: number; name: string }[]>([])
-const movingItemIds = ref<number[]>([])
-
 const currentMovePathText = computed(() => {
   if (moveDialogPathStack.value.length === 0) return '全部文件'
   return moveDialogPathStack.value.map(p => p.name).join(' / ')
@@ -492,6 +493,182 @@ const folderTree = ref<any[]>([])
 const showShareDialog = ref(false)
 const shareInfo = ref<any>(null)
 const shareExpireDays = ref(7)
+
+const showCreateFolder = ref(false)
+const newFolderName = ref('')
+const showOfflineDownload = ref(false)
+const offlineUrl = ref('')
+const showMoveDialog = ref(false)
+const folderInputRef = ref<HTMLInputElement>()
+
+const searchKeyword = ref((route.query.q as string) || '')
+const offlineLoading = ref(false)
+
+const handleFolderSelect = async (e: any) => {
+  const files = e.target.files
+  if (!files || files.length === 0) return
+  
+  // 锁定当前目录ID
+  const targetParentId = currentParentId.value
+  
+  // 1. 收集所有文件夹路径（包括空文件夹无法被检测，但我们会从文件路径中提取）
+  const folderPaths = new Set<string>()
+  for (let i = 0; i < files.length; i++) {
+    const file = files[i]
+    if (file.webkitRelativePath) {
+      const pathParts = file.webkitRelativePath.split(/[/\\]/)
+      if (pathParts.length > 1) {
+        // 添加所有层级的文件夹路径
+        let currentPath = ''
+        for (let j = 0; j < pathParts.length - 1; j++) {
+          currentPath = currentPath ? `${currentPath}/${pathParts[j]}` : pathParts[j]
+          folderPaths.add(currentPath)
+        }
+      }
+    }
+  }
+  
+  // 2. 先批量创建文件夹结构
+  if (folderPaths.size > 0) {
+    try {
+      await request.post('/file/batch-create-folders', {
+        folderPaths: Array.from(folderPaths),
+        parentId: targetParentId
+      })
+    } catch (error) {
+      console.error('创建文件夹结构失败:', error)
+      ElMessage.error('创建文件夹结构失败')
+      e.target.value = ''
+      return
+    }
+  }
+  
+  // 3. 逐个上传文件
+  for (let i = 0; i < files.length; i++) {
+    handleUpload({ file: files[i] })
+  }
+  
+  // 清洗 input，允许重复上传同一文件夹
+  e.target.value = ''
+}
+const moveTargetParentId = ref<number | null>(null)
+const moveDialogCurrentParentId = ref<number | null>(null)
+const moveDialogPathStack = ref<{ id: number; name: string }[]>([])
+const movingItemIds = ref<number[]>([])
+
+// 拖拽上传相关
+const isDragOver = ref(false)
+
+const handleGlobalDragOver = () => {
+  if (props.category !== 'files') return
+  isDragOver.value = true
+}
+
+const handleGlobalDragLeave = () => {
+  isDragOver.value = false
+}
+
+// 递归遍历目录，包括空文件夹
+const traverseDirectory = async (entry: any, path: string = ''): Promise<{ files: File[], folders: string[] }> => {
+  const result: { files: File[], folders: string[] } = { files: [], folders: [] }
+  
+  if (entry.isFile) {
+    const file = await new Promise<File>((resolve) => {
+      entry.file((f: File) => {
+        // 创建一个新的 File 对象，附加 webkitRelativePath
+        const newFile = new File([f], f.name, { type: f.type, lastModified: f.lastModified })
+        Object.defineProperty(newFile, 'webkitRelativePath', {
+          value: path ? `${path}/${f.name}` : f.name,
+          writable: false
+        })
+        resolve(newFile)
+      })
+    })
+    result.files.push(file)
+  } else if (entry.isDirectory) {
+    const fullPath = path ? `${path}/${entry.name}` : entry.name
+    result.folders.push(fullPath)
+    
+    const reader = entry.createReader()
+    const entries = await new Promise<any[]>((resolve) => {
+      const allEntries: any[] = []
+      const readEntries = () => {
+        reader.readEntries((batch: any[]) => {
+          if (batch.length === 0) {
+            resolve(allEntries)
+          } else {
+            allEntries.push(...batch)
+            readEntries()
+          }
+        })
+      }
+      readEntries()
+    })
+    
+    for (const childEntry of entries) {
+      const childResult = await traverseDirectory(childEntry, fullPath)
+      result.files.push(...childResult.files)
+      result.folders.push(...childResult.folders)
+    }
+  }
+  
+  return result
+}
+
+const handleGlobalDrop = async (e: DragEvent) => {
+  isDragOver.value = false
+  if (props.category !== 'files') return
+  
+  const items = e.dataTransfer?.items
+  if (!items) return
+  
+  const targetParentId = currentParentId.value
+  const allFolders: string[] = []
+  const allFiles: File[] = []
+  
+  // 使用 webkitGetAsEntry 遍历目录结构
+  for (let i = 0; i < items.length; i++) {
+    const item = items[i]
+    // @ts-ignore
+    const entry = item.webkitGetAsEntry?.() || item.getAsEntry?.()
+    if (entry) {
+      const result = await traverseDirectory(entry)
+      allFolders.push(...result.folders)
+      allFiles.push(...result.files)
+    }
+  }
+  
+  // 1. 先批量创建所有文件夹（包括空文件夹）
+  if (allFolders.length > 0) {
+    try {
+      await request.post('/file/batch-create-folders', {
+        folderPaths: allFolders,
+        parentId: targetParentId
+      })
+      ElMessage.success(`成功创建 ${allFolders.length} 个文件夹`)
+    } catch (error) {
+      console.error('创建文件夹结构失败:', error)
+      ElMessage.error('创建文件夹结构失败')
+      return
+    }
+  }
+  
+  // 2. 上传所有文件
+  for (const file of allFiles) {
+    handleUpload({ file })
+  }
+  
+  // 如果只有空文件夹，刷新列表
+  if (allFiles.length === 0 && allFolders.length > 0) {
+    fetchFiles()
+  }
+}
+
+const rootName = computed(() => {
+  if (props.category === 'favorites') return '我的收藏'
+  if (props.category === 'recycle-bin') return '回收站'
+  return '全部文件'
+})
 
 // 拖拽相关
 const draggingItem = ref<any>(null)
@@ -692,42 +869,45 @@ const copyText = (text: string) => {
   ElMessage.success('已复制到剪贴板')
 }
 
+let fetchTimer: any = null
 const fetchFiles = async () => {
-  loading.value = true
-  try {
-    let url = '/file/list'
-    const params: any = {}
-    
-    if (route.query.q) {
-      url = '/file/search'
-      params.keyword = route.query.q
-    } else if (currentParentId.value) {
-      // 如果进入了文件夹，则作为普通文件列表处理 (支持从收藏夹进入文件夹)
-      url = '/file/list'
-      params.parentId = currentParentId.value
-    } else if (props.category === 'favorites') {
-      url = '/file/favorites'
-    } else if (props.category === 'recycle-bin') {
-      url = '/file/recycle-bin'
-    } else if (props.type) {
-      params.category = props.type
-    } else {
-      params.parentId = currentParentId.value
-    }
+  // 简单的防抖处理，避免批量上传时高频刷新
+  if (fetchTimer) clearTimeout(fetchTimer)
+  fetchTimer = setTimeout(async () => {
+    loading.value = true
+    try {
+      let url = '/file/list'
+      const params: any = {}
+      
+      if (route.query.q) {
+        url = '/file/search'
+        params.keyword = route.query.q
+      } else if (props.category === 'favorites') {
+        url = '/file/favorites'
+      } else if (props.category === 'recycle-bin') {
+        url = '/file/recycle-bin'
+      } else {
+        url = '/file/list'
+        params.parentId = currentParentId.value
+        if (props.type) {
+          params.category = props.type
+        }
+      }
 
-    // 添加排序参数
-    if (sortState.value && sortState.value.order) {
-      params.sortBy = sortState.value.prop
-      params.order = sortState.value.order === 'ascending' ? 'asc' : 'desc'
-    }
+      // 添加排序参数
+      if (sortState.value && sortState.value.order) {
+        params.sortBy = sortState.value.prop
+        params.order = sortState.value.order === 'ascending' ? 'asc' : 'desc'
+      }
 
-    const res: any = await request.get(url, { params })
-    fileList.value = res
-  } catch (error) {
-    console.error(error)
-  } finally {
-    loading.value = false
-  }
+      const res: any = await request.get(url, { params })
+      fileList.value = res
+    } catch (error) {
+      console.error(error)
+    } finally {
+      loading.value = false
+    }
+  }, 300)
 }
 
 watch(() => route.query.t, () => {
@@ -890,10 +1070,21 @@ const handleUpload = async (options: any) => {
   const fileSize = file.size
   const fileName = file.name
   const guid = generateGuid()
+  // 必须立即捕获当前 parentId，防止上传过程中由于用户跳转导致文件传错地方
+  const targetParentId = currentParentId.value
+  
+  // 处理文件夹上传路径
+  let folderPath = ''
+  if (file.webkitRelativePath) {
+    const pathParts = file.webkitRelativePath.split(/[/\\]/)
+    if (pathParts.length > 1) {
+      folderPath = pathParts.slice(0, -1).join('/')
+    }
+  }
   
   const task = ref({
     guid,
-    name: fileName,
+    name: folderPath ? `${folderPath}/${fileName}` : fileName,
     progress: 0,
     status: 'uploading',
     statusText: '正在计算 MD5...',
@@ -913,7 +1104,8 @@ const handleUpload = async (options: any) => {
         md5: md5,
         fileName: fileName,
         fileSize: fileSize,
-        parentId: currentParentId.value
+        parentId: targetParentId,
+        folderPath: folderPath
       }, { 
         // @ts-ignore
         _showError: false 
@@ -933,24 +1125,28 @@ const handleUpload = async (options: any) => {
     }
 
     // 3. 分片上传
-    task.value.statusText = '正在上传分片...'
     const chunkSize = 5 * 1024 * 1024 // 5MB 
     const chunksCount = Math.ceil(fileSize / chunkSize)
     
-    for (let i = 0; i < chunksCount; i++) {
-        const start = i * chunkSize
-        const end = Math.min(start + chunkSize, fileSize)
-        const chunk = file.slice(start, end)
-        
-        const chunkFormData = new FormData()
-        chunkFormData.append('file', chunk)
-        chunkFormData.append('guid', guid)
-        chunkFormData.append('chunkIndex', i.toString())
-        
-        await request.post('/file/upload-chunk', chunkFormData)
-        
-        // 更新进度 (假设合并占 5%)
-        task.value.progress = Math.floor(((i + 1) / chunksCount) * 95)
+    if (chunksCount > 0) {
+      task.value.statusText = '正在上传分片...'
+      for (let i = 0; i < chunksCount; i++) {
+          const start = i * chunkSize
+          const end = Math.min(start + chunkSize, fileSize)
+          const chunk = file.slice(start, end)
+          
+          const chunkFormData = new FormData()
+          chunkFormData.append('file', chunk)
+          chunkFormData.append('guid', guid)
+          chunkFormData.append('chunkIndex', i.toString())
+          
+          await request.post('/file/upload-chunk', chunkFormData)
+          
+          // 更新进度 (假设合并占 5%)
+          task.value.progress = Math.floor(((i + 1) / chunksCount) * 95)
+      }
+    } else {
+      task.value.progress = 95
     }
     
     // 4. 合并分片
@@ -959,8 +1155,9 @@ const handleUpload = async (options: any) => {
         guid: guid,
         fileName: fileName,
         totalSize: fileSize,
-        parentId: currentParentId.value,
-        md5: md5
+        parentId: targetParentId,
+        md5: md5,
+        folderPath: folderPath
     })
     
     task.value.progress = 100
@@ -1931,4 +2128,26 @@ onMounted(() => {
     }
   }
 }
-</style>
+
+.file-list-view.drag-over {
+  position: relative;
+  
+  &::after {
+    content: '拖放文件或文件夹到此处上传';
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 180, 42, 0.15);
+    border: 3px dashed var(--pan-brand);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+    color: var(--pan-brand);
+    font-weight: 600;
+    z-index: 9999;
+    pointer-events: none;
+  }
+}</style>

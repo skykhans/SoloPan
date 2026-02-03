@@ -29,6 +29,7 @@ namespace PanSystem.DTOs
         public string FileName { get; set; }
         public long FileSize { get; set; }
         public int? ParentId { get; set; }
+        public string? FolderPath { get; set; }
     }
 
     public class FileItemResponse
@@ -55,11 +56,18 @@ namespace PanSystem.DTOs
         public long TotalSize { get; set; }
         public int? ParentId { get; set; }
         public string Md5 { get; set; }
+        public string? FolderPath { get; set; }
     }
 
     public class OfflineDownloadRequest
     {
         public string Url { get; set; }
+        public int? ParentId { get; set; }
+    }
+
+    public class BatchCreateFoldersRequest
+    {
+        public required List<string> FolderPaths { get; set; }
         public int? ParentId { get; set; }
     }
 }

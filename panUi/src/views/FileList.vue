@@ -504,6 +504,32 @@ const folderInputRef = ref<HTMLInputElement>()
 const searchKeyword = ref((route.query.q as string) || '')
 const offlineLoading = ref(false)
 
+// 并发上传控制
+const uploadQueue = ref<any[]>([])
+const CONCURRENCY_LIMIT = 3
+let runningCount = 0
+
+const processQueue = async () => {
+  if (runningCount >= CONCURRENCY_LIMIT || uploadQueue.value.length === 0) return
+  
+  runningCount++
+  const { file, parentId } = uploadQueue.value.shift()
+  
+  try {
+    await handleUpload({ file, parentId })
+  } catch (err) {
+    console.error('任务执行失败:', err)
+  } finally {
+    runningCount--
+    processQueue()
+  }
+}
+
+const addToUploadQueue = (file: File, parentId: number | null) => {
+  uploadQueue.value.push({ file, parentId })
+  processQueue()
+}
+
 const handleFolderSelect = async (e: any) => {
   const files = e.target.files
   if (!files || files.length === 0) return
@@ -545,7 +571,7 @@ const handleFolderSelect = async (e: any) => {
   
   // 3. 逐个上传文件
   for (let i = 0; i < files.length; i++) {
-    handleUpload({ file: files[i] })
+    addToUploadQueue(files[i], targetParentId)
   }
   
   // 清洗 input，允许重复上传同一文件夹
@@ -573,16 +599,19 @@ const traverseDirectory = async (entry: any, path: string = ''): Promise<{ files
   const result: { files: File[], folders: string[] } = { files: [], folders: [] }
   
   if (entry.isFile) {
-    const file = await new Promise<File>((resolve) => {
+    const file = await new Promise<File>((resolve, reject) => {
       entry.file((f: File) => {
         // 创建一个新的 File 对象，附加 webkitRelativePath
+        // 注意：新 File 对象在某些浏览器中可能丢失 webkitRelativePath，所以我们通过 Object.defineProperty 注入
         const newFile = new File([f], f.name, { type: f.type, lastModified: f.lastModified })
+        const relativePath = path ? `${path}/${f.name}` : f.name
         Object.defineProperty(newFile, 'webkitRelativePath', {
-          value: path ? `${path}/${f.name}` : f.name,
-          writable: false
+          value: relativePath,
+          writable: false,
+          configurable: true
         })
         resolve(newFile)
-      })
+      }, reject)
     })
     result.files.push(file)
   } else if (entry.isDirectory) {
@@ -590,25 +619,28 @@ const traverseDirectory = async (entry: any, path: string = ''): Promise<{ files
     result.folders.push(fullPath)
     
     const reader = entry.createReader()
-    const entries = await new Promise<any[]>((resolve) => {
-      const allEntries: any[] = []
-      const readEntries = () => {
-        reader.readEntries((batch: any[]) => {
-          if (batch.length === 0) {
-            resolve(allEntries)
-          } else {
-            allEntries.push(...batch)
-            readEntries()
-          }
-        })
-      }
-      readEntries()
-    })
     
-    for (const childEntry of entries) {
-      const childResult = await traverseDirectory(childEntry, fullPath)
-      result.files.push(...childResult.files)
-      result.folders.push(...childResult.folders)
+    const readAllEntries = async () => {
+      const entries: any[] = []
+      let batch: any[]
+      do {
+        batch = await new Promise<any[]>((resolve, reject) => {
+          reader.readEntries(resolve, reject)
+        })
+        entries.push(...batch)
+      } while (batch.length > 0)
+      return entries
+    }
+
+    try {
+      const entries = await readAllEntries()
+      for (const childEntry of entries) {
+        const childResult = await traverseDirectory(childEntry, fullPath)
+        result.files.push(...childResult.files)
+        result.folders.push(...childResult.folders)
+      }
+    } catch (err) {
+      console.error('读取目录失败:', err)
     }
   }
   
@@ -619,23 +651,28 @@ const handleGlobalDrop = async (e: DragEvent) => {
   isDragOver.value = false
   if (props.category !== 'files') return
   
+  // 重要：必须在 drop 事件的同步周期内获取文件/条目，否则 DataTransfer 对象会被清除
   const items = e.dataTransfer?.items
   if (!items) return
   
+  const entries: any[] = []
+  for (let i = 0; i < items.length; i++) {
+    // @ts-ignore
+    const entry = items[i].webkitGetAsEntry?.()
+    if (entry) entries.push(entry)
+  }
+
+  if (entries.length === 0) return
+
   const targetParentId = currentParentId.value
   const allFolders: string[] = []
   const allFiles: File[] = []
   
-  // 使用 webkitGetAsEntry 遍历目录结构
-  for (let i = 0; i < items.length; i++) {
-    const item = items[i]
-    // @ts-ignore
-    const entry = item.webkitGetAsEntry?.() || item.getAsEntry?.()
-    if (entry) {
-      const result = await traverseDirectory(entry)
-      allFolders.push(...result.folders)
-      allFiles.push(...result.files)
-    }
+  // 处理所有条目
+  for (const entry of entries) {
+    const result = await traverseDirectory(entry)
+    allFolders.push(...result.folders)
+    allFiles.push(...result.files)
   }
   
   // 1. 先批量创建所有文件夹（包括空文件夹）
@@ -655,7 +692,7 @@ const handleGlobalDrop = async (e: DragEvent) => {
   
   // 2. 上传所有文件
   for (const file of allFiles) {
-    handleUpload({ file })
+    addToUploadQueue(file, targetParentId)
   }
   
   // 如果只有空文件夹，刷新列表
@@ -1070,8 +1107,8 @@ const handleUpload = async (options: any) => {
   const fileSize = file.size
   const fileName = file.name
   const guid = generateGuid()
-  // 必须立即捕获当前 parentId，防止上传过程中由于用户跳转导致文件传错地方
-  const targetParentId = currentParentId.value
+  // 允许通过 options 传入预设的 parentId，否则取当前目录
+  const targetParentId = options.parentId !== undefined ? options.parentId : currentParentId.value
   
   // 处理文件夹上传路径
   let folderPath = ''

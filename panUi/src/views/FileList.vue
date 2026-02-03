@@ -59,10 +59,10 @@
             multiple
             @change="handleFolderSelect"
           />
-          <el-button :icon="Folder" @click="folderInputRef?.click()">上传文件夹</el-button>
+          <el-button type="success" plain :icon="Folder" @click="folderInputRef?.click()">上传文件夹</el-button>
         </div>
-        <el-button v-if="category === 'files'" :icon="FolderAdd" @click="showCreateFolder = true">新建文件夹</el-button>
-        <el-button v-if="category === 'files'" :icon="Link" @click="showOfflineDownload = true">离线下载</el-button>
+        <el-button v-if="category === 'files'" type="warning" plain :icon="FolderAdd" @click="showCreateFolder = true">新建文件夹</el-button>
+        <el-button v-if="category === 'files'" type="info" plain :icon="Link" @click="showOfflineDownload = true">离线下载</el-button>
         <el-button v-if="selectedIds.length > 0 && category === 'files'" :icon="Rank" @click="handleBatchMove">批量移动</el-button>
         <el-button v-if="selectedIds.length > 0" type="danger" plain :icon="Delete" @click="handleBatchDelete">批量删除</el-button>
         <el-button v-if="category === 'recycle-bin'" type="danger" :icon="Delete" @click="handleEmptyRecycleBin">清空回收站</el-button>
@@ -353,7 +353,6 @@
       v-model="showVideoPlayer" 
       :fullscreen="isPreviewFullscreen"
       width="1000px" 
-      top="5vh"
       destroy-on-close
       @closed="videoUrl = ''; isPreviewFullscreen = false"
       :class="['preview-dialog', 'video-preview-dialog', { 'is-fullscreen': isPreviewFullscreen }]"
@@ -386,7 +385,6 @@
       v-model="showTextPreview"
       :fullscreen="isPreviewFullscreen"
       width="1000px"
-      top="5vh"
       destroy-on-close
       @closed="isPreviewFullscreen = false"
       :class="['preview-dialog', 'text-preview-dialog', { 'is-fullscreen': isPreviewFullscreen }]"
@@ -411,7 +409,6 @@
       v-model="previewState.visible"
       :fullscreen="isPreviewFullscreen"
       width="1000px"
-      top="5vh"
       destroy-on-close
       @closed="isPreviewFullscreen = false"
       :class="['preview-dialog', 'file-preview-dialog', { 'is-fullscreen': isPreviewFullscreen }]"
@@ -1746,41 +1743,6 @@ onMounted(() => {
         .task-status { font-size: 11px; color: var(--pan-text-muted); }
       }
     }
-  }
-}
-.preview-dialog {
-  :deep(.el-dialog) {
-    display: flex;
-    flex-direction: column;
-    max-height: 90vh !important;
-    margin: 5vh auto !important;
-    overflow: hidden;
-    background: var(--pan-bg);
-    
-    .el-dialog__header {
-      padding: 0 !important;
-      border-bottom: 1px solid var(--pan-border);
-      flex-shrink: 0;
-    }
-    
-    .el-dialog__body {
-      flex: 1;
-      padding: 0 !important;
-      overflow: hidden;
-      display: flex;
-      flex-direction: column;
-      min-height: 0;
-    }
-  }
-
-  &.is-fullscreen :deep(.el-dialog) {
-    width: 100vw !important;
-    height: 100vh !important;
-    max-height: 100vh !important;
-    margin: 0 !important;
-    top: 0 !important;
-    border-radius: 0 !important;
-    border: none !important;
   }
 }
 

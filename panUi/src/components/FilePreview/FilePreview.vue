@@ -168,11 +168,7 @@ const pdfUrl = computed(() => {
   return `${request.defaults.baseURL || '/api'}/file/download/${props.fileId}?access_token=${token}&preview=true`
 })
 
-const imageUrl = computed(() => {
-  if (props.fileType !== 'image') return ''
-  const token = localStorage.getItem('token')
-  return `${request.defaults.baseURL || '/api'}/file/download/${props.fileId}?access_token=${token}`
-})
+const imageUrl = ref('')
 
 // Methods
 const zoomIn = () => {
@@ -329,8 +325,13 @@ const loadContent = async () => {
           }
         }
       }
+    } else if (props.fileType === 'image') {
+      // Explicitly fetch image to handle auth headers and catch errors
+      const res = await request.get(`/file/download/${props.fileId}`, { responseType: 'blob' })
+      if (imageUrl.value) URL.revokeObjectURL(imageUrl.value)
+      imageUrl.value = URL.createObjectURL(res as unknown as Blob)
     }
-    // PDF and Image handled by src binding
+    // PDF handled by src binding (iframe usually handles cookies/auth differently, or via query param)
   } catch (error) {
     console.error(error)
     ElMessage.error('加载失败')
@@ -346,11 +347,12 @@ onMounted(loadContent)
 
 <style scoped lang="scss">
 .file-preview-component {
-  height: 100%;
+  flex: 1;
   display: flex;
   flex-direction: column;
   background-color: var(--pan-bg);
   position: relative;
+  min-height: 0;
 }
 
 .toolbar {
@@ -394,15 +396,34 @@ onMounted(loadContent)
   flex: 1;
   padding: 24px;
   display: flex;
-  justify-content: center;
-  align-items: flex-start;
-  overflow: auto;
-  background-color: #0c0d0d; /* Slightly darker than bg for contrast */
+  flex-direction: column;
+  align-items: center;
+  justify-content: center; /* Center the content */
+  overflow: hidden;
+  background-color: #0c0d0d; 
+  min-height: 0;
 
   &.full-height {
     padding: 0;
     align-items: stretch;
-    overflow: hidden;
+  }
+}
+
+.image-container {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  overflow: hidden;
+
+  img {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+    border-radius: 4px;
+    transition: transform 0.2s;
   }
 }
 
@@ -480,18 +501,6 @@ onMounted(loadContent)
   background: white;
   border-radius: var(--pan-radius-md);
   overflow: hidden;
-}
-
-.image-container {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  img {
-    max-width: 100%;
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
-    border-radius: 4px;
-    transition: transform 0.2s;
-  }
 }
 
 .fallback-container {

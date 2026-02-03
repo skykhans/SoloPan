@@ -62,9 +62,9 @@
               </el-table-column>
               <el-table-column label="角色" width="100">
                 <template #default="{ row }">
-                  <span class="status-badge" :style="row.isAdmin ? 'color: #ef4444; background: rgba(239, 68, 68, 0.1); border-color: rgba(239, 68, 68, 0.2)' : ''">
-                    {{ row.isAdmin ? 'ADMIN' : 'USER' }}
-                  </span>
+                  <el-tag :type="row.isAdmin ? 'danger' : 'info'" size="small">
+                    {{ row.isAdmin ? 'Admin' : 'User' }}
+                  </el-tag>
                 </template>
               </el-table-column>
               <el-table-column label="操作" width="150">
@@ -87,7 +87,7 @@
               <el-table-column prop="userName" label="用户" width="120" />
               <el-table-column label="操作" width="120">
                 <template #default="{ row }">
-                   <el-tag :type="getActionType(row.action)">{{ row.action }}</el-tag>
+                   <el-tag :type="getActionType(row.action)" size="small">{{ row.action }}</el-tag>
                 </template>
               </el-table-column>
               <el-table-column prop="detail" label="详情" />
@@ -177,7 +177,7 @@ const getActionType = (action: string) => {
   if (action.includes('删除')) return 'danger'
   if (action.includes('上传') || action.includes('合并')) return 'success'
   if (action.includes('移动') || action.includes('重命名')) return 'warning'
-  return ''
+  return 'info'
 }
 
 const handleEditQuota = (row: any) => {
@@ -351,18 +351,6 @@ onMounted(() => {
 
 .user-management, .audit-management {
   padding: 0 12px 12px;
-}
-
-.status-badge {
-  display: inline-flex;
-  align-items: center;
-  padding: 2px 8px;
-  border-radius: 4px;
-  font-size: 11px;
-  font-weight: 800;
-  letter-spacing: 0.02em;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid var(--pan-border-strong);
 }
 
 .usage-cell {

@@ -126,9 +126,19 @@ namespace PanSystem.Controllers
             var uniqueName = await GetUniqueName(request.FileName, effectiveParentId, userId);
 
             // 查找系统中是否存在该 MD5 的文件（不分用户，实现全局秒传）
-            var existingFile = await _db.Queryable<StorageItem>()
+            var possibleFiles = await _db.Queryable<StorageItem>()
                 .Where(f => f.FileMd5 == request.Md5 && !f.IsFolder && !f.IsDeleted)
-                .FirstAsync();
+                .ToListAsync();
+
+            StorageItem? existingFile = null;
+            foreach (var item in possibleFiles)
+            {
+                if (System.IO.File.Exists(_storageService.GetFullPath(item.FilePath!)))
+                {
+                    existingFile = item;
+                    break;
+                }
+            }
 
             if (existingFile != null)
             {
@@ -335,9 +345,19 @@ namespace PanSystem.Controllers
             var uniqueName = await GetUniqueName(request.FileName, effectiveParentId, userId);
 
             // 检查 MD5 秒传
-            var existingFile = await _db.Queryable<StorageItem>()
+            var possibleFiles = await _db.Queryable<StorageItem>()
                 .Where(f => f.FileMd5 == request.Md5 && !f.IsFolder && !f.IsDeleted)
-                .FirstAsync();
+                .ToListAsync();
+
+            StorageItem? existingFile = null;
+            foreach (var item in possibleFiles)
+            {
+                if (System.IO.File.Exists(_storageService.GetFullPath(item.FilePath!)))
+                {
+                    existingFile = item;
+                    break;
+                }
+            }
 
             var user = await _db.Queryable<UserInfo>().InSingleAsync(userId);
             if (user.UsedSpace + request.TotalSize > user.TotalSpace)

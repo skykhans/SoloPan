@@ -47,7 +47,9 @@ service.interceptors.response.use(
           if (showError) ElMessage.error('没有权限')
           break
         case 404:
-          if (showError) ElMessage.error('资源不存在')
+          if (showError) {
+            ElMessage.error(error.response.data || '资源不存在')
+          }
           break
         default:
           if (showError) {

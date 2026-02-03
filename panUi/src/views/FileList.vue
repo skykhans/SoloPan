@@ -914,6 +914,9 @@ const handleUpload = async (options: any) => {
         fileName: fileName,
         fileSize: fileSize,
         parentId: currentParentId.value
+      }, { 
+        // @ts-ignore
+        _showError: false 
       })
       if (checkRes) {
         task.value.progress = 100

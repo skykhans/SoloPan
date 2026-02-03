@@ -27,12 +27,15 @@ service.interceptors.response.use(
     return response.data
   },
   error => {
+    const config = error.config || {}
+    const showError = config._showError !== false
+
     if (error.response) {
       switch (error.response.status) {
         case 401:
           // 如果当前已经在登录页，或者是登录请求返回的 401，不重复提示
           if (router.currentRoute.value.path !== '/login' && error.config.url !== '/user/login') {
-            ElMessage.error('登录过期，请重新登录')
+            if (showError) ElMessage.error('登录过期，请重新登录')
           }
           localStorage.removeItem('token')
           localStorage.removeItem('username')
@@ -41,16 +44,18 @@ service.interceptors.response.use(
           }
           break;
         case 403:
-          ElMessage.error('没有权限')
+          if (showError) ElMessage.error('没有权限')
           break
         case 404:
-          ElMessage.error('资源不存在')
+          if (showError) ElMessage.error('资源不存在')
           break
         default:
-          ElMessage.error(error.response.data?.title || error.response.data || '系统错误')
+          if (showError) {
+            ElMessage.error(error.response.data?.title || error.response.data || '系统错误')
+          }
       }
     } else {
-      ElMessage.error('网络错误')
+      if (showError) ElMessage.error('网络错误')
     }
     return Promise.reject(error)
   }

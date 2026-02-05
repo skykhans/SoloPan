@@ -431,8 +431,9 @@ onMounted(loadContent)
   }
 
   &.is-image {
-    padding: 16px 0 0;
+    padding: 24px 0;
     background: transparent;
+    justify-content: flex-start;
   }
 }
 
@@ -441,7 +442,7 @@ onMounted(loadContent)
   height: 100%;
   display: flex;
   justify-content: center;
-  align-items: center;
+  align-items: flex-start;
   overflow: hidden;
 
   img {

@@ -65,6 +65,12 @@ namespace PanSystem.DTOs
         public int? ParentId { get; set; }
     }
 
+    public class OfflineDownloadUpdateRequest
+    {
+        public string? Url { get; set; }
+        public int? ParentId { get; set; }
+    }
+
     public class BatchCreateFoldersRequest
     {
         public required List<string> FolderPaths { get; set; }

@@ -45,6 +45,8 @@ builder.Services.AddSwaggerGen(c =>
 
 // Background Services
 builder.Services.AddHostedService<MaintenanceBackgroundService>();
+builder.Services.AddSingleton<OfflineDownloadQueue>();
+builder.Services.AddHostedService<OfflineDownloadWorker>();
 
 // Configure SqlSugar
 builder.Services.AddScoped<ISqlSugarClient>(s =>
@@ -118,6 +120,47 @@ using (var scope = app.Services.CreateScope())
     var db = scope.ServiceProvider.GetRequiredService<ISqlSugarClient>();
 
     Console.WriteLine("正在执行数据库差异同步...");
+    // 先处理 OfflineDownloadTask（避免 CodeFirst 在已有表上失败）
+    try
+    {
+        db.Ado.ExecuteCommand(@"
+            IF OBJECT_ID('OfflineDownloadTask', 'U') IS NOT NULL
+               AND EXISTS (
+                   SELECT 1 FROM sys.columns
+                   WHERE object_id = OBJECT_ID('OfflineDownloadTask')
+                     AND name = 'Id'
+                     AND is_identity = 0
+               )
+            DROP TABLE OfflineDownloadTask;
+
+            IF OBJECT_ID('OfflineDownloadTask', 'U') IS NULL
+            CREATE TABLE OfflineDownloadTask (
+                Id INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+                UserId INT NOT NULL,
+                Url NVARCHAR(2048) NOT NULL,
+                ParentId INT NULL,
+                Status NVARCHAR(50) NOT NULL,
+                Progress INT NOT NULL,
+                Message NVARCHAR(4000) NULL,
+                CreateTime DATETIME NOT NULL,
+                UpdateTime DATETIME NOT NULL
+            );
+
+            IF OBJECT_ID('OfflineDownloadTask', 'U') IS NOT NULL
+               AND COL_LENGTH('OfflineDownloadTask', 'ParentId') IS NOT NULL
+               AND COLUMNPROPERTY(OBJECT_ID('OfflineDownloadTask'), 'ParentId', 'AllowsNull') = 0
+            ALTER TABLE OfflineDownloadTask ALTER COLUMN ParentId INT NULL;
+
+            IF OBJECT_ID('OfflineDownloadTask', 'U') IS NOT NULL
+               AND COL_LENGTH('OfflineDownloadTask', 'Message') IS NOT NULL
+               AND COLUMNPROPERTY(OBJECT_ID('OfflineDownloadTask'), 'Message', 'AllowsNull') = 0
+            ALTER TABLE OfflineDownloadTask ALTER COLUMN Message NVARCHAR(4000) NULL;
+        ");
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"数据库预处理错误: {ex.Message}");
+    }
     // 基础建表
     db.CodeFirst.InitTables(
         typeof(PanSystem.Models.UserInfo),
@@ -134,6 +177,14 @@ using (var scope = app.Services.CreateScope())
             ALTER TABLE UserInfo ADD Phone NVARCHAR(50) NULL;
             IF COL_LENGTH('UserInfo', 'Email') IS NULL
             ALTER TABLE UserInfo ADD Email NVARCHAR(100) NULL;
+            IF COL_LENGTH('OfflineDownloadTask', 'ParentId') IS NULL
+            ALTER TABLE OfflineDownloadTask ADD ParentId INT NULL;
+            IF COL_LENGTH('OfflineDownloadTask', 'ParentId') IS NOT NULL
+               AND COLUMNPROPERTY(OBJECT_ID('OfflineDownloadTask'), 'ParentId', 'AllowsNull') = 0
+            ALTER TABLE OfflineDownloadTask ALTER COLUMN ParentId INT NULL;
+            IF COL_LENGTH('OfflineDownloadTask', 'Message') IS NOT NULL
+               AND COLUMNPROPERTY(OBJECT_ID('OfflineDownloadTask'), 'Message', 'AllowsNull') = 0
+            ALTER TABLE OfflineDownloadTask ALTER COLUMN Message NVARCHAR(4000) NULL;
         ");
         Console.WriteLine("数据库列维护检查完成");
     }

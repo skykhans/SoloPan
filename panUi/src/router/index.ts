@@ -1,6 +1,7 @@
 import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router'
 import FileList from '../views/FileList.vue'
 import Login from '../views/Login.vue'
+import OfflineDownloads from '../views/OfflineDownloads.vue'
 
 const routes: Array<RouteRecordRaw> = [
   {
@@ -34,6 +35,11 @@ const routes: Array<RouteRecordRaw> = [
     path: '/my-shares',
     name: 'MyShares',
     component: () => import('../views/MyShares.vue')
+  },
+  {
+    path: '/offline-downloads',
+    name: 'OfflineDownloads',
+    component: OfflineDownloads
   },
   {
     path: '/share/:token',

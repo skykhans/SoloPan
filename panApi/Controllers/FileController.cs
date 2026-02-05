@@ -22,16 +22,16 @@ namespace PanSystem.Controllers
         private readonly IStorageService _storageService;
         private readonly IWebHostEnvironment _env;
         private readonly IAuditService _auditService;
-        private readonly IHttpClientFactory _httpClientFactory;
+        private readonly OfflineDownloadQueue _offlineQueue;
         private static readonly System.Threading.SemaphoreSlim _folderLock = new System.Threading.SemaphoreSlim(1, 1);
 
-        public FileController(ISqlSugarClient db, IStorageService storageService, IWebHostEnvironment env, IAuditService auditService, IHttpClientFactory httpClientFactory)
+        public FileController(ISqlSugarClient db, IStorageService storageService, IWebHostEnvironment env, IAuditService auditService, OfflineDownloadQueue offlineQueue)
         {
             _db = db;
             _storageService = storageService;
             _env = env;
             _auditService = auditService;
-            _httpClientFactory = httpClientFactory;
+            _offlineQueue = offlineQueue;
         }
 
         private int GetUserId() => int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
@@ -658,6 +658,45 @@ namespace PanSystem.Controllers
             return Ok("还原成功");
         }
 
+        [HttpPost("batch-restore")]
+        public async Task<IActionResult> BatchRestore(BatchDeleteRequest request)
+        {
+            var userId = GetUserId();
+            if (request.Ids == null || request.Ids.Count == 0) return Ok("无需还原");
+
+            // 递归查找所有需要还原的 ID（包含子项）
+            var allIdsToRestore = new HashSet<int>(request.Ids);
+            var currentLevelIds = request.Ids;
+
+            while (true)
+            {
+                var childIds = await _db.Queryable<StorageItem>()
+                    .Where(f => f.ParentId != null && currentLevelIds.Contains((int)f.ParentId) && f.UserId == userId)
+                    .Select(f => f.Id)
+                    .ToListAsync();
+
+                if (!childIds.Any()) break;
+
+                var newIds = childIds.Where(id => !allIdsToRestore.Contains(id)).ToList();
+                if (!newIds.Any()) break;
+
+                foreach (var id in newIds) allIdsToRestore.Add(id);
+                currentLevelIds = newIds;
+            }
+
+            var allIdsList = allIdsToRestore.ToList();
+
+            await _db.Updateable<StorageItem>()
+                .SetColumns(f => f.IsDeleted == false)
+                .SetColumns(f => f.UpdateTime == DateTime.Now)
+                .Where(f => allIdsList.Contains(f.Id) && f.UserId == userId)
+                .ExecuteCommandAsync();
+
+            await _auditService.LogAsync(userId, User.Identity!.Name!, "批量还原", $"还原了 {allIdsList.Count} 个项目", Request.HttpContext.Connection.RemoteIpAddress?.ToString() ?? "");
+
+            return Ok("批量还原成功");
+        }
+
         [HttpDelete("permanent/{id}")]
         public async Task<IActionResult> PermanentDelete(int id)
         {
@@ -724,6 +763,22 @@ namespace PanSystem.Controllers
             return Ok(new { IsFavorite = item.IsFavorite });
         }
 
+        [HttpPost("batch-unfavorite")]
+        public async Task<IActionResult> BatchUnfavorite(BatchDeleteRequest request)
+        {
+            var userId = GetUserId();
+
+            await _db.Updateable<StorageItem>()
+                .SetColumns(f => f.IsFavorite == false)
+                .SetColumns(f => f.UpdateTime == DateTime.Now)
+                .Where(f => request.Ids.Contains(f.Id) && f.UserId == userId)
+                .ExecuteCommandAsync();
+
+            await _auditService.LogAsync(userId, User.Identity!.Name!, "取消收藏", $"取消收藏了 {request.Ids.Count} 个项目", Request.HttpContext.Connection.RemoteIpAddress?.ToString() ?? "");
+
+            return Ok("批量取消收藏成功");
+        }
+
         [HttpGet("favorites")]
         public async Task<IActionResult> GetFavorites()
         {
@@ -779,89 +834,121 @@ namespace PanSystem.Controllers
             var userId = GetUserId();
             var user = await _db.Queryable<UserInfo>().InSingleAsync(userId);
             if (user == null) return NotFound("用户不存在");
+            if (string.IsNullOrWhiteSpace(request.Url)) return BadRequest("下载链接不能为空");
 
-            try
+            var task = new OfflineDownloadTask
             {
-                var client = _httpClientFactory.CreateClient();
-                client.Timeout = TimeSpan.FromMinutes(10);
+                UserId = userId,
+                Url = request.Url.Trim(),
+                ParentId = request.ParentId,
+                Status = "queued",
+                Progress = 0,
+                Message = "",
+                CreateTime = DateTime.Now,
+                UpdateTime = DateTime.Now
+            };
 
-                var response = await client.GetAsync(request.Url, HttpCompletionOption.ResponseHeadersRead);
-                if (!response.IsSuccessStatusCode)
-                {
-                    return BadRequest($"无法从链接下载文件，状态码: {response.StatusCode}");
-                }
+            var taskId = await _db.Insertable(task).ExecuteReturnIdentityAsync();
+            await _offlineQueue.EnqueueAsync(new OfflineDownloadJob(taskId));
 
-                var fileName = "";
-                var contentDisposition = response.Content.Headers.ContentDisposition;
-                if (contentDisposition != null && !string.IsNullOrEmpty(contentDisposition.FileName))
-                {
-                    fileName = contentDisposition.FileName.Trim('\"');
-                }
-
-                if (string.IsNullOrEmpty(fileName))
-                {
-                    try
-                    {
-                        fileName = Path.GetFileName(new Uri(request.Url).LocalPath);
-                    }
-                    catch { }
-                }
-
-                if (string.IsNullOrEmpty(fileName))
-                {
-                    fileName = "offline_file_" + DateTime.Now.Ticks;
-                }
-
-                var contentLength = response.Content.Headers.ContentLength ?? 0;
-                if (contentLength > 0 && user.UsedSpace + contentLength > user.TotalSpace)
-                {
-                    return BadRequest("存储空间不足");
-                }
-
-                var uniqueName = await GetUniqueName(fileName, request.ParentId, userId);
-
-                using (var stream = await response.Content.ReadAsStreamAsync())
-                {
-                    var relativePath = await _storageService.SaveFileAsync(stream, uniqueName);
-
-                    if (contentLength == 0)
-                    {
-                        var fullPath = _storageService.GetFullPath(relativePath);
-                        contentLength = new FileInfo(fullPath).Length;
-                    }
-
-                    var storageItem = new StorageItem
-                    {
-                        Name = uniqueName,
-                        ParentId = request.ParentId,
-                        UserId = userId,
-                        IsFolder = false,
-                        FileSize = contentLength,
-                        FilePath = relativePath,
-                        CreateTime = DateTime.Now,
-                        UpdateTime = DateTime.Now
-                    };
-
-                    await _db.Insertable(storageItem).ExecuteCommandAsync();
-
-                    if (contentLength > 0)
-                    {
-                        await _db.Updateable<UserInfo>()
-                            .SetColumns(u => u.UsedSpace == u.UsedSpace + contentLength)
-                            .Where(u => u.Id == userId)
-                            .ExecuteCommandAsync();
-                    }
-
-                    await _auditService.LogAsync(userId, User.Identity!.Name!, "离线下载", $"URL: {request.Url}, 文件: {uniqueName}", Request.HttpContext.Connection.RemoteIpAddress?.ToString() ?? "");
-
-                    return Ok(new { Message = "下载成功", ItemId = storageItem.Id });
-                }
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, $"离线下载失败: {ex.Message}");
-            }
+            return Ok(new { Message = "已加入离线下载队列", TaskId = taskId });
         }
+
+        [HttpGet("offline-tasks")]
+        public async Task<IActionResult> GetOfflineTasks()
+        {
+            var userId = GetUserId();
+            var tasks = await _db.Queryable<OfflineDownloadTask>()
+                .Where(t => t.UserId == userId)
+                .OrderBy(t => t.CreateTime, OrderByType.Desc)
+                .Take(50)
+                .ToListAsync();
+
+            return Ok(tasks);
+        }
+
+        [HttpGet("offline-tasks/{id}")]
+        public async Task<IActionResult> GetOfflineTask(int id)
+        {
+            var userId = GetUserId();
+            var task = await _db.Queryable<OfflineDownloadTask>()
+                .FirstAsync(t => t.Id == id && t.UserId == userId);
+
+            if (task == null) return NotFound("任务不存在");
+            return Ok(task);
+        }
+
+        [HttpPut("offline-tasks/{id}")]
+        public async Task<IActionResult> UpdateOfflineTask(int id, [FromBody] OfflineDownloadUpdateRequest request)
+        {
+            var userId = GetUserId();
+            var task = await _db.Queryable<OfflineDownloadTask>()
+                .FirstAsync(t => t.Id == id && t.UserId == userId);
+
+            if (task == null) return NotFound("任务不存在");
+            if (task.Status == "downloading" || task.Status == "importing")
+            {
+                return BadRequest("任务正在进行，无法修改");
+            }
+
+            if (!string.IsNullOrWhiteSpace(request.Url))
+            {
+                task.Url = request.Url.Trim();
+            }
+
+            task.ParentId = request.ParentId;
+            task.Status = "queued";
+            task.Progress = 0;
+            task.Message = "";
+            task.UpdateTime = DateTime.Now;
+
+            await _db.Updateable(task).ExecuteCommandAsync();
+            await _offlineQueue.EnqueueAsync(new OfflineDownloadJob(task.Id));
+
+            return Ok("任务已更新并重新入队");
+        }
+
+        [HttpPost("offline-tasks/{id}/retry")]
+        public async Task<IActionResult> RetryOfflineTask(int id)
+        {
+            var userId = GetUserId();
+            var task = await _db.Queryable<OfflineDownloadTask>()
+                .FirstAsync(t => t.Id == id && t.UserId == userId);
+
+            if (task == null) return NotFound("任务不存在");
+            if (task.Status == "downloading" || task.Status == "importing")
+            {
+                return BadRequest("任务正在进行，无法重试");
+            }
+
+            task.Status = "queued";
+            task.Progress = 0;
+            task.Message = "";
+            task.UpdateTime = DateTime.Now;
+
+            await _db.Updateable(task).ExecuteCommandAsync();
+            await _offlineQueue.EnqueueAsync(new OfflineDownloadJob(task.Id));
+
+            return Ok("任务已重新入队");
+        }
+
+        [HttpDelete("offline-tasks/{id}")]
+        public async Task<IActionResult> DeleteOfflineTask(int id)
+        {
+            var userId = GetUserId();
+            var task = await _db.Queryable<OfflineDownloadTask>()
+                .FirstAsync(t => t.Id == id && t.UserId == userId);
+
+            if (task == null) return NotFound("任务不存在");
+            if (task.Status == "downloading" || task.Status == "importing")
+            {
+                return BadRequest("任务正在进行，暂不支持删除");
+            }
+
+            await _db.Deleteable<OfflineDownloadTask>().In(id).ExecuteCommandAsync();
+            return Ok("任务已删除");
+        }
+
 
         [HttpPost("empty-recycle-bin")]
         public async Task<IActionResult> EmptyRecycleBin()
@@ -883,6 +970,7 @@ namespace PanSystem.Controllers
         public async Task<IActionResult> Move(MoveRequest request)
         {
             var userId = GetUserId();
+            if (request.Ids == null || request.Ids.Count == 0) return BadRequest("请选择要移动的项目");
 
             // 检查目标文件夹是否存在且属于该用户 (如果不是根目录)
             if (request.TargetParentId.HasValue)
@@ -890,6 +978,17 @@ namespace PanSystem.Controllers
                 var targetFolder = await _db.Queryable<StorageItem>()
                     .FirstAsync(f => f.Id == request.TargetParentId && f.UserId == userId && f.IsFolder && !f.IsDeleted);
                 if (targetFolder == null) return BadRequest("目标文件夹不存在");
+
+                // 禁止移动到自身或子目录中
+                if (request.Ids.Contains(request.TargetParentId.Value))
+                {
+                    return BadRequest("不能移动到自身目录");
+                }
+
+                if (await IsDescendantOfAny(request.TargetParentId.Value, request.Ids, userId))
+                {
+                    return BadRequest("不能移动到所选文件夹的子目录");
+                }
             }
 
             await _db.Updateable<StorageItem>()
@@ -901,6 +1000,20 @@ namespace PanSystem.Controllers
             await _auditService.LogAsync(userId, User.Identity!.Name!, "移动文件", $"移动了 {request.Ids.Count} 个项目", Request.HttpContext.Connection.RemoteIpAddress?.ToString() ?? "");
 
             return Ok("移动成功");
+        }
+
+        private async Task<bool> IsDescendantOfAny(int targetParentId, List<int> candidateParentIds, int userId)
+        {
+            var currentId = targetParentId;
+            while (true)
+            {
+                var current = await _db.Queryable<StorageItem>()
+                    .FirstAsync(f => f.Id == currentId && f.UserId == userId);
+
+                if (current == null || current.ParentId == null) return false;
+                if (candidateParentIds.Contains(current.ParentId.Value)) return true;
+                currentId = current.ParentId.Value;
+            }
         }
 
         [HttpPost("batch-delete")]

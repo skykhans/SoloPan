@@ -87,6 +87,19 @@ namespace PanSystem.Controllers
         }
 
         [AllowAnonymous]
+        [HttpGet("status/{token}")]
+        public async Task<IActionResult> GetShareStatus(string token)
+        {
+            var share = await _db.Queryable<ShareLink>()
+                .FirstAsync(s => s.ShareToken == token);
+
+            if (share == null) return NotFound("分享已取消或不存在");
+            if (share.ExpireTime.HasValue && share.ExpireTime < DateTime.Now) return BadRequest("分享已过期");
+
+            return Ok(new { Status = "ok" });
+        }
+
+        [AllowAnonymous]
         [HttpPost("check-code")]
         public async Task<IActionResult> CheckCode(AccessShareRequest request)
         {
@@ -282,6 +295,7 @@ namespace PanSystem.Controllers
                 _ => "application/octet-stream"
             };
         }
+        [HttpPost("save")]
         public async Task<IActionResult> SaveToDrive(SaveShareRequest request)
         {
             var userId = GetUserId();

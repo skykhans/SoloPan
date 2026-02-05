@@ -23,11 +23,17 @@
     </div>
 
     <div class="share-box" v-if="!fileInfo">
-      <h2>请输入提取码</h2>
-      <div class="input-area">
-        <el-input v-model="shareCode" placeholder="请输入4位提取码" maxlength="4" style="width: 200px" />
-        <el-button type="primary" @click="checkCode" :loading="loading">提取文件</el-button>
-      </div>
+      <template v-if="statusMessage">
+        <h2>分享已失效</h2>
+        <p class="status-tip">{{ statusMessage }}</p>
+      </template>
+      <template v-else>
+        <h2>请输入提取码</h2>
+        <div class="input-area">
+          <el-input v-model="shareCode" placeholder="请输入4位提取码" maxlength="4" style="width: 200px" />
+          <el-button type="primary" @click="checkCode" :loading="loading">提取文件</el-button>
+        </div>
+      </template>
     </div>
 
     <div :class="['file-info-box', { 'is-folder-view': fileInfo.isFolder }]" v-else>
@@ -104,7 +110,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { Document, Download, FolderOpened } from '@element-plus/icons-vue'
 import request from '../utils/request'
@@ -116,6 +122,7 @@ const shareToken = route.params.token as string
 const shareCode = ref('')
 const loading = ref(false)
 const fileInfo = ref<any>(null)
+const statusMessage = ref('')
 const shareFileList = ref<any[]>([])
 const loadingList = ref(false)
 const pathStack = ref<{id: number, name: string}[]>([])
@@ -152,8 +159,11 @@ const checkCode = async () => {
       currentFolderId.value = null // Ensure we start at root
       fetchShareFileList()
     }
-  } catch (error) {
+    statusMessage.value = ''
+  } catch (error: any) {
     console.error(error)
+    const msg = error?.response?.data || '分享链接无效'
+    statusMessage.value = typeof msg === 'string' ? msg : '分享链接无效'
   } finally {
     loading.value = false
   }
@@ -210,6 +220,11 @@ const handleDownload = (id?: number) => {
 
 const saveToDrive = async () => {
   if (!isLoggedIn.value) {
+    // 保存用户操作，登录后自动执行
+    sessionStorage.setItem('pendingShareSave', JSON.stringify({
+      shareToken,
+      shareCode: shareCode.value
+    }))
     ElMessageBox.confirm(
       '保存文件需要先登录，是否前往登录？',
       '提示',
@@ -268,6 +283,20 @@ const getFileIcon = (name: string) => {
     default: return Document
   }
 }
+
+const checkShareStatus = async () => {
+  try {
+    await request.get(`/share/status/${shareToken}`, { _showError: false })
+    statusMessage.value = ''
+  } catch (error: any) {
+    const msg = error?.response?.data || '分享已取消或不存在'
+    statusMessage.value = typeof msg === 'string' ? msg : '分享已取消或不存在'
+  }
+}
+
+onMounted(() => {
+  checkShareStatus()
+})
 </script>
 
 <style scoped lang="scss">
@@ -366,6 +395,12 @@ const getFileIcon = (name: string) => {
     justify-content: center;
     gap: 12px;
     :deep(.el-input__wrapper) { height: 44px; }
+  }
+
+  .status-tip {
+    margin: 0 0 16px;
+    font-size: 13px;
+    color: #f59e0b;
   }
 
   .header {

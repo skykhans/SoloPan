@@ -282,6 +282,27 @@ const handleSubmit = async () => {
       localStorage.setItem('token', res.token)
       localStorage.setItem('username', res.username)
       ElMessage.success('登录成功')
+
+      // 如果是分享保存的回调，直接保存到网盘根目录
+      const pending = sessionStorage.getItem('pendingShareSave')
+      if (pending) {
+        try {
+          const data = JSON.parse(pending)
+          if (data?.shareToken && data?.shareCode) {
+            await request.post('/share/save', {
+              shareToken: data.shareToken,
+              shareCode: data.shareCode,
+              targetParentId: null
+            })
+            ElMessage.success('已保存到我的网盘')
+          }
+        } catch (err) {
+          console.error(err)
+        } finally {
+          sessionStorage.removeItem('pendingShareSave')
+        }
+      }
+
       router.push('/files')
     } else {
       await request.post('/user/register', {
@@ -449,4 +470,3 @@ const handleSubmit = async () => {
   .submit-btn { margin-top: 16px; }
 }
 </style>
-

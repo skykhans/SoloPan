@@ -31,6 +31,10 @@
           <el-icon><Share /></el-icon>
           <span>我的分享</span>
         </el-menu-item>
+        <el-menu-item index="/offline-downloads">
+          <el-icon><Download /></el-icon>
+          <span>离线下载</span>
+        </el-menu-item>
         <el-menu-item index="/recycle-bin">
           <el-icon><Delete /></el-icon>
           <span>回收站</span>
@@ -137,6 +141,7 @@ import {
   Star,
   Share,
   Delete,
+  Download,
   Monitor,
   ArrowDown,
   Expand,
@@ -468,9 +473,11 @@ onMounted(() => {
     }
   }
 
-  .user-profile {
+    .user-profile {
     padding: 12px 16px;
     border-top: 1px solid var(--pan-border);
+    display: flex;
+    justify-content: center;
     
     .el-dropdown-link {
       display: flex;

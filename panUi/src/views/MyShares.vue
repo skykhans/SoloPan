@@ -48,10 +48,16 @@
             <span class="mono">{{ row.downloadCount }}</span>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="200" fixed="right">
+        <el-table-column label="操作" width="140" fixed="right">
           <template #default="{ row }">
-            <el-button link type="primary" @click="copyShareLink(row)">复制链接</el-button>
-            <el-button link type="danger" @click="handleCancelShare(row)">取消分享</el-button>
+            <div class="row-actions">
+              <el-tooltip content="复制链接" placement="top">
+                <el-button link :icon="Link" @click="copyShareLink(row)" />
+              </el-tooltip>
+              <el-tooltip content="取消分享" placement="top">
+                <el-button link type="danger" :icon="Delete" @click="handleCancelShare(row)" />
+              </el-tooltip>
+            </div>
           </template>
         </el-table-column>
       </el-table>
@@ -61,7 +67,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import { FolderOpened, Document } from '@element-plus/icons-vue'
+import { FolderOpened, Document, Link, Delete } from '@element-plus/icons-vue'
 import request from '../utils/request'
 import { ElMessage, ElMessageBox } from 'element-plus'
 
@@ -190,5 +196,17 @@ onMounted(fetchShares)
   font-family: var(--font-mono);
   font-size: 13px;
   color: var(--pan-text-body);
+}
+
+.row-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+:deep(.row-actions .el-button) {
+  padding: 0 !important;
+  height: 28px !important;
+  width: 28px !important;
 }
 </style>

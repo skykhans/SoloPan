@@ -301,13 +301,62 @@ body {
   --el-popper-text-color: #ffffff !important;
 }
 
-.el-popper.is-dark,
-.el-popper.is-light {
+.el-dropdown__popper {
+  --el-popper-bg-color: var(--pan-surface-elevated) !important;
+  --el-popper-border-color: var(--pan-border-strong) !important;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.6) !important;
+}
+
+.el-dropdown__popper .el-dropdown-menu {
+  padding: 8px !important;
+  background: var(--pan-surface-elevated) !important;
+  border-radius: var(--pan-radius-md) !important;
+  border: 0 !important;
+  box-shadow: none !important;
+}
+
+.el-dropdown__popper .el-dropdown-menu__item {
+  border-radius: var(--pan-radius-sm) !important;
+  padding: 8px 12px !important;
+  color: var(--pan-text-body) !important;
+  background: transparent !important;
+}
+
+.el-dropdown__popper .el-dropdown-menu__item:hover {
+  background: rgba(16, 185, 129, 0.12) !important;
+  color: var(--pan-text-main) !important;
+}
+
+/* Tooltip fix (consistent background + arrow) */
+.el-tooltip__popper {
   background: var(--pan-surface-elevated) !important;
   border: 1px solid var(--pan-border-strong) !important;
-  border-radius: var(--pan-radius-sm) !important;
+  color: var(--pan-text-main) !important;
   box-shadow: 0 10px 20px rgba(0, 0, 0, 0.5) !important;
-  color: #ffffff !important;
+}
+
+.el-tooltip__popper .el-popper__arrow {
+  display: none !important;
+}
+
+/* Force tooltip arrow hidden (highest specificity) */
+html body .el-tooltip__popper .el-popper__arrow,
+html body .el-tooltip__popper .el-popper__arrow::before,
+html body .el-tooltip__popper .el-popper__arrow::after {
+  display: none !important;
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+}
+
+/* Fallback: hide all popper arrows to avoid artifact blocks */
+html body .el-popper .el-popper__arrow,
+html body .el-popper .el-popper__arrow::before,
+html body .el-popper .el-popper__arrow::after {
+  display: none !important;
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
 }
 
 .el-popper .el-popper__arrow::before {

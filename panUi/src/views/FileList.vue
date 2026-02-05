@@ -62,9 +62,25 @@
           <el-button type="success" plain :icon="Folder" @click="folderInputRef?.click()">上传文件夹</el-button>
         </div>
         <el-button v-if="category === 'files'" type="warning" plain :icon="FolderAdd" @click="showCreateFolder = true">新建文件夹</el-button>
-        <el-button v-if="category === 'files'" type="info" plain :icon="Link" @click="showOfflineDownload = true">离线下载</el-button>
         <el-button v-if="selectedIds.length > 0 && category === 'files'" :icon="Rank" @click="handleBatchMove">批量移动</el-button>
-        <el-button v-if="selectedIds.length > 0" type="danger" plain :icon="Delete" @click="handleBatchDelete">批量删除</el-button>
+        <el-button
+          v-if="selectedIds.length > 0"
+          type="danger"
+          plain
+          :icon="Delete"
+          @click="handleBatchDelete"
+        >
+          {{ props.category === 'favorites' ? '批量取消收藏' : '批量删除' }}
+        </el-button>
+        <el-button
+          v-if="selectedIds.length > 0 && category === 'recycle-bin'"
+          type="success"
+          plain
+          :icon="RefreshLeft"
+          @click="handleBatchRestore"
+        >
+          批量还原
+        </el-button>
         <el-button v-if="category === 'recycle-bin'" type="danger" :icon="Delete" @click="handleEmptyRecycleBin">清空回收站</el-button>
         
         <div class="view-switch-wrapper">
@@ -236,24 +252,6 @@
       </template>
     </el-dialog>
 
-    <!-- 离线下载弹窗 -->
-    <el-dialog v-model="showOfflineDownload" title="离线下载" width="500px">
-      <el-form label-position="top">
-        <el-form-item label="文件链接 (URL)">
-          <el-input 
-            v-model="offlineUrl" 
-            type="textarea" 
-            :rows="3" 
-            placeholder="请输入文件的直接下载链接..." 
-          />
-        </el-form-item>
-      </el-form>
-      <template #footer>
-        <el-button @click="showOfflineDownload = false">取消</el-button>
-        <el-button type="primary" class="pan-button-primary" @click="confirmOfflineDownload" :loading="offlineLoading">开始下载</el-button>
-      </template>
-    </el-dialog>
-
     <!-- 移动弹窗 -->
     <el-dialog v-model="showMoveDialog" title="移动到" width="450px" class="move-dialog">
       <div class="move-dialog-content">
@@ -271,8 +269,10 @@
             class="folder-item back-item"
             @click="handleBackInMove"
           >
-            <el-icon><RefreshLeft /></el-icon>
-            <span>返回上一级</span>
+            <div class="folder-info">
+              <el-icon><RefreshLeft /></el-icon>
+              <span class="folder-name">返回上一级</span>
+            </div>
           </div>
 
           <div 
@@ -281,8 +281,10 @@
             :class="{ active: moveTargetParentId === null }"
             @click="moveTargetParentId = null"
           >
-            <el-icon><Folder /></el-icon>
-            <span>根目录</span>
+            <div class="folder-info">
+              <el-icon><Folder /></el-icon>
+              <span class="folder-name">根目录</span>
+            </div>
           </div>
 
           <div 
@@ -325,7 +327,7 @@
           <template #extra>
             <div class="share-details">
               <div class="detail-item">
-                <span class="label">分享链接：</span>
+                <span class="label">分享链接</span>
                 <el-input :value="'http://localhost:5173/share/' + shareInfo.shareToken" readonly>
                   <template #append>
                     <el-button @click="copyText('http://localhost:5173/share/' + shareInfo.shareToken)">复制</el-button>
@@ -333,16 +335,16 @@
                 </el-input>
               </div>
               <div class="detail-item">
-                <span class="label">提取码：</span>
+                <span class="label">提取码</span>
                 <el-input :value="shareInfo.shareCode" readonly>
                   <template #append>
                     <el-button @click="copyText(shareInfo.shareCode)">复制</el-button>
                   </template>
                 </el-input>
               </div>
-              <p class="expire-tip" v-if="shareInfo.expireTime">
-                有效期至：{{ formatDate(shareInfo.expireTime) }}
-              </p>
+              <div class="expire-tip" v-if="shareInfo.expireTime">
+                有效期至 <span class="mono">{{ formatDate(shareInfo.expireTime) }}</span>
+              </div>
             </div>
           </template>
         </el-result>
@@ -448,6 +450,7 @@
         </div>
       </div>
     </div>
+
   </div>
 </template>
 
@@ -494,13 +497,11 @@ const shareExpireDays = ref(7)
 
 const showCreateFolder = ref(false)
 const newFolderName = ref('')
-const showOfflineDownload = ref(false)
-const offlineUrl = ref('')
+// offline download moved to OfflineDownloads page
 const showMoveDialog = ref(false)
 const folderInputRef = ref<HTMLInputElement>()
 
 const searchKeyword = ref((route.query.q as string) || '')
-const offlineLoading = ref(false)
 
 // 并发上传控制
 const uploadQueue = ref<any[]>([])
@@ -811,7 +812,7 @@ const handleRename = (row: any) => {
 const fetchFolderTree = async (parentId: number | null = null) => {
   try {
     const res: any = await request.get('/file/list', { params: { parentId } })
-    folderTree.value = res.filter((item: any) => item.isFolder)
+    folderTree.value = res.filter((item: any) => item.isFolder && !movingItemIds.value.includes(item.id))
     moveDialogCurrentParentId.value = parentId
     moveTargetParentId.value = parentId // 目标位置跟随当前进入的目录
   } catch (error) {
@@ -1039,11 +1040,14 @@ const handlePreviewDocx = (row: any) => handlePreview(row, 'docx')
 const handlePreviewExcel = (row: any) => handlePreview(row, 'excel')
 
 const handleBreadcrumbClick = (index: number) => {
+  const nextQuery = { ...route.query }
+  delete nextQuery.q
   if (index === -1) {
     // Root
+    searchKeyword.value = ''
     router.push({
       path: route.path,
-      query: { ...route.query, folderId: undefined },
+      query: { ...nextQuery, folderId: undefined },
       state: { pathStack: [] }
     })
   } else if (index < pathStack.value.length - 1) {
@@ -1051,9 +1055,10 @@ const handleBreadcrumbClick = (index: number) => {
     const newPathStack = pathStack.value.slice(0, index + 1)
     
     if (targetItem) {
+      searchKeyword.value = ''
       router.push({
         path: route.path,
-        query: { ...route.query, folderId: targetItem.id },
+        query: { ...nextQuery, folderId: targetItem.id },
         state: { pathStack: JSON.parse(JSON.stringify(newPathStack)) }
       })
     }
@@ -1231,25 +1236,6 @@ const confirmCreateFolder = async () => {
   }
 }
 
-const confirmOfflineDownload = async () => {
-  if (!offlineUrl.value) return
-  offlineLoading.value = true
-  try {
-    await request.post('/file/offline-download', {
-      url: offlineUrl.value,
-      parentId: currentParentId.value
-    })
-    ElMessage.success('离线下载完成')
-    showOfflineDownload.value = false
-    offlineUrl.value = ''
-    fetchFiles()
-  } catch (error) {
-    console.error(error)
-  } finally {
-    offlineLoading.value = false
-  }
-}
-
 const handleSearch = () => {
   if (searchKeyword.value.trim()) {
     router.push({ query: { ...route.query, q: searchKeyword.value.trim(), folderId: undefined } })
@@ -1283,6 +1269,23 @@ const handleRestore = async (row: any) => {
   } catch (error) {
     console.error(error)
   }
+}
+
+const handleBatchRestore = () => {
+  ElMessageBox.confirm(
+    `确定要还原选中的 ${selectedIds.value.length} 个项目吗？`,
+    '提示',
+    { type: 'warning' }
+  ).then(async () => {
+    try {
+      await request.post('/file/batch-restore', { ids: selectedIds.value })
+      ElMessage.success('批量还原成功')
+      fetchFiles()
+      selectedIds.value = []
+    } catch (error) {
+      console.error(error)
+    }
+  })
 }
 
 const handleEmptyRecycleBin = () => {
@@ -1399,6 +1402,19 @@ const handleDownload = async (row: any) => {
 }
 
 const handleDelete = (row: any) => {
+  if (props.category === 'favorites') {
+    ElMessageBox.confirm('确定要取消收藏吗？', '提示', { type: 'warning' }).then(async () => {
+      try {
+        await request.post(`/file/favorite/${row.id}`)
+        ElMessage.success('已取消收藏')
+        fetchFiles()
+      } catch (error) {
+        console.error(error)
+      }
+    })
+    return
+  }
+
   ElMessageBox.confirm('确定要删除吗？', '提示', { type: 'warning' }).then(async () => {
     try {
       await request.delete(`/file/${row.id}`)
@@ -1412,18 +1428,27 @@ const handleDelete = (row: any) => {
 
 const handleBatchDelete = () => {
   const isRecycleBin = props.category === 'recycle-bin'
+  const isFavorites = props.category === 'favorites'
   const message = isRecycleBin 
     ? `确定要彻底删除选中的 ${selectedIds.value.length} 个项目吗？此操作不可恢复！`
-    : `确定要删除选中的 ${selectedIds.value.length} 个项目吗？`
+    : isFavorites
+      ? `确定要取消收藏选中的 ${selectedIds.value.length} 个项目吗？`
+      : `确定要删除选中的 ${selectedIds.value.length} 个项目吗？`
 
   ElMessageBox.confirm(message, '提示', { 
     type: isRecycleBin ? 'error' : 'warning',
     confirmButtonClass: isRecycleBin ? 'el-button--danger' : ''
   }).then(async () => {
     try {
-      const url = isRecycleBin ? '/file/batch-delete-permanent' : '/file/batch-delete'
+      const url = isRecycleBin
+        ? '/file/batch-delete-permanent'
+        : isFavorites
+          ? '/file/batch-unfavorite'
+          : '/file/batch-delete'
       await request.post(url, { ids: selectedIds.value })
-      ElMessage.success(isRecycleBin ? '批量彻底删除成功' : '批量删除成功')
+      ElMessage.success(
+        isRecycleBin ? '批量彻底删除成功' : isFavorites ? '批量取消收藏成功' : '批量删除成功'
+      )
       fetchFiles()
       selectedIds.value = [] // clear selection
     } catch (error) {
@@ -1661,16 +1686,18 @@ onMounted(() => {
   }
 }
 
-.folder-selector {
-  max-height: 300px;
-  overflow-y: auto;
-  border: 1px solid var(--pan-border);
-  border-radius: var(--pan-radius-md);
-  margin-bottom: 20px;
+  .folder-selector {
+    max-height: 300px;
+    overflow-y: auto;
+    border: 1px solid var(--pan-border);
+    border-radius: var(--pan-radius-md);
+    margin-bottom: 20px;
+    background: var(--pan-surface-card);
 
-  .folder-item {
+    .folder-item {
     display: flex;
     align-items: center;
+    justify-content: space-between;
     padding: 10px 14px;
     cursor: pointer;
     transition: var(--pan-transition);
@@ -1681,9 +1708,57 @@ onMounted(() => {
     &:hover { background: rgba(255, 255, 255, 0.03); color: var(--pan-text-main); }
     &.active { background: var(--pan-primary-dim); color: var(--pan-primary); font-weight: 700; }
     
-    .el-icon { margin-right: 10px; font-size: 18px; }
-    &.back-item { color: var(--pan-primary); font-weight: 600; }
+    .folder-info {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-width: 0;
+      .folder-name {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+    }
+    .el-icon { font-size: 18px; }
+    &.back-item {
+      color: var(--pan-primary);
+      font-weight: 600;
+      background: rgba(16, 185, 129, 0.06);
+    }
+    &.back-item:hover {
+      background: rgba(16, 185, 129, 0.12);
+    }
   }
+}
+
+.move-path-nav {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 8px 12px;
+  margin-bottom: 12px;
+  background: var(--pan-surface-card);
+  border: 1px solid var(--pan-border);
+  border-radius: var(--pan-radius-md);
+
+  .nav-item {
+    color: var(--pan-text-body);
+    font-weight: 600;
+    cursor: pointer;
+    &:hover { color: var(--pan-primary); }
+  }
+
+  .nav-separator {
+    color: var(--pan-text-muted);
+    font-size: 12px;
+  }
+}
+
+.empty-folder {
+  padding: 12px 14px;
+  color: var(--pan-text-muted);
+  font-size: 12px;
 }
 
 .move-footer {
@@ -1747,6 +1822,7 @@ onMounted(() => {
     }
   }
 }
+
 
 .dialog-header-custom {
   height: 56px;
@@ -1814,6 +1890,66 @@ onMounted(() => {
     line-height: 1.6;
     white-space: pre-wrap;
     word-break: break-all;
+  }
+}
+
+.share-result {
+  :deep(.el-result) {
+    padding: 8px 0 0;
+  }
+  :deep(.el-result__icon) {
+    margin-bottom: 6px;
+  }
+  :deep(.el-result__title) {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--pan-text-main);
+  }
+  :deep(.el-result__subtitle) {
+    color: var(--pan-text-muted);
+  }
+
+  .share-details {
+    margin-top: 18px;
+    padding: 16px;
+    background: var(--pan-surface-card);
+    border: 1px solid var(--pan-border);
+    border-radius: var(--pan-radius-md);
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .detail-item {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .label {
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--pan-text-muted);
+  }
+
+  .expire-tip {
+    margin-top: 4px;
+    font-size: 12px;
+    color: var(--pan-text-muted);
+    text-align: right;
+  }
+
+  :deep(.el-input-group__append .el-button) {
+    background-color: var(--pan-primary) !important;
+    border-color: var(--pan-primary) !important;
+    color: #000 !important;
+    font-weight: 700 !important;
+  }
+
+  :deep(.el-input-group__append .el-button:hover) {
+    background-color: var(--pan-primary-light) !important;
   }
 }
 </style>

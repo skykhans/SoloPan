@@ -409,34 +409,62 @@ onMounted(() => {
   }
 
   .storage-info {
-    padding: 16px;
+    position: relative;
+    padding: 14px 14px 12px;
     margin: 16px 12px;
-    background: rgba(255, 255, 255, 0.02);
-    border: 1px solid var(--pan-border);
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.04) 0%, rgba(255, 255, 255, 0.015) 100%), var(--pan-surface-card);
+    border: 1px solid var(--pan-border-strong);
     border-radius: var(--pan-radius-md);
+    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.45);
+    overflow: hidden;
+
+    &::after {
+      content: '';
+      position: absolute;
+      left: 0;
+      right: 0;
+      top: 0;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(16, 185, 129, 0.45), transparent);
+      opacity: 0.6;
+    }
 
     .storage-label {
       display: flex;
       justify-content: space-between;
-      margin-bottom: 8px;
+      align-items: center;
+      margin-bottom: 10px;
       font-size: 11px;
       font-weight: 700;
       text-transform: uppercase;
-      letter-spacing: 0.05em;
+      letter-spacing: 0.06em;
       color: var(--pan-text-muted);
 
-      .percentage { color: var(--pan-primary); }
+      .percentage {
+        font-size: 12px;
+        font-weight: 800;
+        color: var(--pan-primary);
+      }
     }
     
     :deep(.el-progress) {
-      margin-bottom: 8px;
-      .el-progress-bar__outer { background: rgba(255, 255, 255, 0.05) !important; }
+      margin-bottom: 10px;
+      .el-progress-bar__outer {
+        height: 6px !important;
+        background: rgba(255, 255, 255, 0.06) !important;
+        border-radius: 999px !important;
+      }
+      .el-progress-bar__inner {
+        border-radius: 999px !important;
+        background: linear-gradient(90deg, var(--pan-primary) 0%, var(--pan-primary-light) 100%) !important;
+        box-shadow: var(--pan-primary-glow) !important;
+      }
     }
 
     .usage-text {
       font-size: 11px;
-      color: var(--pan-text-muted);
-      font-weight: 500;
+      color: var(--pan-text-body);
+      font-weight: 600;
     }
   }
 
@@ -523,4 +551,3 @@ onMounted(() => {
 
 .dialog-footer { display: flex; justify-content: flex-end; gap: 12px; }
 </style>
-

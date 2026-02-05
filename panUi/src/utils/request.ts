@@ -3,7 +3,8 @@ import { ElMessage } from 'element-plus'
 import router from '../router'
 
 const service = axios.create({
-  baseURL: 'http://localhost:5080/api', // 后端地址
+  // 使用 https 直连，避免 http -> https 重定向导致 Authorization 头丢失
+  baseURL: 'https://localhost:7296/api',
   timeout: 10000
 })
 

@@ -1598,7 +1598,9 @@ onMounted(() => {
   padding: 16px;
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
-  gap: 16px;
+  column-gap: 16px;
+  row-gap: 10px;
+  align-content: start;
   background: var(--pan-surface-elevated);
   border: 1px solid var(--pan-border);
   border-radius: var(--pan-radius-lg);

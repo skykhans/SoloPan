@@ -263,6 +263,37 @@ body {
   padding: 32px 24px !important;
 }
 
+/* MessageBox (confirm/prompt) */
+.el-message-box {
+  background-color: var(--pan-surface-elevated) !important;
+  border: 1px solid var(--pan-border-strong) !important;
+  border-radius: var(--pan-radius-lg) !important;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7) !important;
+}
+
+.el-message-box__header {
+  padding: 20px 24px !important;
+  border-bottom: 1px solid var(--pan-border) !important;
+}
+
+.el-message-box__title {
+  color: var(--pan-text-main) !important;
+  font-weight: 700 !important;
+}
+
+.el-message-box__content {
+  padding: 32px 24px !important;
+  color: var(--pan-text-body) !important;
+}
+
+.el-message-box__message p {
+  color: var(--pan-text-body) !important;
+}
+
+.el-message-box__btns {
+  padding: 12px 24px 24px !important;
+}
+
 /* Tooltips & Poppers */
 .el-popper {
   --el-popper-bg-color: var(--pan-surface-elevated) !important;

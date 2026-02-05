@@ -53,7 +53,7 @@ namespace PanSystem.Controllers
             if (user.Password != md5Password) return BadRequest("用户名或密码错误");
 
             var token = GenerateJwtToken(user);
-            return Ok(new { Token = token, Username = user.UserName });
+            return Ok(new { token, username = user.UserName });
         }
 
         [AllowAnonymous]

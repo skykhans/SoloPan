@@ -18,7 +18,7 @@
     <div 
       class="preview-content-wrapper" 
       ref="wrapperRef" 
-      :class="{ 'full-height': fileType === 'pdf' }"
+      :class="{ 'full-height': fileType === 'pdf', 'is-image': fileType === 'image' }"
     >
       <!-- Docx Preview -->
       <div 
@@ -238,7 +238,28 @@ const handlePrint = () => {
   if (props.fileType === 'image') {
     const printWindow = window.open('', '_blank')
     if (printWindow) {
-      printWindow.document.write(`<img src="${imageUrl.value}" style="max-width:100%"/>`)
+      printWindow.document.write(`
+        <html>
+          <head>
+            <title>${props.fileName}</title>
+            <style>
+              @media print { body { margin: 0; } }
+              html, body {
+                margin: 0;
+                padding: 0;
+                background: #ffffff;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+              }
+              img { max-width: 100%; max-height: 100%; }
+            </style>
+          </head>
+          <body>
+            <img src="${imageUrl.value}" />
+          </body>
+        </html>
+      `)
       printWindow.document.close()
       printWindow.focus()
       setTimeout(() => {
@@ -265,7 +286,8 @@ const handlePrint = () => {
           <head>
             <title>${props.fileName}</title>
             <style>
-              body { margin: 20px; font-family: sans-serif; }
+              @media print { body { margin: 0; } }
+              body { margin: 0; padding: 0; font-family: sans-serif; background: #ffffff; }
               table { border-collapse: collapse; width: 100%; }
               td, th { border: 1px solid #ddd; padding: 8px; }
               /* Add more styles as needed */
@@ -407,6 +429,11 @@ onMounted(loadContent)
     padding: 0;
     align-items: stretch;
   }
+
+  &.is-image {
+    padding: 16px 0 0;
+    background: transparent;
+  }
 }
 
 .image-container {
@@ -464,6 +491,18 @@ onMounted(loadContent)
   border-bottom: 1px solid #dee2e6;
   padding: 0 16px;
   :deep(.el-tabs__header) { margin: 0; }
+  :deep(.el-tabs__item) {
+    color: #6b7280;
+    font-weight: 600;
+  }
+  :deep(.el-tabs__item.is-active) {
+    color: #10b981;
+    font-weight: 700;
+  }
+  :deep(.el-tabs__active-bar) {
+    background-color: #10b981;
+    height: 2px;
+  }
 }
 
 .excel-container {

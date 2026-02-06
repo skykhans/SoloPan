@@ -18,7 +18,13 @@
       </div>
       <el-form :model="form" label-width="0">
         <el-form-item>
-          <el-input v-model="form.username" :placeholder="isLogin ? '用户名' : '用户名 *'" :prefix-icon="User" size="large" />
+          <el-input 
+            v-model="form.username" 
+            :placeholder="isLogin ? '用户名 / 手机号 / 邮箱' : '用户名 *'" 
+            :prefix-icon="User" 
+            size="large"
+            @blur="handleUsernameBlur"
+          />
         </el-form-item>
         <el-form-item>
           <el-input 
@@ -29,14 +35,15 @@
             show-password
             size="large"
             @keyup.enter="handleSubmit"
+            @blur="handlePasswordBlur"
           />
           <div v-if="!isLogin" class="input-tip">密码至少8位，需包含字母和数字</div>
         </el-form-item>
         <el-form-item v-if="!isLogin">
-          <el-input v-model="form.phone" placeholder="手机号 *" :prefix-icon="Iphone" size="large" />
+          <el-input v-model="form.phone" placeholder="手机号 *" :prefix-icon="Iphone" size="large" @blur="handlePhoneBlur" />
         </el-form-item>
         <el-form-item v-if="!isLogin">
-          <el-input v-model="form.email" placeholder="邮箱 *" :prefix-icon="Message" size="large" autocomplete="off" />
+          <el-input v-model="form.email" placeholder="邮箱 *" :prefix-icon="Message" size="large" autocomplete="off" @blur="handleEmailBlur" />
         </el-form-item>
         <el-form-item v-if="!isLogin">
           <div class="verify-code-row">
@@ -64,7 +71,7 @@
     </div>
 
     <!-- 找回密码弹窗 -->
-    <el-dialog v-model="showForgotDialog" title="找回密码" width="400px" append-to-body>
+    <el-dialog v-model="showForgotDialog" title="找回密码" width="400px" append-to-body class="forgot-dialog">
       <el-form :model="forgotForm" label-width="0" style="padding: 10px 10px">
         <el-form-item>
           <el-input v-model="forgotForm.target" placeholder="手机号或邮箱" :prefix-icon="Message" size="large" autocomplete="off" />
@@ -141,10 +148,47 @@ const forgotForm = reactive({
 // 校验工具函数
 const validateEmail = (email: string) => /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(email)
 const validatePhone = (phone: string) => /^1[3-9]\d{9}$/.test(phone)
+const validateUsername = (name: string) => /^[a-zA-Z][a-zA-Z0-9]*$/.test(name)
 const validatePassword = (pwd: string) => {
   if (pwd.length < 8) return '密码长度至少为 8 位'
   if (!/[a-zA-Z]/.test(pwd) || !/[0-9]/.test(pwd)) return '密码必须包含字母和数字'
   return null
+}
+
+const handleUsernameBlur = async () => {
+  if (isLogin.value) return
+  if (!form.username) return
+  if (!validateUsername(form.username)) {
+    ElMessage.warning('用户名需以字母开头，仅包含字母和数字')
+    return
+  }
+  try {
+    const res: any = await request.get('/user/check-username', { params: { username: form.username } })
+    if (res?.exists) {
+      ElMessage.warning('用户名已注册')
+    }
+  } catch (error) {
+    console.error(error)
+  }
+}
+
+const handlePasswordBlur = () => {
+  if (isLogin.value) return
+  if (!form.password) return
+  const pwdError = validatePassword(form.password)
+  if (pwdError) ElMessage.warning(pwdError)
+}
+
+const handlePhoneBlur = () => {
+  if (isLogin.value) return
+  if (!form.phone) return
+  if (!validatePhone(form.phone)) ElMessage.warning('无效的手机号格式')
+}
+
+const handleEmailBlur = () => {
+  if (isLogin.value) return
+  if (!form.email) return
+  if (!validateEmail(form.email)) ElMessage.warning('无效的邮箱格式')
 }
 
 const toggleMode = () => {
@@ -262,14 +306,15 @@ const handleSubmit = async () => {
   }
   
   if (!isLogin.value) {
-    if (!form.phone && !form.email) return ElMessage.warning('手机号或邮箱至少填一项')
-    if (!form.verifyCode) return ElMessage.warning('请输入验证码')
-    
+    // 按表单顺序校验：用户名 -> 密码 -> 手机号 -> 邮箱 -> 验证码
+    if (!form.username) return ElMessage.warning('请输入用户名')
+    if (!form.password) return ElMessage.warning('请输入密码')
     const pwdError = validatePassword(form.password)
     if (pwdError) return ElMessage.warning(pwdError)
-    
+    if (!form.phone && !form.email) return ElMessage.warning('手机号或邮箱至少填一项')
     if (form.phone && !validatePhone(form.phone)) return ElMessage.warning('无效的手机号格式')
     if (form.email && !validateEmail(form.email)) return ElMessage.warning('无效的邮箱格式')
+    if (!form.verifyCode) return ElMessage.warning('请输入验证码')
   }
 
   loading.value = true
@@ -457,7 +502,35 @@ const handleSubmit = async () => {
   .verify-code-row {
     display: flex;
     gap: 12px;
-    .verify-btn { width: 120px; flex-shrink: 0; }
+    align-items: center;
+
+    :deep(.el-input) {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .verify-btn {
+      width: 120px;
+      flex-shrink: 0;
+      height: 44px !important;
+      font-weight: 700;
+      border-radius: 10px;
+      background: rgba(16, 185, 129, 0.12) !important;
+      border-color: rgba(16, 185, 129, 0.45) !important;
+      color: var(--pan-primary) !important;
+
+      &:hover {
+        background: rgba(16, 185, 129, 0.2) !important;
+        border-color: rgba(16, 185, 129, 0.7) !important;
+      }
+
+      &.is-disabled,
+      &:disabled {
+        background: rgba(255, 255, 255, 0.06) !important;
+        border-color: var(--pan-border) !important;
+        color: var(--pan-text-muted) !important;
+      }
+    }
   }
 }
 
@@ -468,5 +541,39 @@ const handleSubmit = async () => {
 
 :deep(.el-dialog) {
   .submit-btn { margin-top: 16px; }
+
+  .verify-code-row {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+
+    .el-input {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .verify-btn {
+      width: 120px;
+      flex-shrink: 0;
+      height: 44px !important;
+      font-weight: 700;
+      border-radius: 10px;
+      background: rgba(16, 185, 129, 0.12) !important;
+      border-color: rgba(16, 185, 129, 0.45) !important;
+      color: var(--pan-primary) !important;
+
+      &:hover {
+        background: rgba(16, 185, 129, 0.2) !important;
+        border-color: rgba(16, 185, 129, 0.7) !important;
+      }
+
+      &.is-disabled,
+      &:disabled {
+        background: rgba(255, 255, 255, 0.06) !important;
+        border-color: var(--pan-border) !important;
+        color: var(--pan-text-muted) !important;
+      }
+    }
+  }
 }
 </style>

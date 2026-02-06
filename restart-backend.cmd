@@ -9,6 +9,6 @@ taskkill /F /IM PanSystem.exe >nul 2>nul
 
 REM Start backend
 pushd "%API_DIR%"
-dotnet run
+dotnet run --launch-profile https
 popd
 endlocal

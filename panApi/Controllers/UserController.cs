@@ -31,6 +31,7 @@ namespace PanSystem.Controllers
         // --- 校验辅助方法 ---
         private bool IsValidEmail(string email) => Regex.IsMatch(email, @"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$");
         private bool IsValidPhone(string phone) => Regex.IsMatch(phone, @"^1[3-9]\d{9}$");
+        private bool IsValidUsername(string username) => Regex.IsMatch(username, @"^[a-zA-Z][a-zA-Z0-9]*$");
         private string? ValidatePasswordStrength(string password)
         {
             if (password.Length < 8) return "密码长度至少为 8 位";
@@ -40,17 +41,30 @@ namespace PanSystem.Controllers
         }
 
         [AllowAnonymous]
+        [HttpGet("check-username")]
+        public async Task<IActionResult> CheckUsername([FromQuery] string username)
+        {
+            var name = username?.Trim();
+            if (string.IsNullOrEmpty(name)) return BadRequest("用户名不能为空");
+            var exists = await _db.Queryable<UserInfo>().AnyAsync(u => u.UserName == name);
+            return Ok(new { exists });
+        }
+
+        [AllowAnonymous]
         [HttpPost("login")]
         public async Task<IActionResult> Login([FromBody] LoginRequest request)
         {
-            var user = await _db.Queryable<UserInfo>()
-                .FirstAsync(u => u.UserName == request.Username);
+            var account = request.Username?.Trim();
+            if (string.IsNullOrEmpty(account)) return BadRequest("请输入用户名、手机号或邮箱");
 
-            if (user == null) return BadRequest("用户名或密码错误");
+            var user = await _db.Queryable<UserInfo>()
+                .FirstAsync(u => u.UserName == account || u.Email == account || u.Phone == account);
+
+            if (user == null) return BadRequest("账号或密码错误");
 
             // 简单 MD5 验证，实际生产应用加盐哈希
             var md5Password = HashHelper.ComputeMd5(request.Password);
-            if (user.Password != md5Password) return BadRequest("用户名或密码错误");
+            if (user.Password != md5Password) return BadRequest("账号或密码错误");
 
             var token = GenerateJwtToken(user);
             return Ok(new { token, username = user.UserName });
@@ -62,6 +76,9 @@ namespace PanSystem.Controllers
         {
             Console.WriteLine($"[Debug] 注册请求: Phone='{request.Phone}', Email='{request.Email}'");
 
+            if (!IsValidUsername(request.Username))
+                return BadRequest("用户名需以字母开头，仅包含字母和数字");
+
             if (await _db.Queryable<UserInfo>().AnyAsync(u => u.UserName == request.Username))
                 return BadRequest("用户名已存在");
 
@@ -69,14 +86,14 @@ namespace PanSystem.Controllers
             {
                 if (!IsValidEmail(request.Email)) return BadRequest("无效的邮箱格式");
                 if (await _db.Queryable<UserInfo>().AnyAsync(u => u.Email == request.Email))
-                    return BadRequest("该邮箱已被注册");
+                    return BadRequest("邮箱已注册");
             }
 
             if (!string.IsNullOrEmpty(request.Phone))
             {
                 if (!IsValidPhone(request.Phone)) return BadRequest("无效的手机号格式");
                 if (await _db.Queryable<UserInfo>().AnyAsync(u => u.Phone == request.Phone))
-                    return BadRequest("该手机号已被注册");
+                    return BadRequest("手机号已注册");
             }
 
             var pwdError = ValidatePasswordStrength(request.Password);
@@ -204,7 +221,12 @@ namespace PanSystem.Controllers
             // 根据场景校验
             if (request.Scenario == "register")
             {
-                if (userExists) return BadRequest("该账号已注册，请直接登录");
+                if (userExists)
+                {
+                    if (request.Type == "email") return BadRequest("邮箱已注册");
+                    if (request.Type == "phone") return BadRequest("手机号已注册");
+                    return BadRequest("账号已注册");
+                }
             }
             else if (request.Scenario == "reset")
             {

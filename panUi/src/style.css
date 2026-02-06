@@ -263,6 +263,41 @@ body {
   padding: 32px 24px !important;
 }
 
+/* Forgot password dialog (append-to-body) */
+.forgot-dialog .verify-code-row {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.forgot-dialog .verify-code-row .el-input {
+  flex: 1;
+  min-width: 0;
+}
+
+.forgot-dialog .verify-code-row .verify-btn {
+  width: 120px;
+  flex-shrink: 0;
+  height: 44px;
+  font-weight: 700;
+  border-radius: 10px;
+  background: rgba(16, 185, 129, 0.12) !important;
+  border-color: rgba(16, 185, 129, 0.45) !important;
+  color: var(--pan-primary) !important;
+}
+
+.forgot-dialog .verify-code-row .verify-btn:hover {
+  background: rgba(16, 185, 129, 0.2) !important;
+  border-color: rgba(16, 185, 129, 0.7) !important;
+}
+
+.forgot-dialog .verify-code-row .verify-btn.is-disabled,
+.forgot-dialog .verify-code-row .verify-btn:disabled {
+  background: rgba(255, 255, 255, 0.06) !important;
+  border-color: var(--pan-border) !important;
+  color: var(--pan-text-muted) !important;
+}
+
 /* MessageBox (confirm/prompt) */
 .el-message-box {
   background-color: var(--pan-surface-elevated) !important;

@@ -14,6 +14,29 @@ namespace PanSystem.Controllers
     [Route("api/[controller]")]
     public class AdminController : ControllerBase
     {
+        public class UserListQuery
+        {
+            public int Page { get; set; } = 1;
+            public int PageSize { get; set; } = 20;
+            public int? UserId { get; set; }
+            public string? UserName { get; set; }
+            public string? Email { get; set; }
+            public string? Phone { get; set; }
+            public bool? IsAdmin { get; set; }
+        }
+
+        public class AuditLogQuery
+        {
+            public int Page { get; set; } = 1;
+            public int PageSize { get; set; } = 20;
+            public string? UserName { get; set; }
+            public string? Action { get; set; }
+            public string? IpAddress { get; set; }
+            public string? Keyword { get; set; }
+            public DateTime? StartTime { get; set; }
+            public DateTime? EndTime { get; set; }
+        }
+
         private readonly ISqlSugarClient _db;
 
         public AdminController(ISqlSugarClient db)
@@ -37,12 +60,28 @@ namespace PanSystem.Controllers
         }
 
         [HttpGet("users")]
-        public async Task<IActionResult> GetUserList()
+        public async Task<IActionResult> GetUserList([FromQuery] UserListQuery req)
         {
             if (!await CheckIsAdmin()) return Forbid("无权访问管理员接口");
 
-            var users = await _db.Queryable<UserInfo>()
+            var pageIndex = req.Page < 1 ? 1 : req.Page;
+            var pageLength = req.PageSize < 1 ? 20 : (req.PageSize > 200 ? 200 : req.PageSize);
+            var userNameFilter = string.IsNullOrWhiteSpace(req.UserName) ? null : req.UserName.Trim();
+            var emailFilter = string.IsNullOrWhiteSpace(req.Email) ? null : req.Email.Trim();
+            var phoneFilter = string.IsNullOrWhiteSpace(req.Phone) ? null : req.Phone.Trim();
+
+            var query = _db.Queryable<UserInfo>()
+                .WhereIF(req.UserId.HasValue, u => u.Id == req.UserId!.Value)
+                .WhereIF(userNameFilter != null, u => u.UserName.Contains(userNameFilter!))
+                .WhereIF(emailFilter != null, u => u.Email != null && u.Email.Contains(emailFilter!))
+                .WhereIF(phoneFilter != null, u => u.Phone != null && u.Phone.Contains(phoneFilter!))
+                .WhereIF(req.IsAdmin.HasValue, u => u.IsAdmin == req.IsAdmin!.Value);
+            var total = await query.CountAsync();
+
+            var users = await query
                 .OrderBy(u => u.CreateTime, OrderByType.Desc)
+                .Skip((pageIndex - 1) * pageLength)
+                .Take(pageLength)
                 .Select(u => new
                 {
                     u.Id,
@@ -58,7 +97,13 @@ namespace PanSystem.Controllers
                 })
                 .ToListAsync();
 
-            return Ok(users);
+            return Ok(new
+            {
+                Items = users,
+                Total = total,
+                Page = pageIndex,
+                PageSize = pageLength
+            });
         }
 
         [HttpGet("stats")]
@@ -82,16 +127,39 @@ namespace PanSystem.Controllers
         }
 
         [HttpGet("audit-logs")]
-        public async Task<IActionResult> GetAuditLogs()
+        public async Task<IActionResult> GetAuditLogs([FromQuery] AuditLogQuery req)
         {
             if (!await CheckIsAdmin()) return Forbid("无权访问管理员接口");
 
-            var logs = await _db.Queryable<AuditLog>()
+            var pageIndex = req.Page < 1 ? 1 : req.Page;
+            var pageLength = req.PageSize < 1 ? 20 : (req.PageSize > 200 ? 200 : req.PageSize);
+            var userNameFilter = string.IsNullOrWhiteSpace(req.UserName) ? null : req.UserName.Trim();
+            var actionFilter = string.IsNullOrWhiteSpace(req.Action) ? null : req.Action.Trim();
+            var ipFilter = string.IsNullOrWhiteSpace(req.IpAddress) ? null : req.IpAddress.Trim();
+            var keywordFilter = string.IsNullOrWhiteSpace(req.Keyword) ? null : req.Keyword.Trim();
+
+            var query = _db.Queryable<AuditLog>()
+                .WhereIF(userNameFilter != null, l => l.UserName.Contains(userNameFilter!))
+                .WhereIF(actionFilter != null, l => l.Action.Contains(actionFilter!))
+                .WhereIF(ipFilter != null, l => l.IpAddress.Contains(ipFilter!))
+                .WhereIF(keywordFilter != null, l => l.Detail.Contains(keywordFilter!))
+                .WhereIF(req.StartTime.HasValue, l => l.CreateTime >= req.StartTime!.Value)
+                .WhereIF(req.EndTime.HasValue, l => l.CreateTime <= req.EndTime!.Value);
+            var total = await query.CountAsync();
+
+            var logs = await query
                 .OrderBy(l => l.CreateTime, OrderByType.Desc)
-                .Take(500) // 仅返回最近500条
+                .Skip((pageIndex - 1) * pageLength)
+                .Take(pageLength)
                 .ToListAsync();
 
-            return Ok(logs);
+            return Ok(new
+            {
+                Items = logs,
+                Total = total,
+                Page = pageIndex,
+                PageSize = pageLength
+            });
         }
 
         [HttpPut("user-quota")]

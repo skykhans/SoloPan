@@ -389,9 +389,14 @@ onMounted(() => {
     .el-menu {
       padding: 0 10px;
       :deep(.el-menu-item) {
+        display: flex;
+        align-items: center;
         justify-content: center;
-        padding-left: 0 !important;
-        .el-icon { margin: 0; }
+        padding: 0 !important;
+        width: 44px;
+        margin-left: auto;
+        margin-right: auto;
+        .el-icon { margin: 0 !important; }
       }
     }
 

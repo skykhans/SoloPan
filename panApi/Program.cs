@@ -161,6 +161,72 @@ using (var scope = app.Services.CreateScope())
     {
         Console.WriteLine($"数据库预处理错误: {ex.Message}");
     }
+
+    // 预处理 UserInfo 兼容列，避免 CodeFirst 在非空旧表上直接加 NOT NULL 失败
+    try
+    {
+        bool TableExists(string tableName)
+        {
+            var count = Convert.ToInt32(db.Ado.GetScalar($"SELECT COUNT(1) FROM sys.objects WHERE object_id = OBJECT_ID('{tableName}') AND type = 'U'"));
+            return count > 0;
+        }
+
+        bool ColumnExists(string tableName, string columnName)
+        {
+            var count = Convert.ToInt32(db.Ado.GetScalar($"SELECT COUNT(1) FROM sys.columns WHERE object_id = OBJECT_ID('{tableName}') AND name = '{columnName}'"));
+            return count > 0;
+        }
+
+        bool IsNullableColumn(string tableName, string columnName)
+        {
+            var allowsNull = Convert.ToInt32(db.Ado.GetScalar($"SELECT COLUMNPROPERTY(OBJECT_ID('{tableName}'), '{columnName}', 'AllowsNull')"));
+            return allowsNull == 1;
+        }
+
+        if (TableExists("UserInfo"))
+        {
+            if (!ColumnExists("UserInfo", "CreateTime"))
+            {
+                db.Ado.ExecuteCommand("ALTER TABLE UserInfo ADD CreateTime DATETIME NULL;");
+            }
+
+            if (!ColumnExists("UserInfo", "UpdateTime"))
+            {
+                db.Ado.ExecuteCommand("ALTER TABLE UserInfo ADD UpdateTime DATETIME NULL;");
+            }
+
+            if (ColumnExists("UserInfo", "CreateTime"))
+            {
+                db.Ado.ExecuteCommand("UPDATE UserInfo SET CreateTime = ISNULL(CreateTime, GETDATE()) WHERE CreateTime IS NULL;");
+            }
+
+            if (ColumnExists("UserInfo", "UpdateTime"))
+            {
+                if (ColumnExists("UserInfo", "CreateTime"))
+                {
+                    db.Ado.ExecuteCommand("UPDATE UserInfo SET UpdateTime = ISNULL(UpdateTime, CreateTime) WHERE UpdateTime IS NULL;");
+                }
+                else
+                {
+                    db.Ado.ExecuteCommand("UPDATE UserInfo SET UpdateTime = ISNULL(UpdateTime, GETDATE()) WHERE UpdateTime IS NULL;");
+                }
+            }
+
+            if (ColumnExists("UserInfo", "CreateTime") && IsNullableColumn("UserInfo", "CreateTime"))
+            {
+                db.Ado.ExecuteCommand("ALTER TABLE UserInfo ALTER COLUMN CreateTime DATETIME NOT NULL;");
+            }
+
+            if (ColumnExists("UserInfo", "UpdateTime") && IsNullableColumn("UserInfo", "UpdateTime"))
+            {
+                db.Ado.ExecuteCommand("ALTER TABLE UserInfo ALTER COLUMN UpdateTime DATETIME NOT NULL;");
+            }
+        }
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"UserInfo 预处理错误: {ex.Message}");
+    }
     // 基础建表
     db.CodeFirst.InitTables(
         typeof(PanSystem.Models.UserInfo),

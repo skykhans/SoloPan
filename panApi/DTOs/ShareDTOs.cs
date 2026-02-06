@@ -43,4 +43,9 @@ namespace PanSystem.DTOs
         public DateTime CreateTime { get; set; }
         public int? ParentId { get; set; }
     }
+
+    public class BatchCancelShareRequest
+    {
+        public List<int> Ids { get; set; } = new();
+    }
 }

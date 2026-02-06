@@ -1,7 +1,13 @@
 <template>
   <div class="offline-view">
     <div class="action-bar">
-      <div class="title">离线下载</div>
+      <div class="breadcrumb">
+        <el-breadcrumb separator="/">
+          <el-breadcrumb-item>
+            <span class="breadcrumb-link is-last">离线下载</span>
+          </el-breadcrumb-item>
+        </el-breadcrumb>
+      </div>
       <div class="buttons">
         <el-button type="primary" class="pan-button-primary" :icon="Plus" @click="openCreate">新增任务</el-button>
         <el-button :icon="Refresh" @click="fetchTasks">刷新</el-button>
@@ -190,7 +196,7 @@ const fetchPickerFolders = async (parentId: number | null) => {
       params: { parentId },
       _showError: false
     })
-    const list = Array.isArray(res) ? res : []
+    const list = Array.isArray(res?.items) ? res.items : (Array.isArray(res) ? res : [])
     pickerFolders.value = list.filter((i: any) => i.isFolder)
   } catch (error) {
     console.error(error)
@@ -325,12 +331,22 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 16px 0;
+  min-height: 60px;
+  padding: 12px 0;
+  margin-bottom: 12px;
+  gap: 16px;
 
-  .title {
-    font-size: 16px;
-    font-weight: 700;
-    color: var(--pan-text-main);
+  .breadcrumb {
+    flex: 1;
+    min-width: 0;
+    .breadcrumb-link {
+      color: var(--pan-text-body);
+      font-size: 15px;
+      cursor: pointer;
+      transition: var(--pan-transition);
+      &:hover { color: var(--pan-primary); }
+      &.is-last { color: var(--pan-text-body); font-weight: 400; cursor: default; }
+    }
   }
 
   .buttons {

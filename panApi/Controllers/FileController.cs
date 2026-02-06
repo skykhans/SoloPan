@@ -37,9 +37,11 @@ namespace PanSystem.Controllers
         private int GetUserId() => int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
 
         [HttpGet("list")]
-        public async Task<IActionResult> List(int? parentId, string? category, string? sortBy, string? order)
+        public async Task<IActionResult> List(int? parentId, string? category, string? sortBy, string? order, int page = 1, int pageSize = 20)
         {
             var userId = GetUserId();
+            var pageIndex = page < 1 ? 1 : page;
+            var pageLength = pageSize < 1 ? 20 : (pageSize > 200 ? 200 : pageSize);
             var query = _db.Queryable<StorageItem>()
                 .Where(f => f.UserId == userId && !f.IsDeleted);
 
@@ -64,9 +66,6 @@ namespace PanSystem.Controllers
             }
             else
             {
-                // 先按文件夹优先排序
-                query = query.OrderBy(f => f.IsFolder, OrderByType.Desc);
-
                 var orderType = order?.ToLower() == "desc" ? OrderByType.Desc : OrderByType.Asc;
                 switch (sortBy.ToLower())
                 {
@@ -79,13 +78,20 @@ namespace PanSystem.Controllers
                     case "time":
                         query = query.OrderBy(f => f.UpdateTime, orderType); // 改为 UpdateTime，通常用户更关心最后修改时间
                         break;
+                    case "createtime":
+                        query = query.OrderBy(f => f.CreateTime, orderType);
+                        break;
                     default:
                         query = query.OrderBy(f => f.Name, orderType);
                         break;
                 }
             }
 
+            var total = await query.CountAsync();
+
             var items = await query
+                .Skip((pageIndex - 1) * pageLength)
+                .Take(pageLength)
                 .Select(f => new FileItemResponse
                 {
                     Id = f.Id,
@@ -93,6 +99,7 @@ namespace PanSystem.Controllers
                     IsFolder = f.IsFolder,
                     FileSize = f.FileSize,
                     CreateTime = f.CreateTime,
+                    UpdateTime = f.UpdateTime,
                     FavoriteTime = f.FavoriteTime,
                     ParentId = f.ParentId,
                     IsFavorite = f.IsFavorite,
@@ -100,7 +107,13 @@ namespace PanSystem.Controllers
                 })
                 .ToListAsync();
 
-            return Ok(items);
+            return Ok(new
+            {
+                Items = items,
+                Total = total,
+                Page = pageIndex,
+                PageSize = pageLength
+            });
         }
 
         private string[] GetExtensionsByCategory(string category)
@@ -624,13 +637,48 @@ namespace PanSystem.Controllers
         }
 
         [HttpGet("recycle-bin")]
-        public async Task<IActionResult> GetRecycleBin()
+        public async Task<IActionResult> GetRecycleBin(string? sortBy, string? order, int page = 1, int pageSize = 20)
         {
             var userId = GetUserId();
-            var items = await _db.Queryable<StorageItem>()
-                .Where(f => f.UserId == userId && f.IsDeleted)
-                .OrderBy(f => f.DeleteTime, OrderByType.Desc)
-                .OrderBy(f => f.UpdateTime, OrderByType.Desc)
+            var pageIndex = page < 1 ? 1 : page;
+            var pageLength = pageSize < 1 ? 20 : (pageSize > 200 ? 200 : pageSize);
+            var query = _db.Queryable<StorageItem>()
+                .Where(f => f.UserId == userId && f.IsDeleted);
+
+            if (string.IsNullOrEmpty(sortBy))
+            {
+                query = query.OrderBy(f => f.DeleteTime, OrderByType.Desc)
+                    .OrderBy(f => f.UpdateTime, OrderByType.Desc);
+            }
+            else
+            {
+                var orderType = order?.ToLower() == "desc" ? OrderByType.Desc : OrderByType.Asc;
+                switch (sortBy.ToLower())
+                {
+                    case "name":
+                        query = query.OrderBy(f => f.Name, orderType);
+                        break;
+                    case "size":
+                        query = query.OrderBy(f => f.FileSize, orderType);
+                        break;
+                    case "time":
+                        query = query.OrderBy(f => f.UpdateTime, orderType);
+                        break;
+                    case "createtime":
+                        query = query.OrderBy(f => f.CreateTime, orderType);
+                        break;
+                    default:
+                        query = query.OrderBy(f => f.DeleteTime, OrderByType.Desc)
+                            .OrderBy(f => f.UpdateTime, OrderByType.Desc);
+                        break;
+                }
+            }
+
+            var total = await query.CountAsync();
+
+            var items = await query
+                .Skip((pageIndex - 1) * pageLength)
+                .Take(pageLength)
                 .Select(f => new FileItemResponse
                 {
                     Id = f.Id,
@@ -638,13 +686,20 @@ namespace PanSystem.Controllers
                     IsFolder = f.IsFolder,
                     FileSize = f.FileSize,
                     CreateTime = f.CreateTime,
+                    UpdateTime = f.UpdateTime,
                     DeleteTime = f.DeleteTime,
                     FavoriteTime = f.FavoriteTime,
                     ParentId = f.ParentId
                 })
                 .ToListAsync();
 
-            return Ok(items);
+            return Ok(new
+            {
+                Items = items,
+                Total = total,
+                Page = pageIndex,
+                PageSize = pageLength
+            });
         }
 
         [HttpPost("restore/{id}")]
@@ -802,6 +857,7 @@ namespace PanSystem.Controllers
                     IsFolder = f.IsFolder,
                     FileSize = f.FileSize,
                     CreateTime = f.CreateTime,
+                    UpdateTime = f.UpdateTime,
                     FavoriteTime = f.FavoriteTime,
                     ParentId = f.ParentId,
                     IsFavorite = true,
@@ -813,15 +869,48 @@ namespace PanSystem.Controllers
         }
 
         [HttpGet("search")]
-        public async Task<IActionResult> Search(string keyword)
+        public async Task<IActionResult> Search(string keyword, string? sortBy, string? order, int page = 1, int pageSize = 20)
         {
             if (string.IsNullOrWhiteSpace(keyword)) return BadRequest("搜索关键词不能为空");
 
             var userId = GetUserId();
-            var items = await _db.Queryable<StorageItem>()
-                .Where(f => f.UserId == userId && f.Name.Contains(keyword) && !f.IsDeleted)
-                .OrderBy(f => f.IsFolder, OrderByType.Desc)
-                .OrderBy(f => f.Name)
+            var pageIndex = page < 1 ? 1 : page;
+            var pageLength = pageSize < 1 ? 20 : (pageSize > 200 ? 200 : pageSize);
+            var query = _db.Queryable<StorageItem>()
+                .Where(f => f.UserId == userId && f.Name.Contains(keyword) && !f.IsDeleted);
+
+            if (string.IsNullOrEmpty(sortBy))
+            {
+                query = query.OrderBy(f => f.IsFolder, OrderByType.Desc).OrderBy(f => f.Name);
+            }
+            else
+            {
+                var orderType = order?.ToLower() == "desc" ? OrderByType.Desc : OrderByType.Asc;
+                switch (sortBy.ToLower())
+                {
+                    case "name":
+                        query = query.OrderBy(f => f.Name, orderType);
+                        break;
+                    case "size":
+                        query = query.OrderBy(f => f.FileSize, orderType);
+                        break;
+                    case "time":
+                        query = query.OrderBy(f => f.UpdateTime, orderType);
+                        break;
+                    case "createtime":
+                        query = query.OrderBy(f => f.CreateTime, orderType);
+                        break;
+                    default:
+                        query = query.OrderBy(f => f.Name, orderType);
+                        break;
+                }
+            }
+
+            var total = await query.CountAsync();
+
+            var items = await query
+                .Skip((pageIndex - 1) * pageLength)
+                .Take(pageLength)
                 .Select(f => new FileItemResponse
                 {
                     Id = f.Id,
@@ -829,13 +918,20 @@ namespace PanSystem.Controllers
                     IsFolder = f.IsFolder,
                     FileSize = f.FileSize,
                     CreateTime = f.CreateTime,
+                    UpdateTime = f.UpdateTime,
                     ParentId = f.ParentId,
                     IsFavorite = f.IsFavorite,
                     IsShared = SqlFunc.Subqueryable<ShareLink>().Where(s => s.StorageItemId == f.Id && s.UserId == userId).Any()
                 })
                 .ToListAsync();
 
-            return Ok(items);
+            return Ok(new
+            {
+                Items = items,
+                Total = total,
+                Page = pageIndex,
+                PageSize = pageLength
+            });
         }
 
         [HttpPost("offline-download")]

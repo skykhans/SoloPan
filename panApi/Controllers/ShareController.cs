@@ -197,6 +197,24 @@ namespace PanSystem.Controllers
             return Ok("取消分享成功");
         }
 
+        [HttpPost("batch-cancel")]
+        public async Task<IActionResult> BatchCancelShare([FromBody] BatchCancelShareRequest request)
+        {
+            var userId = GetUserId();
+            var ids = request?.Ids?.Where(i => i > 0).Distinct().ToList() ?? new List<int>();
+            if (ids.Count == 0) return BadRequest("请选择要取消的分享");
+
+            var affected = await _db.Deleteable<ShareLink>()
+                .Where(s => s.UserId == userId && ids.Contains(s.Id))
+                .ExecuteCommandAsync();
+
+            return Ok(new
+            {
+                count = affected,
+                message = $"已取消 {affected} 条分享"
+            });
+        }
+
         [AllowAnonymous]
         [HttpGet("download/{token}")]
         public async Task<IActionResult> DownloadShare(string token, [FromQuery] string code)

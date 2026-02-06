@@ -10,7 +10,12 @@
       <div class="breadcrumb">
         <el-breadcrumb separator="/">
           <el-breadcrumb-item>
-            <span class="breadcrumb-link" @click="handleBreadcrumbClick(-1)">{{ rootName }}</span>
+            <span
+              :class="['breadcrumb-link', { 'is-last': pathStack.length === 0 && !route.query.q }]"
+              @click="handleBreadcrumbClick(-1)"
+            >
+              {{ rootName }}
+            </span>
           </el-breadcrumb-item>
           <el-breadcrumb-item v-for="(item, index) in pathStack" :key="item.id">
             <span 
@@ -140,9 +145,15 @@
           </template>
         </el-table-column>
 
-        <el-table-column label="修改时间" width="200" prop="time" sortable="custom">
+        <el-table-column v-if="category !== 'favorites' && category !== 'recycle-bin'" label="创建时间" width="200" prop="createTime" sortable="custom">
           <template #default="{ row }">
             <span class="mono">{{ formatDate(row.createTime) }}</span>
+          </template>
+        </el-table-column>
+
+        <el-table-column label="修改时间" width="200" prop="time" sortable="custom">
+          <template #default="{ row }">
+            <span class="mono">{{ formatDate(row.updateTime) }}</span>
           </template>
         </el-table-column>
 
@@ -253,6 +264,18 @@
           </div>
         </div>
       </div>
+    </div>
+
+    <div v-if="enablePagination" class="pagination-wrapper pan-card">
+      <el-pagination
+        v-model:current-page="pageNum"
+        v-model:page-size="pageSize"
+        :page-sizes="[20, 50, 100]"
+        :total="total"
+        layout="total, sizes, prev, pager, next, jumper"
+        @current-change="handlePageChange"
+        @size-change="handlePageSizeChange"
+      />
     </div>
 
     <!-- 新建文件夹弹窗 -->
@@ -494,7 +517,11 @@ const activeUploadCount = computed(() => uploadTasks.value.filter(t => t.status 
 const pathStack = ref<{ id: number; name: string }[]>(history.state?.pathStack || [])
 const selectedIds = ref<number[]>([])
 const currentParentId = ref<number | null>(route.query.folderId ? Number(route.query.folderId) : null)
-const sortState = ref<{ prop: string, order: string } | null>(null)
+const sortState = ref<{ prop: string, order: string | null } | null>(null)
+const pageNum = ref(1)
+const pageSize = ref(20)
+const total = ref(0)
+const enablePagination = computed(() => props.category === 'files' || props.category === 'recycle-bin')
 const viewMode = ref<'list' | 'grid'>(localStorage.getItem('viewMode') as 'list' | 'grid' || 'list')
 
 const currentMovePathText = computed(() => {
@@ -824,7 +851,8 @@ const handleRename = (row: any) => {
 const fetchFolderTree = async (parentId: number | null = null) => {
   try {
     const res: any = await request.get('/file/list', { params: { parentId } })
-    folderTree.value = res.filter((item: any) => item.isFolder && !movingItemIds.value.includes(item.id))
+    const list = Array.isArray(res?.items) ? res.items : (Array.isArray(res) ? res : [])
+    folderTree.value = list.filter((item: any) => item.isFolder && !movingItemIds.value.includes(item.id))
     moveDialogCurrentParentId.value = parentId
     moveTargetParentId.value = parentId // 目标位置跟随当前进入的目录
   } catch (error) {
@@ -948,8 +976,21 @@ const fetchFiles = async () => {
         params.order = sortState.value.order === 'ascending' ? 'asc' : 'desc'
       }
 
+      if (enablePagination.value) {
+        params.page = pageNum.value
+        params.pageSize = pageSize.value
+      }
+
       const res: any = await request.get(url, { params })
-      fileList.value = res
+      if (enablePagination.value) {
+        const items = Array.isArray(res?.items) ? res.items : []
+        total.value = Number(res?.total ?? 0)
+        fileList.value = applyClientSort(items)
+      } else {
+        const items = Array.isArray(res) ? res : []
+        total.value = items.length
+        fileList.value = applyClientSort(items)
+      }
     } catch (error) {
       console.error(error)
     } finally {
@@ -980,6 +1021,7 @@ watch(() => route.query.folderId, (newId) => {
      pathStack.value = []
   }
   
+  pageNum.value = 1
   fetchFiles()
 })
 
@@ -1075,6 +1117,39 @@ const handleBreadcrumbClick = (index: number) => {
       })
     }
   }
+}
+
+const applyClientSort = (list: any[]) => {
+  if (!sortState.value || !sortState.value.order) {
+    return list
+  }
+
+  const direction = sortState.value.order === 'ascending' ? 1 : -1
+  const prop = sortState.value.prop
+
+  const getSortValue = (item: any) => {
+    if (prop === 'name') return item.name ?? ''
+    if (prop === 'size') return item.fileSize ?? -1
+    if (prop === 'time') return item.updateTime ? new Date(item.updateTime).getTime() : 0
+    if (prop === 'createTime') return item.createTime ? new Date(item.createTime).getTime() : 0
+    return item[prop]
+  }
+
+  return [...list].sort((a, b) => {
+    const av = getSortValue(a)
+    const bv = getSortValue(b)
+
+    if (typeof av === 'string' || typeof bv === 'string') {
+      const result = String(av).localeCompare(String(bv), 'zh-CN')
+      if (result !== 0) return result * direction
+    } else {
+      if (av < bv) return -1 * direction
+      if (av > bv) return 1 * direction
+    }
+
+    // 次级排序，避免相同值顺序抖动
+    return (a.id - b.id) * direction
+  })
 }
 
 const generateGuid = () => {
@@ -1473,8 +1548,20 @@ const handleSelectionChange = (val: any[]) => {
   selectedIds.value = val.map(item => item.id)
 }
 
-const handleSortChange = ({ prop, order }: { prop: string, order: string }) => {
+const handleSortChange = ({ prop, order }: { prop: string, order: string | null }) => {
   sortState.value = { prop, order }
+  pageNum.value = 1
+  fetchFiles()
+}
+
+const handlePageChange = (page: number) => {
+  pageNum.value = page
+  fetchFiles()
+}
+
+const handlePageSizeChange = (size: number) => {
+  pageSize.value = size
+  pageNum.value = 1
   fetchFiles()
 }
 
@@ -1491,11 +1578,21 @@ const formatDate = (dateStr: string) => {
   return new Date(dateStr).toLocaleString()
 }
 
-watch(() => route.query.q, () => fetchFiles())
-watch(() => props.type, () => fetchFiles())
-watch(() => props.category, () => fetchFiles())
+watch(() => route.query.q, () => {
+  pageNum.value = 1
+  fetchFiles()
+})
+watch(() => props.type, () => {
+  pageNum.value = 1
+  fetchFiles()
+})
+watch(() => props.category, () => {
+  pageNum.value = 1
+  fetchFiles()
+})
 
 onMounted(() => {
+  pageNum.value = 1
   fetchFiles()
 })
 </script>
@@ -1507,7 +1604,6 @@ onMounted(() => {
   flex-direction: column;
   position: relative;
   background-color: var(--pan-bg);
-  animation: fadeIn 0.4s ease-out;
 
   &.drag-over::after {
     content: '释放以开始上传';
@@ -1529,17 +1625,13 @@ onMounted(() => {
   }
 }
 
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
 .action-bar {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 16px 0;
-  margin-bottom: 8px;
+  min-height: 60px;
+  padding: 12px 0;
+  margin-bottom: 12px;
   flex-shrink: 0;
   gap: 16px;
 
@@ -1550,9 +1642,9 @@ onMounted(() => {
       color: var(--pan-text-body);
       cursor: pointer;
       transition: var(--pan-transition);
-      font-size: 14px;
+      font-size: 15px;
       &:hover { color: var(--pan-primary); }
-      &.is-last { color: var(--pan-text-main); font-weight: 700; cursor: default; }
+      &.is-last { color: var(--pan-text-body); font-weight: 400; cursor: default; }
     }
   }
 
@@ -1594,8 +1686,8 @@ onMounted(() => {
   cursor: pointer;
   
   .name {
-    font-weight: 500;
-    color: var(--pan-text-main);
+    font-weight: 400;
+    color: var(--pan-text-body);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -1680,8 +1772,8 @@ onMounted(() => {
 
     .grid-name {
       font-size: 12px;
-      font-weight: 500;
-      color: var(--pan-text-main);
+      font-weight: 400;
+      color: var(--pan-text-body);
       text-align: center;
       width: 100%;
       overflow: hidden;
@@ -1742,6 +1834,13 @@ onMounted(() => {
       background: rgba(16, 185, 129, 0.12);
     }
   }
+}
+
+.pagination-wrapper {
+  margin-top: 10px;
+  padding: 10px 12px;
+  display: flex;
+  justify-content: flex-end;
 }
 
 .move-path-nav {

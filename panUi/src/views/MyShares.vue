@@ -1,17 +1,34 @@
 <template>
   <div class="my-shares-container">
-    <div class="header-actions">
+    <div class="action-bar">
       <div class="breadcrumb">
         <el-breadcrumb separator="/">
           <el-breadcrumb-item>
-            <span class="breadcrumb-link">我的分享</span>
+            <span class="breadcrumb-link is-last">我的分享</span>
           </el-breadcrumb-item>
         </el-breadcrumb>
+      </div>
+      <div class="buttons">
+        <el-button
+          type="danger"
+          class="pan-button-danger"
+          :disabled="selectedShareIds.length === 0"
+          @click="handleBatchCancel"
+        >
+          批量取消分享
+        </el-button>
       </div>
     </div>
 
     <div class="table-container">
-      <el-table :data="shareList" v-loading="loading" style="width: 100%">
+      <el-table
+        :data="shareList"
+        v-loading="loading"
+        style="width: 100%"
+        row-key="id"
+        @selection-change="handleSelectionChange"
+      >
+        <el-table-column type="selection" width="52" />
         <el-table-column label="分享文件" min-width="200">
           <template #default="{ row }">
             <div class="file-name-cell">
@@ -72,13 +89,15 @@ import request from '../utils/request'
 import { ElMessage, ElMessageBox } from 'element-plus'
 
 const loading = ref(false)
-const shareList = ref([])
+const shareList = ref<any[]>([])
+const selectedShareIds = ref<number[]>([])
 
 const fetchShares = async () => {
   loading.value = true
   try {
     const res: any = await request.get('/share/my-shares')
     shareList.value = res
+    selectedShareIds.value = []
   } catch (error) {
     console.error(error)
   } finally {
@@ -132,6 +151,37 @@ const handleCancelShare = (row: any) => {
   }).catch(() => {})
 }
 
+const handleSelectionChange = (rows: any[]) => {
+  selectedShareIds.value = rows.map(item => item.id).filter((id: number) => Number.isFinite(id))
+}
+
+const handleBatchCancel = async () => {
+  if (selectedShareIds.value.length === 0) {
+    ElMessage.warning('请先选择要取消的分享')
+    return
+  }
+
+  try {
+    await ElMessageBox.confirm(
+      `确定要批量取消选中的 ${selectedShareIds.value.length} 条分享吗？取消后链接将失效。`,
+      '提示',
+      {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        type: 'warning'
+      }
+    )
+    const res: any = await request.post('/share/batch-cancel', { ids: selectedShareIds.value })
+    ElMessage.success(res?.message || '批量取消成功')
+    selectedShareIds.value = []
+    fetchShares()
+  } catch (error: any) {
+    if (error !== 'cancel') {
+      console.error(error)
+    }
+  }
+}
+
 onMounted(fetchShares)
 </script>
 
@@ -141,28 +191,35 @@ onMounted(fetchShares)
   display: flex;
   flex-direction: column;
   background-color: var(--pan-bg);
-  animation: fadeIn 0.4s ease-out;
 }
 
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
-.header-actions {
+.action-bar {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 16px 0;
-  margin-bottom: 8px;
+  min-height: 60px;
+  padding: 12px 0;
+  margin-bottom: 12px;
   flex-shrink: 0;
+  gap: 16px;
 
   .breadcrumb {
+    flex: 1;
+    min-width: 0;
     .breadcrumb-link {
-      font-weight: 700;
-      color: var(--pan-text-main);
-      font-size: 14px;
+      color: var(--pan-text-body);
+      cursor: pointer;
+      transition: var(--pan-transition);
+      font-size: 15px;
+      &:hover { color: var(--pan-primary); }
+      &.is-last { color: var(--pan-text-body); font-weight: 400; cursor: default; }
     }
+  }
+
+  .buttons {
+    display: flex;
+    align-items: center;
+    gap: 8px;
   }
 }
 
@@ -181,8 +238,8 @@ onMounted(fetchShares)
   gap: 12px;
   
   .name {
-    font-weight: 500;
-    color: var(--pan-text-main);
+    font-weight: 400;
+    color: var(--pan-text-body);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;

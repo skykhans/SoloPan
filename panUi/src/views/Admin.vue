@@ -50,6 +50,11 @@
               </el-table-column>
               <el-table-column prop="userName" label="用户名" width="150" />
               <el-table-column prop="email" label="邮箱" width="200" />
+              <el-table-column label="手机" width="150">
+                <template #default="{ row }">
+                  <span class="mono">{{ row.phone || '-' }}</span>
+                </template>
+              </el-table-column>
               <el-table-column label="已用/总空间" min-width="180">
                 <template #default="{ row }">
                   <span class="usage-cell mono">{{ formatSize(row.usedSpace) }} / {{ formatSize(row.totalSpace) }}</span>
@@ -60,6 +65,16 @@
                   <span class="mono">{{ formatDate(row.createTime) }}</span>
                 </template>
               </el-table-column>
+              <el-table-column label="修改时间" width="180">
+                <template #default="{ row }">
+                  <span class="mono">{{ formatDate(row.updateTime) }}</span>
+                </template>
+              </el-table-column>
+              <el-table-column label="登录时间" width="180">
+                <template #default="{ row }">
+                  <span class="mono">{{ formatDate(row.lastLoginTime) }}</span>
+                </template>
+              </el-table-column>
               <el-table-column label="角色" width="100">
                 <template #default="{ row }">
                   <el-tag :type="row.isAdmin ? 'danger' : 'info'" size="small">
@@ -67,9 +82,10 @@
                   </el-tag>
                 </template>
               </el-table-column>
-              <el-table-column label="操作" width="150">
+              <el-table-column label="操作" width="220">
                 <template #default="{ row }">
                   <el-button size="small" @click="handleEditQuota(row)">修改配额</el-button>
+                  <el-button size="small" type="warning" @click="handleEditPassword(row)">修改密码</el-button>
                 </template>
               </el-table-column>
             </el-table>
@@ -114,6 +130,28 @@
         <el-button type="primary" @click="confirmEditQuota">确定</el-button>
       </template>
     </el-dialog>
+
+    <!-- 修改密码弹窗 -->
+    <el-dialog v-model="showPasswordDialog" title="修改用户密码" width="400px" append-to-body>
+      <el-form label-width="80px" style="padding: 10px 20px">
+        <el-form-item label="用户名">
+          <el-input :model-value="currentPasswordEditUser?.userName || ''" disabled />
+        </el-form-item>
+        <el-form-item label="新密码">
+          <el-input v-model="passwordForm.newPassword" type="password" show-password placeholder="请输入新密码" />
+          <div class="input-tip">至少8位，需含字母和数字</div>
+        </el-form-item>
+        <el-form-item label="确认密码">
+          <el-input v-model="passwordForm.confirmPassword" type="password" show-password placeholder="请再次输入新密码" />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <div class="dialog-footer">
+          <el-button @click="showPasswordDialog = false">取消</el-button>
+          <el-button type="primary" :loading="updatingPassword" @click="confirmEditPassword">确定</el-button>
+        </div>
+      </template>
+    </el-dialog>
     </div> 
   </div>
 </template>
@@ -137,8 +175,15 @@ const loadingLogs = ref(false)
 const activeTab = ref('users')
 
 const showQuotaDialog = ref(false)
+const showPasswordDialog = ref(false)
 const currentEditUser = ref<any>(null)
+const currentPasswordEditUser = ref<any>(null)
 const newQuotaGB = ref(5)
+const updatingPassword = ref(false)
+const passwordForm = ref({
+  newPassword: '',
+  confirmPassword: ''
+})
 
 const fetchStats = async () => {
   try {
@@ -186,6 +231,19 @@ const handleEditQuota = (row: any) => {
   showQuotaDialog.value = true
 }
 
+const handleEditPassword = (row: any) => {
+  currentPasswordEditUser.value = row
+  passwordForm.value.newPassword = ''
+  passwordForm.value.confirmPassword = ''
+  showPasswordDialog.value = true
+}
+
+const validatePassword = (pwd: string) => {
+  if (pwd.length < 8) return '密码长度至少为 8 位'
+  if (!/[a-zA-Z]/.test(pwd) || !/[0-9]/.test(pwd)) return '密码必须包含字母和数字'
+  return ''
+}
+
 const confirmEditQuota = async () => {
   if (!currentEditUser.value) return
   try {
@@ -199,6 +257,39 @@ const confirmEditQuota = async () => {
   }
 }
 
+const confirmEditPassword = async () => {
+  if (!currentPasswordEditUser.value) return
+  if (!passwordForm.value.newPassword || !passwordForm.value.confirmPassword) {
+    ElMessage.warning('请填写完整密码信息')
+    return
+  }
+
+  const pwdError = validatePassword(passwordForm.value.newPassword)
+  if (pwdError) {
+    ElMessage.warning(pwdError)
+    return
+  }
+
+  if (passwordForm.value.newPassword !== passwordForm.value.confirmPassword) {
+    ElMessage.warning('两次输入的新密码不一致')
+    return
+  }
+
+  updatingPassword.value = true
+  try {
+    await request.put('/admin/user-password', {
+      userId: currentPasswordEditUser.value.id,
+      newPassword: passwordForm.value.newPassword
+    })
+    ElMessage.success('用户密码修改成功')
+    showPasswordDialog.value = false
+  } catch (error) {
+    console.error(error)
+  } finally {
+    updatingPassword.value = false
+  }
+}
+
 const formatSize = (bytes: number) => {
   if (bytes === 0) return '0 B'
   const k = 1024
@@ -208,6 +299,7 @@ const formatSize = (bytes: number) => {
 }
 
 const formatDate = (dateStr: string) => {
+  if (!dateStr) return '-'
   return new Date(dateStr).toLocaleString()
 }
 
@@ -356,5 +448,18 @@ onMounted(() => {
 .usage-cell {
   color: var(--pan-text-body);
   font-size: 13px;
+}
+
+.input-tip {
+  font-size: 12px;
+  color: var(--pan-text-muted);
+  margin-top: 4px;
+  white-space: nowrap;
+}
+
+.dialog-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
 }
 </style>

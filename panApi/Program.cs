@@ -177,6 +177,24 @@ using (var scope = app.Services.CreateScope())
             ALTER TABLE UserInfo ADD Phone NVARCHAR(50) NULL;
             IF COL_LENGTH('UserInfo', 'Email') IS NULL
             ALTER TABLE UserInfo ADD Email NVARCHAR(100) NULL;
+            IF COL_LENGTH('UserInfo', 'UpdateTime') IS NULL
+            BEGIN
+                ALTER TABLE UserInfo ADD UpdateTime DATETIME NULL;
+                UPDATE UserInfo SET UpdateTime = ISNULL(CreateTime, GETDATE()) WHERE UpdateTime IS NULL;
+                ALTER TABLE UserInfo ALTER COLUMN UpdateTime DATETIME NOT NULL;
+            END
+            IF COL_LENGTH('UserInfo', 'LastLoginTime') IS NULL
+            ALTER TABLE UserInfo ADD LastLoginTime DATETIME NULL;
+            IF COL_LENGTH('StorageItem', 'DeleteTime') IS NULL
+            BEGIN
+                ALTER TABLE StorageItem ADD DeleteTime DATETIME NULL;
+                UPDATE StorageItem SET DeleteTime = UpdateTime WHERE IsDeleted = 1 AND DeleteTime IS NULL;
+            END
+            IF COL_LENGTH('StorageItem', 'FavoriteTime') IS NULL
+            BEGIN
+                ALTER TABLE StorageItem ADD FavoriteTime DATETIME NULL;
+                UPDATE StorageItem SET FavoriteTime = UpdateTime WHERE IsFavorite = 1 AND FavoriteTime IS NULL;
+            END
             IF COL_LENGTH('OfflineDownloadTask', 'ParentId') IS NULL
             ALTER TABLE OfflineDownloadTask ADD ParentId INT NULL;
             IF COL_LENGTH('OfflineDownloadTask', 'ParentId') IS NOT NULL
@@ -201,6 +219,7 @@ using (var scope = app.Services.CreateScope())
             Password = HashHelper.ComputeMd5("123456"),
             IsAdmin = true,
             CreateTime = DateTime.Now,
+            UpdateTime = DateTime.Now,
             TotalSpace = 1024L * 1024 * 1024 * 100 // 100GB
         };
         db.Insertable(adminUser).ExecuteCommand();

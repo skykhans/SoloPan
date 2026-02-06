@@ -55,9 +55,12 @@
       </div>
 
       <div class="user-profile">
-         <el-dropdown trigger="click">
+        <el-dropdown trigger="click">
           <span class="el-dropdown-link">
-            <div class="user-avatar">{{ username.charAt(0).toUpperCase() }}</div>
+            <div class="user-avatar">
+              <img v-if="avatar" :src="avatar" alt="avatar" class="avatar-img" />
+              <span v-else>{{ username.charAt(0).toUpperCase() }}</span>
+            </div>
             <span v-show="!isCollapse" class="username-text">{{ username }}</span>
             <el-icon v-show="!isCollapse" class="el-icon--right"><ArrowDown /></el-icon>
           </span>
@@ -86,8 +89,19 @@
       <el-form :model="profileForm" label-width="70px" style="padding: 10px 20px">
         <el-form-item label="头像">
           <div class="profile-avatar-setup">
-            <div class="user-avatar big">{{ profileForm.username?.charAt(0).toUpperCase() }}</div>
-            <p class="avatar-tip">系统根据用户名自动生成</p>
+            <div class="user-avatar big">
+              <img v-if="profileForm.avatar" :src="profileForm.avatar" alt="avatar" class="avatar-img" />
+              <span v-else>{{ profileForm.username?.charAt(0).toUpperCase() }}</span>
+            </div>
+            <el-upload
+              :show-file-list="false"
+              accept="image/png,image/jpeg,image/webp,image/gif"
+              :before-upload="beforeAvatarUpload"
+              :http-request="handleAvatarUpload"
+            >
+              <el-button size="small" :loading="uploadingAvatar">上传头像</el-button>
+            </el-upload>
+            <p class="avatar-tip">支持 jpg/png/webp/gif，大小不超过 2MB</p>
           </div>
         </el-form-item>
         <el-form-item label="用户名">
@@ -116,7 +130,7 @@
         </el-form-item>
         <el-form-item label="新密码">
           <el-input v-model="passwordForm.newPassword" type="password" show-password placeholder="请输入新密码" />
-          <div class="input-tip">密码至少8位，需包含字母和数字</div>
+          <div class="input-tip">至少8位，需含字母和数字</div>
         </el-form-item>
         <el-form-item label="确认密码">
           <el-input v-model="passwordForm.confirmPassword" type="password" show-password placeholder="请再次输入新密码" />
@@ -136,6 +150,7 @@
 import { computed, ref, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import request from './utils/request'
+import type { UploadRequestOptions } from 'element-plus'
 import {
   FolderOpened,
   Star,
@@ -151,6 +166,7 @@ import {
 const route = useRoute()
 const router = useRouter()
 const username = ref(localStorage.getItem('username') || '用户')
+const avatar = ref('')
 const usedSpace = ref(0)
 const totalSpace = ref(1024 * 1024 * 1024) // 1GB 默认
 const isAdmin = ref(false)
@@ -158,6 +174,7 @@ const isCollapse = ref(false)
 const showProfileDialog = ref(false)
 const showPasswordDialog = ref(false)
 const updating = ref(false)
+const uploadingAvatar = ref(false)
 
 const profileForm = ref({
   username: '',
@@ -234,8 +251,42 @@ const fetchUserInfo = async () => {
     profileForm.value.phone = res.phone || ''
     profileForm.value.email = res.email || ''
     profileForm.value.avatar = res.avatar || ''
+    avatar.value = res.avatar || ''
   } catch (error) {
     console.error(error)
+  }
+}
+
+const beforeAvatarUpload = (file: File) => {
+  const isImage = file.type.startsWith('image/')
+  if (!isImage) {
+    import('element-plus').then(({ ElMessage }) => ElMessage.warning('仅支持上传图片文件'))
+    return false
+  }
+
+  const isLt2M = file.size / 1024 / 1024 < 2
+  if (!isLt2M) {
+    import('element-plus').then(({ ElMessage }) => ElMessage.warning('头像文件不能超过 2MB'))
+    return false
+  }
+  return true
+}
+
+const handleAvatarUpload = async (options: UploadRequestOptions) => {
+  uploadingAvatar.value = true
+  try {
+    const formData = new FormData()
+    formData.append('file', options.file)
+    const res: any = await request.post('/user/upload-avatar', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    })
+    profileForm.value.avatar = res.avatar || ''
+    avatar.value = res.avatar || ''
+    import('element-plus').then(({ ElMessage }) => ElMessage.success('头像上传成功'))
+  } catch (error) {
+    console.error(error)
+  } finally {
+    uploadingAvatar.value = false
   }
 }
 
@@ -479,14 +530,14 @@ onMounted(() => {
     display: flex;
     justify-content: center;
     
-    .el-dropdown-link {
+      .el-dropdown-link {
       display: flex;
       align-items: center;
       gap: 10px;
       cursor: pointer;
       outline: none;
       
-      .user-avatar {
+        .user-avatar {
         width: 28px;
         height: 28px;
         background: var(--pan-primary);
@@ -497,7 +548,15 @@ onMounted(() => {
         justify-content: center;
         font-weight: 800;
         font-size: 12px;
-      }
+        }
+
+        .avatar-img {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+          border-radius: inherit;
+          display: block;
+        }
 
       .username-text {
         flex: 1;
@@ -553,8 +612,22 @@ onMounted(() => {
     background: var(--pan-primary); color: #000; border-radius: 8px;
     display: flex; align-items: center; justify-content: center; font-weight: 800;
   }
+  .avatar-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: inherit;
+    display: block;
+  }
   .avatar-tip { font-size: 12px; color: var(--pan-text-muted); }
 }
 
 .dialog-footer { display: flex; justify-content: flex-end; gap: 12px; }
+
+.input-tip {
+  margin-top: 4px;
+  font-size: 12px;
+  color: var(--pan-text-muted);
+  white-space: nowrap;
+}
 </style>

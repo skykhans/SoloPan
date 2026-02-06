@@ -93,6 +93,7 @@ namespace PanSystem.Controllers
                     IsFolder = f.IsFolder,
                     FileSize = f.FileSize,
                     CreateTime = f.CreateTime,
+                    FavoriteTime = f.FavoriteTime,
                     ParentId = f.ParentId,
                     IsFavorite = f.IsFavorite,
                     IsShared = SqlFunc.Subqueryable<ShareLink>().Where(s => s.StorageItemId == f.Id && s.UserId == userId).Any()
@@ -592,6 +593,7 @@ namespace PanSystem.Controllers
 
             // 软删除
             item.IsDeleted = true;
+            item.DeleteTime = DateTime.Now;
             item.UpdateTime = DateTime.Now;
             await _db.Updateable(item).ExecuteCommandAsync();
 
@@ -627,6 +629,7 @@ namespace PanSystem.Controllers
             var userId = GetUserId();
             var items = await _db.Queryable<StorageItem>()
                 .Where(f => f.UserId == userId && f.IsDeleted)
+                .OrderBy(f => f.DeleteTime, OrderByType.Desc)
                 .OrderBy(f => f.UpdateTime, OrderByType.Desc)
                 .Select(f => new FileItemResponse
                 {
@@ -635,6 +638,8 @@ namespace PanSystem.Controllers
                     IsFolder = f.IsFolder,
                     FileSize = f.FileSize,
                     CreateTime = f.CreateTime,
+                    DeleteTime = f.DeleteTime,
+                    FavoriteTime = f.FavoriteTime,
                     ParentId = f.ParentId
                 })
                 .ToListAsync();
@@ -652,6 +657,7 @@ namespace PanSystem.Controllers
             if (item == null) return NotFound("项目不存在或未被删除");
 
             item.IsDeleted = false;
+            item.DeleteTime = null;
             item.UpdateTime = DateTime.Now;
             await _db.Updateable(item).ExecuteCommandAsync();
 
@@ -688,6 +694,7 @@ namespace PanSystem.Controllers
 
             await _db.Updateable<StorageItem>()
                 .SetColumns(f => f.IsDeleted == false)
+                .SetColumns(f => f.DeleteTime == null)
                 .SetColumns(f => f.UpdateTime == DateTime.Now)
                 .Where(f => allIdsList.Contains(f.Id) && f.UserId == userId)
                 .ExecuteCommandAsync();
@@ -757,8 +764,9 @@ namespace PanSystem.Controllers
             if (item == null) return NotFound("文件不存在");
 
             item.IsFavorite = !item.IsFavorite;
+            item.FavoriteTime = item.IsFavorite ? DateTime.Now : null;
             item.UpdateTime = DateTime.Now;
-            await _db.Updateable(item).UpdateColumns(it => new { it.IsFavorite, it.UpdateTime }).ExecuteCommandAsync();
+            await _db.Updateable(item).UpdateColumns(it => new { it.IsFavorite, it.FavoriteTime, it.UpdateTime }).ExecuteCommandAsync();
 
             return Ok(new { IsFavorite = item.IsFavorite });
         }
@@ -770,6 +778,7 @@ namespace PanSystem.Controllers
 
             await _db.Updateable<StorageItem>()
                 .SetColumns(f => f.IsFavorite == false)
+                .SetColumns(f => f.FavoriteTime == null)
                 .SetColumns(f => f.UpdateTime == DateTime.Now)
                 .Where(f => request.Ids.Contains(f.Id) && f.UserId == userId)
                 .ExecuteCommandAsync();
@@ -793,6 +802,7 @@ namespace PanSystem.Controllers
                     IsFolder = f.IsFolder,
                     FileSize = f.FileSize,
                     CreateTime = f.CreateTime,
+                    FavoriteTime = f.FavoriteTime,
                     ParentId = f.ParentId,
                     IsFavorite = true,
                     IsShared = SqlFunc.Subqueryable<ShareLink>().Where(s => s.StorageItemId == f.Id && s.UserId == userId).Any()
@@ -1023,6 +1033,7 @@ namespace PanSystem.Controllers
 
             await _db.Updateable<StorageItem>()
                 .SetColumns(f => f.IsDeleted == true)
+                .SetColumns(f => f.DeleteTime == DateTime.Now)
                 .SetColumns(f => f.UpdateTime == DateTime.Now)
                 .Where(f => request.Ids.Contains(f.Id) && f.UserId == userId)
                 .ExecuteCommandAsync();

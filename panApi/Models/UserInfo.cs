@@ -34,5 +34,11 @@ namespace PanSystem.Models
 
         [SugarColumn(ColumnDescription = "创建时间")]
         public DateTime CreateTime { get; set; } = DateTime.Now;
+
+        [SugarColumn(ColumnDescription = "修改时间")]
+        public DateTime UpdateTime { get; set; } = DateTime.Now;
+
+        [SugarColumn(ColumnDescription = "登录时间", IsNullable = true)]
+        public DateTime? LastLoginTime { get; set; }
     }
 }

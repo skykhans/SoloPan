@@ -3,6 +3,9 @@ using Microsoft.AspNetCore.Mvc;
 using SqlSugar;
 using System.Security.Claims;
 using PanSystem.Models;
+using PanSystem.DTOs;
+using PanSystem.Utils;
+using System.Text.RegularExpressions;
 
 namespace PanSystem.Controllers
 {
@@ -25,6 +28,14 @@ namespace PanSystem.Controllers
             return user != null && user.IsAdmin;
         }
 
+        private static string? ValidatePasswordStrength(string password)
+        {
+            if (password.Length < 8) return "密码长度至少为 8 位";
+            if (!Regex.IsMatch(password, @"[a-zA-Z]") || !Regex.IsMatch(password, @"[0-9]"))
+                return "密码必须包含字母和数字";
+            return null;
+        }
+
         [HttpGet("users")]
         public async Task<IActionResult> GetUserList()
         {
@@ -37,10 +48,13 @@ namespace PanSystem.Controllers
                     u.Id,
                     u.UserName,
                     u.Email,
+                    u.Phone,
                     u.TotalSpace,
                     u.UsedSpace,
                     u.IsAdmin,
-                    u.CreateTime
+                    u.CreateTime,
+                    u.UpdateTime,
+                    u.LastLoginTime
                 })
                 .ToListAsync();
 
@@ -87,10 +101,30 @@ namespace PanSystem.Controllers
 
             await _db.Updateable<UserInfo>()
                 .SetColumns(u => u.TotalSpace == newTotalSpaceBytes)
+                .SetColumns(u => u.UpdateTime == DateTime.Now)
                 .Where(u => u.Id == userId)
                 .ExecuteCommandAsync();
 
             return Ok("用户配额更新成功");
+        }
+
+        [HttpPut("user-password")]
+        public async Task<IActionResult> UpdateUserPassword([FromBody] AdminUpdateUserPasswordRequest request)
+        {
+            if (!await CheckIsAdmin()) return Forbid("无权访问管理员接口");
+            if (request.UserId <= 0) return BadRequest("无效的用户ID");
+
+            var pwdError = ValidatePasswordStrength(request.NewPassword);
+            if (pwdError != null) return BadRequest(pwdError);
+
+            var user = await _db.Queryable<UserInfo>().InSingleAsync(request.UserId);
+            if (user == null) return NotFound("用户不存在");
+
+            user.Password = HashHelper.ComputeMd5(request.NewPassword);
+            user.UpdateTime = DateTime.Now;
+            await _db.Updateable(user).UpdateColumns(u => new { u.Password, u.UpdateTime }).ExecuteCommandAsync();
+
+            return Ok("用户密码修改成功");
         }
     }
 }

@@ -205,6 +205,7 @@ const enterPickerFolder = async (folder: any) => {
 
 const backPickerTo = async (index: number) => {
   const target = pickerPathStack.value[index]
+  if (!target) return
   pickerPathStack.value = pickerPathStack.value.slice(0, index + 1)
   pickerParentId.value = target.id
   await fetchPickerFolders(target.id)

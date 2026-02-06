@@ -9,6 +9,7 @@ using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
 using System.Text;
 using System.Text.RegularExpressions;
+using Microsoft.AspNetCore.StaticFiles;
 
 namespace PanSystem.Controllers
 {
@@ -66,8 +67,72 @@ namespace PanSystem.Controllers
             var md5Password = HashHelper.ComputeMd5(request.Password);
             if (user.Password != md5Password) return BadRequest("账号或密码错误");
 
+            user.LastLoginTime = DateTime.Now;
+            await _db.Updateable(user).UpdateColumns(u => new { u.LastLoginTime }).ExecuteCommandAsync();
+
             var token = GenerateJwtToken(user);
             return Ok(new { token, username = user.UserName });
+        }
+
+        [HttpPost("upload-avatar")]
+        public async Task<IActionResult> UploadAvatar([FromForm] IFormFile file)
+        {
+            if (file == null || file.Length == 0) return BadRequest("请选择头像文件");
+            if (file.Length > 2 * 1024 * 1024) return BadRequest("头像文件不能超过 2MB");
+            if (!file.ContentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase))
+                return BadRequest("仅支持图片文件");
+
+            var userId = GetUserId();
+            var user = await _db.Queryable<UserInfo>().InSingleAsync(userId);
+            if (user == null) return NotFound("用户不存在");
+
+            var ext = Path.GetExtension(file.FileName)?.ToLowerInvariant();
+            var allowedExts = new[] { ".jpg", ".jpeg", ".png", ".webp", ".gif" };
+            if (string.IsNullOrEmpty(ext) || !allowedExts.Contains(ext))
+                return BadRequest("头像格式仅支持 jpg/jpeg/png/webp/gif");
+
+            var datePath = DateTime.Now.ToString("yyyy-MM-dd");
+            var relativePath = Path.Combine(datePath, $"{Guid.NewGuid():N}{ext}");
+            var avatarRoot = Path.Combine(Directory.GetCurrentDirectory(), "uploads", "avatars");
+            var fullPath = Path.Combine(avatarRoot, relativePath);
+            var fullDir = Path.GetDirectoryName(fullPath)!;
+            if (!Directory.Exists(fullDir)) Directory.CreateDirectory(fullDir);
+
+            using (var stream = new FileStream(fullPath, FileMode.Create, FileAccess.Write))
+            {
+                await file.CopyToAsync(stream);
+            }
+
+            var normalizedRelativePath = relativePath.Replace('\\', '/');
+            var avatarUrl = $"{Request.Scheme}://{Request.Host}/api/user/avatar/{normalizedRelativePath}";
+
+            user.Avatar = avatarUrl;
+            user.UpdateTime = DateTime.Now;
+            await _db.Updateable(user).UpdateColumns(u => new { u.Avatar, u.UpdateTime }).ExecuteCommandAsync();
+
+            return Ok(new { avatar = avatarUrl });
+        }
+
+        [AllowAnonymous]
+        [HttpGet("avatar/{*filePath}")]
+        public IActionResult GetAvatar(string filePath)
+        {
+            if (string.IsNullOrWhiteSpace(filePath)) return NotFound();
+
+            var normalizedPath = filePath.Replace('\\', '/').Trim('/');
+            if (normalizedPath.Contains("..")) return BadRequest("非法路径");
+
+            var avatarRoot = Path.Combine(Directory.GetCurrentDirectory(), "uploads", "avatars");
+            var fullPath = Path.Combine(avatarRoot, normalizedPath);
+            if (!System.IO.File.Exists(fullPath)) return NotFound();
+
+            var provider = new FileExtensionContentTypeProvider();
+            if (!provider.TryGetContentType(fullPath, out var contentType))
+            {
+                contentType = "application/octet-stream";
+            }
+
+            return PhysicalFile(fullPath, contentType);
         }
 
         [AllowAnonymous]
@@ -116,6 +181,7 @@ namespace PanSystem.Controllers
                 Email = request.Email,
                 Phone = request.Phone,
                 CreateTime = DateTime.Now,
+                UpdateTime = DateTime.Now,
                 TotalSpace = 1024 * 1024 * 1024 // 默认 1GB
             };
 
@@ -174,8 +240,9 @@ namespace PanSystem.Controllers
                 user.Phone = request.Phone;
             }
             if (!string.IsNullOrEmpty(request.Avatar)) user.Avatar = request.Avatar;
+            user.UpdateTime = DateTime.Now;
 
-            await _db.Updateable(user).UpdateColumns(u => new { u.Email, u.Phone, u.Avatar }).ExecuteCommandAsync();
+            await _db.Updateable(user).UpdateColumns(u => new { u.Email, u.Phone, u.Avatar, u.UpdateTime }).ExecuteCommandAsync();
             return Ok("个人资料更新成功");
         }
 
@@ -195,7 +262,8 @@ namespace PanSystem.Controllers
             if (pwdError != null) return BadRequest(pwdError);
 
             user.Password = HashHelper.ComputeMd5(request.NewPassword);
-            await _db.Updateable(user).UpdateColumns(u => new { u.Password }).ExecuteCommandAsync();
+            user.UpdateTime = DateTime.Now;
+            await _db.Updateable(user).UpdateColumns(u => new { u.Password, u.UpdateTime }).ExecuteCommandAsync();
             return Ok("密码修改成功");
         }
 
@@ -258,7 +326,8 @@ namespace PanSystem.Controllers
             if (user == null) return BadRequest("在该邮箱或手机号下未找到用户");
 
             user.Password = HashHelper.ComputeMd5(request.NewPassword);
-            await _db.Updateable(user).UpdateColumns(u => new { u.Password }).ExecuteCommandAsync();
+            user.UpdateTime = DateTime.Now;
+            await _db.Updateable(user).UpdateColumns(u => new { u.Password, u.UpdateTime }).ExecuteCommandAsync();
 
             _verificationCodes.Remove(request.Target); // 使用后移除
             return Ok("密码重置成功");

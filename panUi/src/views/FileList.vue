@@ -146,6 +146,18 @@
           </template>
         </el-table-column>
 
+        <el-table-column v-if="category === 'recycle-bin'" label="删除时间" width="200">
+          <template #default="{ row }">
+            <span class="mono">{{ formatDate(row.deleteTime) }}</span>
+          </template>
+        </el-table-column>
+
+        <el-table-column v-if="category === 'favorites'" label="收藏时间" width="200">
+          <template #default="{ row }">
+            <span class="mono">{{ formatDate(row.favoriteTime) }}</span>
+          </template>
+        </el-table-column>
+
         <el-table-column label="操作" width="180" fixed="right">
           <template #header>
             <div class="operation-header">
@@ -459,7 +471,7 @@ import { ref, onMounted, watch, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { 
   Upload, FolderAdd, FolderOpened, Document, 
-  Star, StarFilled, Download, More, Edit, Rank, Share, Delete, Link, Folder, RefreshLeft,
+  Star, StarFilled, Download, More, Edit, Rank, Share, Delete, Folder, RefreshLeft,
   Menu, Grid, Picture, VideoPlay, Notebook, Box, Headset,
   ArrowRight, FullScreen, Aim, Close, Search
 } from '@element-plus/icons-vue'
@@ -1475,6 +1487,7 @@ const formatSize = (bytes: number) => {
 }
 
 const formatDate = (dateStr: string) => {
+  if (!dateStr) return '-'
   return new Date(dateStr).toLocaleString()
 }
 

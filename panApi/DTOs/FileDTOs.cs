@@ -39,6 +39,8 @@ namespace PanSystem.DTOs
         public bool IsFolder { get; set; }
         public long? FileSize { get; set; }
         public DateTime CreateTime { get; set; }
+        public DateTime? DeleteTime { get; set; }
+        public DateTime? FavoriteTime { get; set; }
         public int? ParentId { get; set; }
         public bool IsFavorite { get; set; }
         public bool IsShared { get; set; }

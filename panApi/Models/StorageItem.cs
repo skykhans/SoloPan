@@ -17,7 +17,11 @@ namespace PanSystem.Models
         [SugarColumn(IsNullable = true)]
         public string? FilePath { get; set; }
         public bool IsDeleted { get; set; }
+        [SugarColumn(IsNullable = true)]
+        public DateTime? DeleteTime { get; set; }
         public bool IsFavorite { get; set; }
+        [SugarColumn(IsNullable = true)]
+        public DateTime? FavoriteTime { get; set; }
         public DateTime CreateTime { get; set; }
         public DateTime UpdateTime { get; set; }
     }

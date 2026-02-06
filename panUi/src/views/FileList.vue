@@ -163,7 +163,7 @@
           </template>
         </el-table-column>
 
-        <el-table-column v-if="category === 'favorites'" label="收藏时间" width="200">
+        <el-table-column v-if="category === 'favorites'" label="收藏时间" width="200" prop="favoriteTime" sortable="custom">
           <template #default="{ row }">
             <span class="mono">{{ formatDate(row.favoriteTime) }}</span>
           </template>
@@ -355,6 +355,36 @@
       </template>
     </el-dialog>
 
+    <!-- 分享设置弹窗 -->
+    <el-dialog v-model="showShareSettingsDialog" title="设置分享有效期" width="420px" append-to-body>
+      <el-form label-position="top" class="share-setting-form">
+        <el-form-item label="有效期">
+          <el-radio-group v-model="shareExpireMode" class="expire-options">
+            <el-radio-button label="1d">1天</el-radio-button>
+            <el-radio-button label="7d">7天</el-radio-button>
+            <el-radio-button label="30d">30天</el-radio-button>
+            <el-radio-button label="never">永久</el-radio-button>
+            <el-radio-button label="custom">自定义</el-radio-button>
+          </el-radio-group>
+        </el-form-item>
+        <el-form-item v-if="shareExpireMode === 'custom'" label="过期时间">
+          <el-date-picker
+            v-model="shareCustomExpireTime"
+            type="datetime"
+            placeholder="请选择过期时间"
+            value-format="YYYY-MM-DDTHH:mm:ss"
+            style="width: 100%"
+          />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <div class="dialog-footer">
+          <el-button @click="showShareSettingsDialog = false">取消</el-button>
+          <el-button type="primary" class="pan-button-primary" @click="confirmShareCreate">确定分享</el-button>
+        </div>
+      </template>
+    </el-dialog>
+
     <!-- 分享成功弹窗 -->
     <el-dialog v-model="showShareDialog" title="分享成功" width="450px">
       <div class="share-result" v-if="shareInfo">
@@ -531,8 +561,11 @@ const currentMovePathText = computed(() => {
 
 const folderTree = ref<any[]>([])
 const showShareDialog = ref(false)
+const showShareSettingsDialog = ref(false)
 const shareInfo = ref<any>(null)
-const shareExpireDays = ref(7)
+const shareExpireMode = ref<'1d' | '7d' | '30d' | 'never' | 'custom'>('7d')
+const shareCustomExpireTime = ref('')
+const sharingRow = ref<any>(null)
 
 const showCreateFolder = ref(false)
 const newFolderName = ref('')
@@ -925,16 +958,43 @@ const confirmMove = async () => {
   }
 }
 
-const handleShare = async (row: any) => {
+const handleShare = (row: any) => {
+  sharingRow.value = row
+  shareExpireMode.value = '7d'
+  shareCustomExpireTime.value = ''
+  showShareSettingsDialog.value = true
+}
+
+const confirmShareCreate = async () => {
+  if (!sharingRow.value) return
+
+  const payload: any = {
+    storageItemId: sharingRow.value.id,
+    expireDays: 0
+  }
+
+  if (shareExpireMode.value === '1d') payload.expireDays = 1
+  if (shareExpireMode.value === '7d') payload.expireDays = 7
+  if (shareExpireMode.value === '30d') payload.expireDays = 30
+  if (shareExpireMode.value === 'custom') {
+    if (!shareCustomExpireTime.value) {
+      ElMessage.warning('请选择过期时间')
+      return
+    }
+    const expireDate = new Date(shareCustomExpireTime.value)
+    if (Number.isNaN(expireDate.getTime()) || expireDate.getTime() <= Date.now()) {
+      ElMessage.warning('过期时间必须晚于当前时间')
+      return
+    }
+    payload.expireTime = shareCustomExpireTime.value
+  }
+
   try {
-    const res: any = await request.post('/share/create', { 
-      storageItemId: row.id, 
-      expireDays: shareExpireDays.value 
-    })
+    const res: any = await request.post('/share/create', payload)
     shareInfo.value = res
+    showShareSettingsDialog.value = false
     showShareDialog.value = true
-    // 更新当前行的分享状态
-    row.isShared = true
+    sharingRow.value.isShared = true
   } catch (error) {
     console.error(error)
   }
@@ -1132,6 +1192,7 @@ const applyClientSort = (list: any[]) => {
     if (prop === 'size') return item.fileSize ?? -1
     if (prop === 'time') return item.updateTime ? new Date(item.updateTime).getTime() : 0
     if (prop === 'createTime') return item.createTime ? new Date(item.createTime).getTime() : 0
+    if (prop === 'favoriteTime') return item.favoriteTime ? new Date(item.favoriteTime).getTime() : 0
     return item[prop]
   }
 
@@ -2005,6 +2066,14 @@ onMounted(() => {
   }
 }
 
+.share-setting-form {
+  .expire-options {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+}
+
 .share-result {
   :deep(.el-result) {
     padding: 8px 0 0;
@@ -2058,10 +2127,39 @@ onMounted(() => {
     border-color: var(--pan-primary) !important;
     color: #000 !important;
     font-weight: 700 !important;
+    height: 100% !important;
+    border-radius: 0 8px 8px 0 !important;
+    width: 100% !important;
+    min-width: 72px !important;
+    padding: 0 12px !important;
+    white-space: nowrap;
   }
 
   :deep(.el-input-group__append .el-button:hover) {
     background-color: var(--pan-primary-light) !important;
+  }
+
+  :deep(.el-input-group) {
+    align-items: stretch;
+  }
+
+  :deep(.el-input-group__append) {
+    display: flex;
+    align-items: stretch;
+    justify-content: center;
+    width: 72px !important;
+    min-width: 72px !important;
+    padding: 0 !important;
+    margin-left: -1px !important;
+    border-left: 0 !important;
+    border-radius: 0 8px 8px 0 !important;
+    overflow: hidden;
+    background: transparent !important;
+    box-shadow: none !important;
+  }
+
+  :deep(.el-input-group .el-input__wrapper) {
+    border-radius: 8px 0 0 8px !important;
   }
 }
 </style>

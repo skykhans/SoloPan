@@ -22,11 +22,12 @@
 
     <div class="table-container">
       <el-table
-        :data="shareList"
+        :data="sortedShareList"
         v-loading="loading"
         style="width: 100%"
         row-key="id"
         @selection-change="handleSelectionChange"
+        @sort-change="handleSortChange"
       >
         <el-table-column type="selection" width="52" />
         <el-table-column label="分享文件" min-width="200">
@@ -45,22 +46,22 @@
             <span class="mono">{{ row.shareCode }}</span>
           </template>
         </el-table-column>
-        <el-table-column label="分享时间" width="180">
+        <el-table-column label="分享时间" prop="createTime" sortable="custom" width="180">
           <template #default="{ row }">
             <span class="mono">{{ formatDate(row.createTime) }}</span>
           </template>
         </el-table-column>
-        <el-table-column label="过期时间" width="180">
+        <el-table-column label="过期时间" prop="expireTime" sortable="custom" width="180">
           <template #default="{ row }">
             <span class="mono">{{ row.expireTime ? formatDate(row.expireTime) : '永久有效' }}</span>
           </template>
         </el-table-column>
-        <el-table-column label="浏览" width="80">
+        <el-table-column label="浏览" prop="viewCount" sortable="custom" width="80">
           <template #default="{ row }">
             <span class="mono">{{ row.viewCount }}</span>
           </template>
         </el-table-column>
-        <el-table-column label="下载" width="80">
+        <el-table-column label="下载" prop="downloadCount" sortable="custom" width="80">
           <template #default="{ row }">
             <span class="mono">{{ row.downloadCount }}</span>
           </template>
@@ -83,7 +84,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { FolderOpened, Document, Link, Delete } from '@element-plus/icons-vue'
 import request from '../utils/request'
 import { ElMessage, ElMessageBox } from 'element-plus'
@@ -91,6 +92,31 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 const loading = ref(false)
 const shareList = ref<any[]>([])
 const selectedShareIds = ref<number[]>([])
+const sortState = ref<{ prop: string; order: 'ascending' | 'descending' | null } | null>(null)
+
+const sortedShareList = computed(() => {
+  const list = [...shareList.value]
+  if (!sortState.value?.order || !sortState.value.prop) return list
+
+  const direction = sortState.value.order === 'ascending' ? 1 : -1
+  const prop = sortState.value.prop
+
+  const getSortValue = (item: any) => {
+    if (prop === 'createTime') return item.createTime ? new Date(item.createTime).getTime() : 0
+    if (prop === 'expireTime') return item.expireTime ? new Date(item.expireTime).getTime() : -1
+    if (prop === 'viewCount') return Number(item.viewCount ?? 0)
+    if (prop === 'downloadCount') return Number(item.downloadCount ?? 0)
+    return item[prop]
+  }
+
+  return list.sort((a, b) => {
+    const av = getSortValue(a)
+    const bv = getSortValue(b)
+    if (av < bv) return -1 * direction
+    if (av > bv) return 1 * direction
+    return (a.id - b.id) * direction
+  })
+})
 
 const fetchShares = async () => {
   loading.value = true
@@ -153,6 +179,10 @@ const handleCancelShare = (row: any) => {
 
 const handleSelectionChange = (rows: any[]) => {
   selectedShareIds.value = rows.map(item => item.id).filter((id: number) => Number.isFinite(id))
+}
+
+const handleSortChange = (payload: { prop: string; order: 'ascending' | 'descending' | null }) => {
+  sortState.value = payload?.order ? payload : null
 }
 
 const handleBatchCancel = async () => {

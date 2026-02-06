@@ -32,6 +32,17 @@ namespace PanSystem.Controllers
 
             if (file == null) return NotFound("文件不存在");
 
+            DateTime? expireTime = null;
+            if (request.ExpireTime.HasValue)
+            {
+                if (request.ExpireTime.Value <= DateTime.Now) return BadRequest("过期时间必须晚于当前时间");
+                expireTime = request.ExpireTime.Value;
+            }
+            else if (request.ExpireDays > 0)
+            {
+                expireTime = DateTime.Now.AddDays(request.ExpireDays);
+            }
+
             var shareCode = Guid.NewGuid().ToString().Substring(0, 4); // 简单生成4位提取码
             var shareToken = Guid.NewGuid().ToString("N");
 
@@ -42,7 +53,7 @@ namespace PanSystem.Controllers
                 ShareCode = shareCode,
                 ShareToken = shareToken,
                 CreateTime = DateTime.Now,
-                ExpireTime = request.ExpireDays > 0 ? DateTime.Now.AddDays(request.ExpireDays) : null,
+                ExpireTime = expireTime,
                 ViewCount = 0,
                 DownloadCount = 0
             };

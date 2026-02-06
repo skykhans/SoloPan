@@ -180,6 +180,7 @@ namespace PanSystem.Controllers
                 Password = HashHelper.ComputeMd5(request.Password),
                 Email = request.Email,
                 Phone = request.Phone,
+                MaxUploadFileSize = 100L * 1024 * 1024,
                 CreateTime = DateTime.Now,
                 UpdateTime = DateTime.Now,
                 TotalSpace = 1024 * 1024 * 1024 // 默认 1GB

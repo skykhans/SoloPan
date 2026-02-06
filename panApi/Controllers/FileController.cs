@@ -154,15 +154,18 @@ namespace PanSystem.Controllers
                 }
             }
 
+            var user = await _db.Queryable<UserInfo>().InSingleAsync(userId);
+            if (request.FileSize > user.MaxUploadFileSize)
+            {
+                return BadRequest($"单个文件超过上传上限，当前上限为 {FormatSize(user.MaxUploadFileSize)}");
+            }
+            if (user.UsedSpace + request.FileSize > user.TotalSpace)
+            {
+                return BadRequest("存储空间不足");
+            }
+
             if (existingFile != null)
             {
-                // 检查用户空间
-                var user = await _db.Queryable<UserInfo>().InSingleAsync(userId);
-                if (user.UsedSpace + request.FileSize > user.TotalSpace)
-                {
-                    return BadRequest("存储空间不足");
-                }
-
                 // 存在相同 MD5 文件，直接在数据库创建关联记录（秒传）
                 var newItem = new StorageItem
                 {
@@ -255,7 +258,7 @@ namespace PanSystem.Controllers
         }
 
         [HttpPost("upload")]
-        [RequestSizeLimit(100 * 1024 * 1024)] // 100MB
+        [RequestSizeLimit(2L * 1024 * 1024 * 1024)] // 2GB（实际以用户上传上限校验）
         public async Task<IActionResult> Upload(IFormFile file, [FromForm] int? parentId)
         {
             try
@@ -279,6 +282,10 @@ namespace PanSystem.Controllers
                     .FirstAsync(f => f.FileMd5 == md5 && !f.IsFolder);
 
                 var user = await _db.Queryable<UserInfo>().InSingleAsync(userId);
+                if (file.Length > user.MaxUploadFileSize)
+                {
+                    return BadRequest($"单个文件超过上传上限，当前上限为 {FormatSize(user.MaxUploadFileSize)}");
+                }
                 if (user.UsedSpace + file.Length > user.TotalSpace)
                 {
                     return BadRequest("存储空间不足");
@@ -374,6 +381,10 @@ namespace PanSystem.Controllers
             }
 
             var user = await _db.Queryable<UserInfo>().InSingleAsync(userId);
+            if (request.TotalSize > user.MaxUploadFileSize)
+            {
+                return BadRequest($"单个文件超过上传上限，当前上限为 {FormatSize(user.MaxUploadFileSize)}");
+            }
             if (user.UsedSpace + request.TotalSize > user.TotalSpace)
             {
                 return BadRequest("存储空间不足");
@@ -463,6 +474,20 @@ namespace PanSystem.Controllers
             await _auditService.LogAsync(userId, User.Identity!.Name!, "合并上传", $"文件名: {storageItem.Name}, 大小: {storageItem.FileSize}", Request.HttpContext.Connection.RemoteIpAddress?.ToString() ?? "");
 
             return Ok(new { Message = "上传成功", ItemId = storageItem.Id });
+        }
+
+        private static string FormatSize(long bytes)
+        {
+            if (bytes <= 0) return "0 B";
+            var units = new[] { "B", "KB", "MB", "GB", "TB" };
+            var value = (double)bytes;
+            var unitIndex = 0;
+            while (value >= 1024 && unitIndex < units.Length - 1)
+            {
+                value /= 1024;
+                unitIndex++;
+            }
+            return $"{value:0.##} {units[unitIndex]}";
         }
 
         [HttpGet("download/{id}")]

@@ -59,49 +59,55 @@
               </div>
             </div>
             <div class="table-card pan-card">
-              <el-table :data="userList" style="width: 100%" height="100%" v-loading="loading">
-                <el-table-column label="ID" width="80">
+              <el-table :data="userList" style="width: 100%" height="100%" v-loading="loading" @sort-change="handleUserSortChange">
+                <el-table-column label="ID" prop="id" sortable="custom" width="80" fixed="left">
                   <template #default="{ row }">
                     <span class="mono">{{ row.id }}</span>
                   </template>
                 </el-table-column>
-                <el-table-column prop="userName" label="用户名" width="150" />
-                <el-table-column prop="email" label="邮箱" width="200" />
-                <el-table-column label="手机" width="150">
+                <el-table-column prop="userName" label="用户名" width="150" sortable="custom" fixed="left" />
+                <el-table-column prop="email" label="邮箱" width="200" sortable="custom" fixed="left" />
+                <el-table-column label="手机" prop="phone" width="150" sortable="custom">
                   <template #default="{ row }">
                     <span class="mono">{{ row.phone || '-' }}</span>
                   </template>
                 </el-table-column>
-                <el-table-column label="已用/总空间" min-width="180">
+                <el-table-column label="已用/总空间" prop="usedSpace" min-width="180" sortable="custom">
                   <template #default="{ row }">
                     <span class="usage-cell mono">{{ formatSize(row.usedSpace) }} / {{ formatSize(row.totalSpace) }}</span>
                   </template>
                 </el-table-column>
-                <el-table-column label="注册时间" width="180">
+                <el-table-column label="注册时间" prop="createTime" width="180" sortable="custom">
                   <template #default="{ row }">
                     <span class="mono">{{ formatDate(row.createTime) }}</span>
                   </template>
                 </el-table-column>
-                <el-table-column label="修改时间" width="180">
+                <el-table-column label="修改时间" prop="updateTime" width="180" sortable="custom">
                   <template #default="{ row }">
                     <span class="mono">{{ formatDate(row.updateTime) }}</span>
                   </template>
                 </el-table-column>
-                <el-table-column label="登录时间" width="180">
+                <el-table-column label="登录时间" prop="lastLoginTime" width="180" sortable="custom">
                   <template #default="{ row }">
                     <span class="mono">{{ formatDate(row.lastLoginTime) }}</span>
                   </template>
                 </el-table-column>
-                <el-table-column label="角色" width="100">
+                <el-table-column label="单文件上限" prop="maxUploadFileSize" width="150" sortable="custom" align="right" header-align="right">
+                  <template #default="{ row }">
+                    <span class="mono upload-limit-cell">{{ formatSize(row.maxUploadFileSize || 100 * 1024 * 1024) }}</span>
+                  </template>
+                </el-table-column>
+                <el-table-column label="角色" prop="isAdmin" width="100" sortable="custom">
                   <template #default="{ row }">
                     <el-tag :type="row.isAdmin ? 'danger' : 'info'" size="small">
                       {{ row.isAdmin ? 'Admin' : 'User' }}
                     </el-tag>
                   </template>
                 </el-table-column>
-                <el-table-column label="操作" width="220">
+                <el-table-column label="操作" width="330" fixed="right">
                   <template #default="{ row }">
                     <el-button class="admin-btn" @click="handleEditQuota(row)">修改配额</el-button>
+                    <el-button class="admin-btn" @click="handleEditUploadLimit(row)">上传上限</el-button>
                     <el-button class="admin-btn" type="warning" @click="handleEditPassword(row)">修改密码</el-button>
                   </template>
                 </el-table-column>
@@ -145,20 +151,20 @@
               </div>
             </div>
             <div class="table-card pan-card">
-              <el-table :data="auditLogs" style="width: 100%" height="100%" v-loading="loadingLogs">
-                <el-table-column label="时间" width="180">
+              <el-table :data="auditLogs" style="width: 100%" height="100%" v-loading="loadingLogs" @sort-change="handleAuditSortChange">
+                <el-table-column label="时间" prop="createTime" width="180" sortable="custom">
                   <template #default="{ row }">
                     <span class="mono">{{ formatDate(row.createTime) }}</span>
                   </template>
                 </el-table-column>
-                <el-table-column prop="userName" label="用户" width="120" />
-                <el-table-column label="操作" width="120">
+                <el-table-column prop="userName" label="用户" width="120" sortable="custom" />
+                <el-table-column label="操作" prop="action" width="120" sortable="custom">
                   <template #default="{ row }">
                      <el-tag :type="getActionType(row.action)" size="small">{{ row.action }}</el-tag>
                   </template>
                 </el-table-column>
-                <el-table-column prop="detail" label="详情" />
-                <el-table-column prop="ipAddress" label="IP 地址" width="150">
+                <el-table-column prop="detail" label="详情" sortable="custom" />
+                <el-table-column prop="ipAddress" label="IP 地址" width="150" sortable="custom">
                   <template #default="{ row }">
                     <span class="mono">{{ row.ipAddress }}</span>
                   </template>
@@ -192,6 +198,21 @@
         <div class="dialog-footer">
           <el-button @click="showQuotaDialog = false">取消</el-button>
           <el-button type="primary" @click="confirmEditQuota">确定</el-button>
+        </div>
+      </template>
+    </el-dialog>
+
+    <!-- 修改上传上限弹窗 -->
+    <el-dialog v-model="showUploadLimitDialog" title="修改单文件上传上限" width="420px" append-to-body class="quota-dialog">
+      <el-form label-position="top" class="quota-form">
+        <el-form-item label="新的单文件上传上限 (MB)">
+          <el-input-number v-model="newUploadLimitMB" :min="1" :max="10240" />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <div class="dialog-footer">
+          <el-button @click="showUploadLimitDialog = false">取消</el-button>
+          <el-button type="primary" @click="confirmEditUploadLimit">确定</el-button>
         </div>
       </template>
     </el-dialog>
@@ -241,9 +262,11 @@ const activeTab = ref('users')
 const userPage = ref(1)
 const userPageSize = ref(20)
 const userTotal = ref(0)
+const userSortState = ref<{ prop: string; order: 'ascending' | 'descending' | null } | null>(null)
 const auditPage = ref(1)
 const auditPageSize = ref(20)
 const auditTotal = ref(0)
+const auditSortState = ref<{ prop: string; order: 'ascending' | 'descending' | null } | null>(null)
 const userFilters = ref<{
   userName: string
   email: string
@@ -270,10 +293,12 @@ const auditFilters = ref<{
 })
 
 const showQuotaDialog = ref(false)
+const showUploadLimitDialog = ref(false)
 const showPasswordDialog = ref(false)
 const currentEditUser = ref<any>(null)
 const currentPasswordEditUser = ref<any>(null)
 const newQuotaGB = ref(5)
+const newUploadLimitMB = ref(100)
 const updatingPassword = ref(false)
 const passwordForm = ref({
   newPassword: '',
@@ -300,6 +325,10 @@ const fetchUsers = async () => {
     if (userFilters.value.email) params.email = userFilters.value.email
     if (userFilters.value.phone) params.phone = userFilters.value.phone
     if (userFilters.value.isAdmin !== null) params.isAdmin = userFilters.value.isAdmin
+    if (userSortState.value?.prop && userSortState.value?.order) {
+      params.sortBy = userSortState.value.prop
+      params.order = userSortState.value.order === 'ascending' ? 'asc' : 'desc'
+    }
 
     const res: any = await request.get('/admin/users', {
       params
@@ -327,6 +356,10 @@ const fetchAuditLogs = async () => {
     if (auditFilters.value.timeRange.length === 2) {
       params.startTime = auditFilters.value.timeRange[0]
       params.endTime = auditFilters.value.timeRange[1]
+    }
+    if (auditSortState.value?.prop && auditSortState.value?.order) {
+      params.sortBy = auditSortState.value.prop
+      params.order = auditSortState.value.order === 'ascending' ? 'asc' : 'desc'
     }
 
     const res: any = await request.get('/admin/audit-logs', {
@@ -358,6 +391,12 @@ const handleUserSearch = () => {
   fetchUsers()
 }
 
+const handleUserSortChange = (payload: { prop: string; order: 'ascending' | 'descending' | null }) => {
+  userSortState.value = payload?.order ? payload : null
+  userPage.value = 1
+  fetchUsers()
+}
+
 const resetUserFilters = () => {
   userFilters.value = {
     userName: '',
@@ -370,6 +409,12 @@ const resetUserFilters = () => {
 }
 
 const handleAuditSearch = () => {
+  auditPage.value = 1
+  fetchAuditLogs()
+}
+
+const handleAuditSortChange = (payload: { prop: string; order: 'ascending' | 'descending' | null }) => {
+  auditSortState.value = payload?.order ? payload : null
   auditPage.value = 1
   fetchAuditLogs()
 }
@@ -399,6 +444,13 @@ const handleEditQuota = (row: any) => {
   showQuotaDialog.value = true
 }
 
+const handleEditUploadLimit = (row: any) => {
+  currentEditUser.value = row
+  const bytes = Number(row.maxUploadFileSize || 100 * 1024 * 1024)
+  newUploadLimitMB.value = Math.max(1, Math.round(bytes / 1024 / 1024))
+  showUploadLimitDialog.value = true
+}
+
 const handleEditPassword = (row: any) => {
   currentPasswordEditUser.value = row
   passwordForm.value.newPassword = ''
@@ -419,6 +471,22 @@ const confirmEditQuota = async () => {
     await request.put(`/admin/user-quota?userId=${currentEditUser.value.id}&newTotalSpaceBytes=${bytes}`)
     ElMessage.success('配额修改成功')
     showQuotaDialog.value = false
+    fetchUsers()
+  } catch (error) {
+    console.error(error)
+  }
+}
+
+const confirmEditUploadLimit = async () => {
+  if (!currentEditUser.value) return
+  try {
+    const bytes = newUploadLimitMB.value * 1024 * 1024
+    await request.put('/admin/user-upload-limit', {
+      userId: currentEditUser.value.id,
+      maxUploadFileSizeBytes: bytes
+    })
+    ElMessage.success('单文件上传上限修改成功')
+    showUploadLimitDialog.value = false
     fetchUsers()
   } catch (error) {
     console.error(error)
@@ -524,19 +592,23 @@ onMounted(() => {
   padding-bottom: 24px;
 }
 
+:deep(.admin-panel .pan-card) {
+  background: transparent !important;
+}
+
 .stats-cards {
   margin-bottom: 14px;
   flex-shrink: 0;
   
   :deep(.el-card) {
-    background: var(--pan-surface-elevated);
+    background: transparent;
     border: 1px solid var(--pan-border-strong);
     border-radius: var(--pan-radius-lg);
     transition: var(--pan-transition);
     
     &:hover {
       border-color: var(--pan-primary);
-      background: rgba(16, 185, 129, 0.02);
+      background: transparent;
       box-shadow: 0 8px 30px rgba(0, 0, 0, 0.4);
     }
 
@@ -691,11 +763,17 @@ onMounted(() => {
   overflow: hidden;
   display: flex;
   flex-direction: column;
+  background: transparent !important;
 }
 
 .usage-cell {
   color: var(--pan-text-body);
   font-size: 13px;
+}
+
+.upload-limit-cell {
+  display: block;
+  text-align: right;
 }
 
 .pagination-wrapper {
@@ -704,9 +782,53 @@ onMounted(() => {
   justify-content: flex-end;
   margin-top: 6px;
   flex-shrink: 0;
+  background: transparent !important;
+}
+
+.filter-card {
+  background: transparent !important;
 }
 
 :deep(.table-card .el-table th.el-table__cell) {
+  background-color: transparent !important;
+}
+
+:deep(.table-card .el-table),
+:deep(.table-card .el-table__inner-wrapper),
+:deep(.table-card .el-table__header-wrapper),
+:deep(.table-card .el-table__body-wrapper) {
+  background-color: transparent !important;
+}
+
+:deep(.table-card .el-table__fixed),
+:deep(.table-card .el-table__fixed-header-wrapper),
+:deep(.table-card .el-table__fixed-body-wrapper),
+:deep(.table-card .el-table__fixed-right-patch) {
+  background-color: var(--pan-bg) !important;
+}
+
+:deep(.table-card .el-table .el-table-fixed-column--left),
+:deep(.table-card .el-table .el-table-fixed-column--left.is-last-column),
+:deep(.table-card .el-table .el-table-fixed-column--right),
+:deep(.table-card .el-table .el-table-fixed-column--right.is-first-column) {
+  background-color: var(--pan-bg) !important;
+}
+
+:deep(.table-card .el-table .el-table-fixed-column--left.el-table__cell),
+:deep(.table-card .el-table .el-table-fixed-column--right.el-table__cell) {
+  background-color: var(--pan-bg) !important;
+}
+
+:deep(.table-card .el-table__fixed-header-wrapper th.el-table__cell),
+:deep(.table-card .el-table__fixed-body-wrapper td.el-table__cell) {
+  background-color: var(--pan-bg) !important;
+}
+
+:deep(.table-card .el-table .el-table-fixed-column--right::before) {
+  background-color: transparent !important;
+}
+
+:deep(.table-card .el-table .el-table-fixed-column--left::before) {
   background-color: transparent !important;
 }
 

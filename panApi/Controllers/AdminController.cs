@@ -23,6 +23,14 @@ namespace PanSystem.Controllers
             public string? Email { get; set; }
             public string? Phone { get; set; }
             public bool? IsAdmin { get; set; }
+            public string? SortBy { get; set; }
+            public string? Order { get; set; } // asc / desc
+        }
+
+        public class UpdateUserUploadLimitRequest
+        {
+            public int UserId { get; set; }
+            public long MaxUploadFileSizeBytes { get; set; }
         }
 
         public class AuditLogQuery
@@ -35,6 +43,8 @@ namespace PanSystem.Controllers
             public string? Keyword { get; set; }
             public DateTime? StartTime { get; set; }
             public DateTime? EndTime { get; set; }
+            public string? SortBy { get; set; }
+            public string? Order { get; set; } // asc / desc
         }
 
         private readonly ISqlSugarClient _db;
@@ -78,8 +88,25 @@ namespace PanSystem.Controllers
                 .WhereIF(req.IsAdmin.HasValue, u => u.IsAdmin == req.IsAdmin!.Value);
             var total = await query.CountAsync();
 
+            var userOrderType = string.Equals(req.Order, "asc", StringComparison.OrdinalIgnoreCase)
+                ? OrderByType.Asc
+                : OrderByType.Desc;
+            query = (req.SortBy ?? string.Empty).ToLowerInvariant() switch
+            {
+                "id" => query.OrderBy(u => u.Id, userOrderType),
+                "username" => query.OrderBy(u => u.UserName, userOrderType),
+                "email" => query.OrderBy(u => u.Email, userOrderType),
+                "phone" => query.OrderBy(u => u.Phone, userOrderType),
+                "usedspace" => query.OrderBy(u => u.UsedSpace, userOrderType),
+                "createtime" => query.OrderBy(u => u.CreateTime, userOrderType),
+                "updatetime" => query.OrderBy(u => u.UpdateTime, userOrderType),
+                "lastlogintime" => query.OrderBy(u => u.LastLoginTime, userOrderType),
+                "isadmin" => query.OrderBy(u => u.IsAdmin, userOrderType),
+                "maxuploadfilesize" => query.OrderBy(u => u.MaxUploadFileSize, userOrderType),
+                _ => query.OrderBy(u => u.CreateTime, OrderByType.Desc)
+            };
+
             var users = await query
-                .OrderBy(u => u.CreateTime, OrderByType.Desc)
                 .Skip((pageIndex - 1) * pageLength)
                 .Take(pageLength)
                 .Select(u => new
@@ -93,7 +120,8 @@ namespace PanSystem.Controllers
                     u.IsAdmin,
                     u.CreateTime,
                     u.UpdateTime,
-                    u.LastLoginTime
+                    u.LastLoginTime,
+                    u.MaxUploadFileSize
                 })
                 .ToListAsync();
 
@@ -147,8 +175,20 @@ namespace PanSystem.Controllers
                 .WhereIF(req.EndTime.HasValue, l => l.CreateTime <= req.EndTime!.Value);
             var total = await query.CountAsync();
 
+            var auditOrderType = string.Equals(req.Order, "asc", StringComparison.OrdinalIgnoreCase)
+                ? OrderByType.Asc
+                : OrderByType.Desc;
+            query = (req.SortBy ?? string.Empty).ToLowerInvariant() switch
+            {
+                "createtime" => query.OrderBy(l => l.CreateTime, auditOrderType),
+                "username" => query.OrderBy(l => l.UserName, auditOrderType),
+                "action" => query.OrderBy(l => l.Action, auditOrderType),
+                "detail" => query.OrderBy(l => l.Detail, auditOrderType),
+                "ipaddress" => query.OrderBy(l => l.IpAddress, auditOrderType),
+                _ => query.OrderBy(l => l.CreateTime, OrderByType.Desc)
+            };
+
             var logs = await query
-                .OrderBy(l => l.CreateTime, OrderByType.Desc)
                 .Skip((pageIndex - 1) * pageLength)
                 .Take(pageLength)
                 .ToListAsync();
@@ -193,6 +233,26 @@ namespace PanSystem.Controllers
             await _db.Updateable(user).UpdateColumns(u => new { u.Password, u.UpdateTime }).ExecuteCommandAsync();
 
             return Ok("用户密码修改成功");
+        }
+
+        [HttpPut("user-upload-limit")]
+        public async Task<IActionResult> UpdateUserUploadLimit([FromBody] UpdateUserUploadLimitRequest request)
+        {
+            if (!await CheckIsAdmin()) return Forbid("无权访问管理员接口");
+            if (request.UserId <= 0) return BadRequest("无效的用户ID");
+            if (request.MaxUploadFileSizeBytes < 1L * 1024 * 1024) return BadRequest("单文件上传上限不能低于 1MB");
+            if (request.MaxUploadFileSizeBytes > 10L * 1024 * 1024 * 1024) return BadRequest("单文件上传上限不能超过 10GB");
+
+            var user = await _db.Queryable<UserInfo>().InSingleAsync(request.UserId);
+            if (user == null) return NotFound("用户不存在");
+
+            await _db.Updateable<UserInfo>()
+                .SetColumns(u => u.MaxUploadFileSize == request.MaxUploadFileSizeBytes)
+                .SetColumns(u => u.UpdateTime == DateTime.Now)
+                .Where(u => u.Id == request.UserId)
+                .ExecuteCommandAsync();
+
+            return Ok("单文件上传上限修改成功");
         }
     }
 }

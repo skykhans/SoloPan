@@ -15,28 +15,28 @@
     </div>
 
     <div class="table-container pan-card">
-      <el-table :data="tasks" style="width: 100%" height="100%" v-loading="loading">
-        <el-table-column label="链接" prop="url" min-width="280">
+      <el-table :data="sortedTasks" style="width: 100%" height="100%" v-loading="loading" @sort-change="handleSortChange">
+        <el-table-column label="链接" prop="url" min-width="280" sortable="custom">
           <template #default="{ row }">
             <span class="url-text" :title="row.url">{{ row.url }}</span>
           </template>
         </el-table-column>
-        <el-table-column label="状态" width="120">
+        <el-table-column label="状态" prop="status" width="120" sortable="custom">
           <template #default="{ row }">
             <span class="status-text">{{ statusText(row.status, row.message) }}</span>
           </template>
         </el-table-column>
-        <el-table-column label="进度" width="180">
+        <el-table-column label="进度" prop="progress" width="180" sortable="custom">
           <template #default="{ row }">
             <el-progress :percentage="row.progress || 0" :status="progressStatus(row.status)" :stroke-width="4" />
           </template>
         </el-table-column>
-        <el-table-column label="创建时间" width="180">
+        <el-table-column label="创建时间" prop="createTime" width="180" sortable="custom">
           <template #default="{ row }">
             <span class="mono">{{ formatDate(row.createTime) }}</span>
           </template>
         </el-table-column>
-        <el-table-column label="更新时间" width="180">
+        <el-table-column label="更新时间" prop="updateTime" width="180" sortable="custom">
           <template #default="{ row }">
             <span class="mono">{{ formatDate(row.updateTime) }}</span>
           </template>
@@ -127,12 +127,13 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, onMounted, onUnmounted, computed } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Refresh, Edit, Delete } from '@element-plus/icons-vue'
 import request from '../utils/request'
 
 const tasks = ref<any[]>([])
+const sortState = ref<{ prop: string; order: 'ascending' | 'descending' | null } | null>(null)
 const loading = ref(false)
 const saving = ref(false)
 const showCreate = ref(false)
@@ -166,6 +167,40 @@ const progressStatus = (status: string) => {
   if (status === 'failed') return 'exception'
   if (status === 'completed') return 'success'
   return ''
+}
+
+const sortedTasks = computed(() => {
+  const list = [...tasks.value]
+  if (!sortState.value?.order || !sortState.value.prop) return list
+
+  const direction = sortState.value.order === 'ascending' ? 1 : -1
+  const prop = sortState.value.prop
+
+  const getSortValue = (item: any) => {
+    if (prop === 'url') return item.url ?? ''
+    if (prop === 'status') return item.status ?? ''
+    if (prop === 'progress') return Number(item.progress ?? 0)
+    if (prop === 'createTime') return item.createTime ? new Date(item.createTime).getTime() : 0
+    if (prop === 'updateTime') return item.updateTime ? new Date(item.updateTime).getTime() : 0
+    return item[prop]
+  }
+
+  return list.sort((a, b) => {
+    const av = getSortValue(a)
+    const bv = getSortValue(b)
+    if (typeof av === 'string' || typeof bv === 'string') {
+      const result = String(av).localeCompare(String(bv), 'zh-CN')
+      if (result !== 0) return result * direction
+    } else {
+      if (av < bv) return -1 * direction
+      if (av > bv) return 1 * direction
+    }
+    return (a.id - b.id) * direction
+  })
+})
+
+const handleSortChange = (payload: { prop: string; order: 'ascending' | 'descending' | null }) => {
+  sortState.value = payload?.order ? payload : null
 }
 
 const formatDate = (dateStr: string) => {

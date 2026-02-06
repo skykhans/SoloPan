@@ -4,6 +4,7 @@ namespace PanSystem.DTOs
     {
         public int StorageItemId { get; set; }
         public int ExpireDays { get; set; } // 0 为永久
+        public DateTime? ExpireTime { get; set; } // 可选：手动指定过期时间
     }
 
     public class ShareResponse

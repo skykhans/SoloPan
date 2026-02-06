@@ -29,6 +29,9 @@ namespace PanSystem.Models
         [SugarColumn(ColumnDescription = "已用空间(byte)")]
         public long UsedSpace { get; set; } = 0;
 
+        [SugarColumn(ColumnDescription = "最大单文件上传大小(byte)")]
+        public long MaxUploadFileSize { get; set; } = 100L * 1024 * 1024; // 默认100MB
+
         [SugarColumn(ColumnDescription = "是否管理员")]
         public bool IsAdmin { get; set; } = false;
 

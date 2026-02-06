@@ -195,6 +195,11 @@ using (var scope = app.Services.CreateScope())
                 db.Ado.ExecuteCommand("ALTER TABLE UserInfo ADD UpdateTime DATETIME NULL;");
             }
 
+            if (!ColumnExists("UserInfo", "MaxUploadFileSize"))
+            {
+                db.Ado.ExecuteCommand("ALTER TABLE UserInfo ADD MaxUploadFileSize BIGINT NULL;");
+            }
+
             if (ColumnExists("UserInfo", "CreateTime"))
             {
                 db.Ado.ExecuteCommand("UPDATE UserInfo SET CreateTime = ISNULL(CreateTime, GETDATE()) WHERE CreateTime IS NULL;");
@@ -212,6 +217,11 @@ using (var scope = app.Services.CreateScope())
                 }
             }
 
+            if (ColumnExists("UserInfo", "MaxUploadFileSize"))
+            {
+                db.Ado.ExecuteCommand("UPDATE UserInfo SET MaxUploadFileSize = ISNULL(MaxUploadFileSize, 104857600) WHERE MaxUploadFileSize IS NULL OR MaxUploadFileSize <= 0;");
+            }
+
             if (ColumnExists("UserInfo", "CreateTime") && IsNullableColumn("UserInfo", "CreateTime"))
             {
                 db.Ado.ExecuteCommand("ALTER TABLE UserInfo ALTER COLUMN CreateTime DATETIME NOT NULL;");
@@ -220,6 +230,11 @@ using (var scope = app.Services.CreateScope())
             if (ColumnExists("UserInfo", "UpdateTime") && IsNullableColumn("UserInfo", "UpdateTime"))
             {
                 db.Ado.ExecuteCommand("ALTER TABLE UserInfo ALTER COLUMN UpdateTime DATETIME NOT NULL;");
+            }
+
+            if (ColumnExists("UserInfo", "MaxUploadFileSize") && IsNullableColumn("UserInfo", "MaxUploadFileSize"))
+            {
+                db.Ado.ExecuteCommand("ALTER TABLE UserInfo ALTER COLUMN MaxUploadFileSize BIGINT NOT NULL;");
             }
         }
     }
@@ -251,6 +266,25 @@ using (var scope = app.Services.CreateScope())
             END
             IF COL_LENGTH('UserInfo', 'LastLoginTime') IS NULL
             ALTER TABLE UserInfo ADD LastLoginTime DATETIME NULL;
+            IF COL_LENGTH('UserInfo', 'MaxUploadFileSize') IS NULL
+            BEGIN
+                ALTER TABLE UserInfo ADD MaxUploadFileSize BIGINT NULL;
+                UPDATE UserInfo SET MaxUploadFileSize = 104857600 WHERE MaxUploadFileSize IS NULL OR MaxUploadFileSize <= 0;
+                ALTER TABLE UserInfo ALTER COLUMN MaxUploadFileSize BIGINT NOT NULL;
+            END
+            ELSE
+            BEGIN
+                UPDATE UserInfo SET MaxUploadFileSize = 104857600 WHERE MaxUploadFileSize IS NULL OR MaxUploadFileSize <= 0;
+            END
+            IF COL_LENGTH('ShareLink', 'ExpireTime') IS NULL
+            BEGIN
+                ALTER TABLE ShareLink ADD ExpireTime DATETIME NULL;
+            END
+            IF COL_LENGTH('ShareLink', 'ExpireTime') IS NOT NULL
+               AND COLUMNPROPERTY(OBJECT_ID('ShareLink'), 'ExpireTime', 'AllowsNull') = 0
+            BEGIN
+                ALTER TABLE ShareLink ALTER COLUMN ExpireTime DATETIME NULL;
+            END
             IF COL_LENGTH('StorageItem', 'DeleteTime') IS NULL
             BEGIN
                 ALTER TABLE StorageItem ADD DeleteTime DATETIME NULL;
@@ -286,6 +320,7 @@ using (var scope = app.Services.CreateScope())
             IsAdmin = true,
             CreateTime = DateTime.Now,
             UpdateTime = DateTime.Now,
+            MaxUploadFileSize = 100L * 1024 * 1024,
             TotalSpace = 1024L * 1024 * 1024 * 100 // 100GB
         };
         db.Insertable(adminUser).ExecuteCommand();

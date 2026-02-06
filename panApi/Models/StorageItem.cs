@@ -12,7 +12,7 @@ namespace PanSystem.Models
         public int Id { get; set; }
 
         [SugarColumn(ColumnDescription = "名称", Length = 255)]
-        public string Name { get; set; }
+        public string Name { get; set; } = string.Empty;
 
         [SugarColumn(ColumnDescription = "父目录ID", IsNullable = true)]
         public int? ParentId { get; set; }

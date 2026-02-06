@@ -29,12 +29,12 @@ namespace PanSystem.DTOs
         /// <summary>
         /// 分享令牌。
         /// </summary>
-        public string ShareToken { get; set; }
+        public string ShareToken { get; set; } = string.Empty;
 
         /// <summary>
         /// 提取码。
         /// </summary>
-        public string ShareCode { get; set; }
+        public string ShareCode { get; set; } = string.Empty;
 
         /// <summary>
         /// 过期时间。
@@ -50,7 +50,7 @@ namespace PanSystem.DTOs
         /// <summary>
         /// 名称。
         /// </summary>
-        public string Name { get; set; }
+        public string Name { get; set; } = string.Empty;
 
         /// <summary>
         /// 文件大小(byte)。
@@ -65,7 +65,7 @@ namespace PanSystem.DTOs
         /// <summary>
         /// 分享者用户名。
         /// </summary>
-        public string UserName { get; set; }
+        public string UserName { get; set; } = string.Empty;
 
         /// <summary>
         /// 过期时间。
@@ -81,12 +81,12 @@ namespace PanSystem.DTOs
         /// <summary>
         /// 分享令牌。
         /// </summary>
-        public string ShareToken { get; set; }
+        public string ShareToken { get; set; } = string.Empty;
 
         /// <summary>
         /// 提取码。
         /// </summary>
-        public string ShareCode { get; set; }
+        public string ShareCode { get; set; } = string.Empty;
     }
 
     /// <summary>
@@ -97,12 +97,12 @@ namespace PanSystem.DTOs
         /// <summary>
         /// 分享令牌。
         /// </summary>
-        public string ShareToken { get; set; }
+        public string ShareToken { get; set; } = string.Empty;
 
         /// <summary>
         /// 提取码。
         /// </summary>
-        public string ShareCode { get; set; }
+        public string ShareCode { get; set; } = string.Empty;
 
         /// <summary>
         /// 保存目标父目录ID。
@@ -123,7 +123,7 @@ namespace PanSystem.DTOs
         /// <summary>
         /// 名称。
         /// </summary>
-        public string Name { get; set; }
+        public string Name { get; set; } = string.Empty;
 
         /// <summary>
         /// 是否文件夹。

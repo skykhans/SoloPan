@@ -527,7 +527,18 @@
         <div v-for="task in uploadTasks" :key="task.guid" class="task-item">
           <div class="task-info">
             <span class="task-name" :title="task.name">{{ task.name }}</span>
-            <span class="task-status">{{ task.statusText }}</span>
+            <div class="task-status-row">
+              <span class="task-status">{{ task.statusText }}</span>
+              <el-button
+                v-if="task.status === 'error'"
+                link
+                size="small"
+                :icon="RefreshRight"
+                @click="handleRetryTask(task)"
+              >
+                重试
+              </el-button>
+            </div>
           </div>
           <el-progress :percentage="task.progress" :status="task.progressStatus" :stroke-width="4" />
         </div>
@@ -543,7 +554,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { 
   Upload, FolderAdd, FolderOpened, Document, 
   Star, StarFilled, Download, More, Edit, Rank, Share, Delete, Folder, RefreshLeft,
-  Menu, Grid, Picture, VideoPlay, Notebook, Box, Headset,
+  Menu, Grid, Picture, VideoPlay, Notebook, Box, Headset, RefreshRight,
   ArrowRight, FullScreen, Aim, Close, Search, Check, CopyDocument
 } from '@element-plus/icons-vue'
 import request from '../utils/request'
@@ -560,7 +571,19 @@ const route = useRoute()
 const router = useRouter()
 const loading = ref(true)
 const fileList = ref<any[]>([])
-const uploadTasks = ref<any[]>([])
+type UploadTask = {
+  guid: string
+  name: string
+  progress: number
+  status: 'uploading' | 'success' | 'error'
+  statusText: string
+  progressStatus: '' | 'success' | 'exception' | 'warning'
+  file?: File
+  parentId?: number | null
+  folderPath?: string
+}
+
+const uploadTasks = ref<UploadTask[]>([])
 const activeUploadCount = computed(() => uploadTasks.value.filter(t => t.status === 'uploading').length)
 const pathStack = ref<{ id: number; name: string }[]>(history.state?.pathStack || [])
 const selectedIds = ref<number[]>([])
@@ -596,6 +619,12 @@ const searchKeyword = ref((route.query.q as string) || '')
 // 并发上传控制
 const uploadQueue = ref<any[]>([])
 const CONCURRENCY_LIMIT = 3
+const FILE_CHUNK_SIZE = 8 * 1024 * 1024
+const FILE_MD5_CHUNK_SIZE = 10 * 1024 * 1024
+const CHUNK_MAX_RETRIES = 3
+const MERGE_MAX_RETRIES = 2
+const RETRY_BASE_DELAY_MS = 800
+const UPLOAD_SESSION_PREFIX = 'pan.upload.session.v1:'
 let runningCount = 0
 
 const processQueue = async () => {
@@ -1243,10 +1272,74 @@ const generateGuid = () => {
   })
 }
 
-const calculateMd5 = (file: File): Promise<string> => {
+const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
+
+const withRetry = async <T>(
+  fn: () => Promise<T>,
+  retries: number,
+  onRetry?: (attempt: number, error: any) => void
+): Promise<T> => {
+  let lastError: any
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      return await fn()
+    } catch (error) {
+      lastError = error
+      if (attempt >= retries) break
+      onRetry?.(attempt + 1, error)
+      await sleep(RETRY_BASE_DELAY_MS * (attempt + 1))
+    }
+  }
+  throw lastError
+}
+
+const getUploadSessionKey = (fingerprint: string) => `${UPLOAD_SESSION_PREFIX}${fingerprint}`
+
+const saveUploadSession = (fingerprint: string, guid: string) => {
+  localStorage.setItem(getUploadSessionKey(fingerprint), JSON.stringify({
+    guid,
+    updatedAt: Date.now()
+  }))
+}
+
+const loadUploadSessionGuid = (fingerprint: string): string | null => {
+  const raw = localStorage.getItem(getUploadSessionKey(fingerprint))
+  if (!raw) return null
+  try {
+    const parsed = JSON.parse(raw)
+    if (parsed?.guid && typeof parsed.guid === 'string') return parsed.guid
+  } catch {
+    localStorage.removeItem(getUploadSessionKey(fingerprint))
+  }
+  return null
+}
+
+const clearUploadSession = (fingerprint: string) => {
+  localStorage.removeItem(getUploadSessionKey(fingerprint))
+}
+
+const buildUploadFingerprint = (
+  md5: string,
+  file: File,
+  parentId: number | null,
+  folderPath: string
+) => {
+  return [md5, file.size, file.name, parentId ?? 'root', folderPath || ''].join('|')
+}
+
+const calcUploadProgress = (uploadedBytes: number, totalBytes: number, merged: boolean) => {
+  if (totalBytes <= 0) return merged ? 100 : 95
+  const md5Weight = 10
+  const uploadWeight = 85
+  const mergeWeight = 5
+  const uploadRatio = Math.min(1, uploadedBytes / totalBytes)
+  const progress = md5Weight + uploadRatio * uploadWeight + (merged ? mergeWeight : 0)
+  return Math.max(0, Math.min(100, Math.floor(progress)))
+}
+
+const calculateMd5 = (file: File, onProgress?: (ratio: number) => void): Promise<string> => {
   return new Promise((resolve, reject) => {
-    const chunkSize = 10 * 1024 * 1024 // 10MB
-    const chunks = Math.ceil(file.size / chunkSize)
+    const chunks = Math.ceil(file.size / FILE_MD5_CHUNK_SIZE)
     let currentChunk = 0
     const spark = new SparkMD5.ArrayBuffer()
     const fileReader = new FileReader()
@@ -1254,6 +1347,7 @@ const calculateMd5 = (file: File): Promise<string> => {
     fileReader.onload = (e: any) => {
       spark.append(e.target.result)
       currentChunk++
+      onProgress?.(Math.min(1, currentChunk / Math.max(1, chunks)))
       if (currentChunk < chunks) {
         loadNext()
       } else {
@@ -1266,8 +1360,8 @@ const calculateMd5 = (file: File): Promise<string> => {
     }
 
     const loadNext = () => {
-      const start = currentChunk * chunkSize
-      const end = ((start + chunkSize) >= file.size) ? file.size : start + chunkSize
+      const start = currentChunk * FILE_MD5_CHUNK_SIZE
+      const end = Math.min(start + FILE_MD5_CHUNK_SIZE, file.size)
       fileReader.readAsArrayBuffer(file.slice(start, end))
     }
 
@@ -1275,56 +1369,61 @@ const calculateMd5 = (file: File): Promise<string> => {
   })
 }
 
-const handleUpload = async (options: any) => {
-  const file = options.file
+const getUploadedChunkSet = async (guid: string, chunksCount: number): Promise<Set<number>> => {
+  try {
+    const statusRes: any = await request.post('/file/upload-status', { guid }, {
+      // @ts-ignore
+      _showError: false
+    })
+    const uploaded = Array.isArray(statusRes?.uploadedChunks) ? statusRes.uploadedChunks : []
+    return new Set<number>(uploaded.filter((n: any) => Number.isInteger(n) && n >= 0 && n < chunksCount))
+  } catch {
+    return new Set<number>()
+  }
+}
+
+const runUpload = async (
+  file: File,
+  targetParentId: number | null,
+  folderPath: string,
+  task: UploadTask
+) => {
   const fileSize = file.size
   const fileName = file.name
-  const guid = generateGuid()
-  // 允许通过 options 传入预设的 parentId，否则取当前目录
-  const targetParentId = options.parentId !== undefined ? options.parentId : currentParentId.value
-  
-  // 处理文件夹上传路径
-  let folderPath = ''
-  if (file.webkitRelativePath) {
-    const pathParts = file.webkitRelativePath.split(/[/\\]/)
-    if (pathParts.length > 1) {
-      folderPath = pathParts.slice(0, -1).join('/')
-    }
-  }
-  
-  const task = ref({
-    guid,
-    name: folderPath ? `${folderPath}/${fileName}` : fileName,
-    progress: 0,
-    status: 'uploading',
-    statusText: '正在计算 MD5...',
-    progressStatus: '' as '' | 'success' | 'exception' | 'warning'
-  })
-  
-  uploadTasks.value.unshift(task.value)
-  
+
   try {
     // 1. 计算 MD5
-    const md5 = await calculateMd5(file)
-    task.value.statusText = '正在校验秒传...'
-    
+    task.status = 'uploading'
+    task.progressStatus = ''
+    task.statusText = '正在计算 MD5...'
+    const md5 = await calculateMd5(file, ratio => {
+      task.progress = Math.floor(Math.min(1, ratio) * 10)
+    })
+    task.statusText = '正在校验秒传...'
+
+    const fingerprint = buildUploadFingerprint(md5, file, targetParentId, folderPath)
+    const guid = loadUploadSessionGuid(fingerprint) || generateGuid()
+    task.guid = guid
+    saveUploadSession(fingerprint, guid)
+
     // 2. 秒传校验
     try {
       const checkRes: any = await request.post('/file/check-md5', {
-        md5: md5,
-        fileName: fileName,
-        fileSize: fileSize,
+        md5,
+        fileName,
+        fileSize,
         parentId: targetParentId,
-        folderPath: folderPath
+        folderPath
       }, { 
         // @ts-ignore
         _showError: false 
       })
       if (checkRes) {
-        task.value.progress = 100
-        task.value.status = 'success'
-        task.value.statusText = '秒传成功'
-        task.value.progressStatus = 'success'
+        task.progress = 100
+        task.status = 'success'
+        task.statusText = '秒传成功'
+        task.progressStatus = 'success'
+        clearUploadSession(fingerprint)
         fetchFiles()
         return
       }
@@ -1334,55 +1433,135 @@ const handleUpload = async (options: any) => {
       }
     }
 
-    // 3. 分片上传
-    const chunkSize = 5 * 1024 * 1024 // 5MB 
-    const chunksCount = Math.ceil(fileSize / chunkSize)
-    
+    // 3. 分片上传（支持断点续传）
+    const chunksCount = Math.ceil(fileSize / FILE_CHUNK_SIZE)
     if (chunksCount > 0) {
-      task.value.statusText = '正在上传分片...'
+      task.statusText = '正在查询断点状态...'
+      const uploadedChunkSet = await getUploadedChunkSet(guid, chunksCount)
+
+      let committedBytes = Array.from(uploadedChunkSet).reduce((sum, index) => {
+        const start = index * FILE_CHUNK_SIZE
+        const end = Math.min(start + FILE_CHUNK_SIZE, fileSize)
+        return sum + (end - start)
+      }, 0)
+
+      task.progress = Math.max(task.progress, calcUploadProgress(committedBytes, fileSize, false))
+      task.statusText = uploadedChunkSet.size > 0
+        ? `断点续传中，已完成 ${uploadedChunkSet.size}/${chunksCount} 片`
+        : '正在上传分片...'
+
       for (let i = 0; i < chunksCount; i++) {
-          const start = i * chunkSize
-          const end = Math.min(start + chunkSize, fileSize)
-          const chunk = file.slice(start, end)
-          
+        if (uploadedChunkSet.has(i)) continue
+
+        const start = i * FILE_CHUNK_SIZE
+        const end = Math.min(start + FILE_CHUNK_SIZE, fileSize)
+        const chunk = file.slice(start, end)
+        const chunkBytes = end - start
+
+        await withRetry(async () => {
           const chunkFormData = new FormData()
           chunkFormData.append('file', chunk)
           chunkFormData.append('guid', guid)
           chunkFormData.append('chunkIndex', i.toString())
-          
-          await request.post('/file/upload-chunk', chunkFormData)
-          
-          // 更新进度 (假设合并占 5%)
-          task.value.progress = Math.floor(((i + 1) / chunksCount) * 95)
+
+          await request.post('/file/upload-chunk', chunkFormData, {
+            timeout: 120000,
+            onUploadProgress: (evt: any) => {
+              const loaded = Math.min(evt?.loaded || 0, chunkBytes)
+              task.progress = Math.max(task.progress, calcUploadProgress(committedBytes + loaded, fileSize, false))
+            }
+          })
+        }, CHUNK_MAX_RETRIES, (attempt) => {
+          task.statusText = `分片 ${i + 1}/${chunksCount} 上传失败，重试 ${attempt}/${CHUNK_MAX_RETRIES}`
+          task.progressStatus = 'warning'
+        })
+
+        committedBytes += chunkBytes
+        uploadedChunkSet.add(i)
+        task.progressStatus = ''
+        task.statusText = `正在上传分片 ${uploadedChunkSet.size}/${chunksCount}`
+        task.progress = Math.max(task.progress, calcUploadProgress(committedBytes, fileSize, false))
       }
     } else {
-      task.value.progress = 95
+      task.progress = 95
     }
-    
+
     // 4. 合并分片
-    task.value.statusText = '正在合并文件...'
-    await request.post('/file/merge-chunks', {
-        guid: guid,
-        fileName: fileName,
+    task.statusText = '正在合并文件...'
+    task.progress = Math.max(task.progress, 95)
+    await withRetry(async () => {
+      await request.post('/file/merge-chunks', {
+        guid,
+        fileName,
         totalSize: fileSize,
         parentId: targetParentId,
-        md5: md5,
-        folderPath: folderPath
+        md5,
+        folderPath
+      }, { timeout: 180000 })
+    }, MERGE_MAX_RETRIES, (attempt) => {
+      task.statusText = `合并失败，重试 ${attempt}/${MERGE_MAX_RETRIES}`
+      task.progressStatus = 'warning'
     })
-    
-    task.value.progress = 100
-    task.value.status = 'success'
-    task.value.statusText = '上传成功'
-    task.value.progressStatus = 'success'
+
+    task.progress = 100
+    task.status = 'success'
+    task.statusText = '上传成功'
+    task.progressStatus = 'success'
+    clearUploadSession(fingerprint)
     fetchFiles()
   } catch (error: any) {
     console.error(error)
-    task.value.status = 'error'
-    task.value.statusText = error.response?.data || error.message || '上传失败'
-    task.value.progressStatus = 'exception'
+    task.status = 'error'
+    task.statusText = `${error.response?.data || error.message || '上传失败'}（可重试）`
+    task.progressStatus = 'exception'
     const msg = error.response?.data || error.message || '上传失败'
     ElMessage.error(msg)
   }
+}
+
+const handleUpload = async (options: any) => {
+  const file = options.file as File
+  const targetParentId = options.parentId !== undefined ? options.parentId : currentParentId.value
+
+  let folderPath = ''
+  if (file.webkitRelativePath) {
+    const pathParts = file.webkitRelativePath.split(/[/\\]/)
+    if (pathParts.length > 1) {
+      folderPath = pathParts.slice(0, -1).join('/')
+    }
+  }
+
+  const task: UploadTask = options.existingTask || {
+    guid: generateGuid(),
+    name: folderPath ? `${folderPath}/${file.name}` : file.name,
+    progress: 0,
+    status: 'uploading',
+    statusText: '准备上传...',
+    progressStatus: '',
+    file,
+    parentId: targetParentId,
+    folderPath
+  }
+
+  task.file = file
+  task.parentId = targetParentId
+  task.folderPath = folderPath
+
+  if (!options.existingTask) {
+    uploadTasks.value.unshift(task)
+  }
+
+  await runUpload(file, targetParentId, folderPath, task)
+}
+
+const handleRetryTask = async (task: UploadTask) => {
+  if (!task.file) {
+    ElMessage.warning('源文件已不可用，请重新选择文件上传')
+    return
+  }
+  task.status = 'uploading'
+  task.progressStatus = ''
+  await runUpload(task.file, task.parentId ?? null, task.folderPath || '', task)
 }
 
 const clearFinishedTasks = () => {
@@ -2037,6 +2216,7 @@ onMounted(() => {
         justify-content: space-between;
         margin-bottom: 8px;
         .task-name { font-size: 12px; font-weight: 600; color: var(--pan-text-main); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .task-status-row { display: flex; align-items: center; gap: 6px; margin-left: 12px; }
         .task-status { font-size: 11px; color: var(--pan-text-muted); }
       }
     }

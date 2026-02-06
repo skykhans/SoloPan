@@ -2,11 +2,11 @@
   <div class="file-preview-component" v-loading="loading">
     <div class="toolbar">
       <div class="left-actions">
-        <el-button-group v-if="showZoom">
-          <el-button :icon="ZoomOut" @click="zoomOut" title="缩小" />
-          <el-button class="zoom-text">{{ Math.round(scale * 100) }}%</el-button>
-          <el-button :icon="ZoomIn" @click="zoomIn" title="放大" />
-        </el-button-group>
+        <div v-if="showZoom" class="zoom-group">
+          <el-button class="zoom-btn" :icon="ZoomOut" @click="zoomOut" title="缩小" />
+          <div class="zoom-value">{{ Math.round(scale * 100) }}%</div>
+          <el-button class="zoom-btn" :icon="ZoomIn" @click="zoomIn" title="放大" />
+        </div>
       </div>
       
       <div class="right-actions">
@@ -455,16 +455,44 @@ onMounted(loadContent)
     }
   }
 
-  .zoom-text {
-    width: 60px;
-    text-align: center;
+  .zoom-group {
+    display: inline-flex;
+    align-items: center;
+    height: 32px;
+    border: 1px solid var(--pan-border-strong);
+    border-radius: 8px;
+    overflow: hidden;
+    background: rgba(255, 255, 255, 0.02);
+  }
+
+  .zoom-value {
+    min-width: 64px;
+    height: 100%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     font-weight: 600;
     font-family: var(--font-mono);
     color: var(--pan-text-main);
     font-size: 13px;
-    cursor: default;
-    border-left: none !important;
-    border-right: none !important;
+    border-left: 1px solid var(--pan-border-strong);
+    border-right: 1px solid var(--pan-border-strong);
+  }
+
+  :deep(.zoom-group .zoom-btn.el-button) {
+    border: none !important;
+    border-radius: 0 !important;
+    min-width: 38px;
+    height: 100%;
+    padding: 0 10px;
+    box-shadow: none !important;
+  }
+
+  :deep(.zoom-group .zoom-btn.el-button:hover),
+  :deep(.zoom-group .zoom-btn.el-button:focus),
+  :deep(.zoom-group .zoom-btn.el-button:active) {
+    border: none !important;
+    box-shadow: none !important;
   }
 }
 

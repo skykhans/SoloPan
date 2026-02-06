@@ -385,6 +385,7 @@ namespace PanSystem.Controllers
         public async Task<IActionResult> BatchUpdateUserQuota([FromBody] BatchUpdateUserQuotaRequest request)
         {
             if (!await CheckIsAdmin()) return Forbid("无权访问管理员接口");
+            if (request == null) return BadRequest("请求参数不能为空");
             var ids = request?.UserIds?.Where(i => i > 0).Distinct().ToList() ?? new List<int>();
             if (!ids.Any()) return BadRequest("请选择用户");
             if (request.NewTotalSpaceBytes < 1L * 1024 * 1024 * 1024) return BadRequest("用户配额不能低于 1GB");
@@ -403,6 +404,7 @@ namespace PanSystem.Controllers
         public async Task<IActionResult> BatchUpdateUserUploadLimit([FromBody] BatchUpdateUserUploadLimitRequest request)
         {
             if (!await CheckIsAdmin()) return Forbid("无权访问管理员接口");
+            if (request == null) return BadRequest("请求参数不能为空");
             var ids = request?.UserIds?.Where(i => i > 0).Distinct().ToList() ?? new List<int>();
             if (!ids.Any()) return BadRequest("请选择用户");
             if (request.MaxUploadFileSizeBytes < 1L * 1024 * 1024) return BadRequest("单文件上传上限不能低于 1MB");

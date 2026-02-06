@@ -98,7 +98,7 @@ namespace PanSystem.Services
                                 if (filePaths.Any())
                                 {
                                     var referencedPaths = await db.Queryable<StorageItem>()
-                                        .Where(i => filePaths.Contains(i.FilePath) && !allIds.Contains(i.Id))
+                                        .Where(i => i.FilePath != null && filePaths.Contains(i.FilePath) && !allIds.Contains(i.Id))
                                         .Select(i => i.FilePath)
                                         .Distinct()
                                         .ToListAsync();

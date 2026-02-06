@@ -15,16 +15,16 @@ namespace PanSystem.Models
         public int UserId { get; set; }
 
         [SugarColumn(ColumnDescription = "用户名", Length = 50)]
-        public string UserName { get; set; }
+        public string UserName { get; set; } = string.Empty;
 
         [SugarColumn(ColumnDescription = "操作类型", Length = 100)]
-        public string Action { get; set; }
+        public string Action { get; set; } = string.Empty;
 
         [SugarColumn(ColumnDescription = "操作详情", Length = 4000)]
-        public string Detail { get; set; }
+        public string Detail { get; set; } = string.Empty;
 
         [SugarColumn(ColumnDescription = "客户端IP", Length = 64)]
-        public string IpAddress { get; set; }
+        public string IpAddress { get; set; } = string.Empty;
 
         [SugarColumn(ColumnDescription = "创建时间")]
         public DateTime CreateTime { get; set; }

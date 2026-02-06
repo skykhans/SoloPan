@@ -336,6 +336,8 @@ namespace PanSystem.Controllers
         public async Task<IActionResult> UploadChunk([FromForm] ChunkUploadRequest request, IFormFile file)
         {
             if (file == null || file.Length == 0) return BadRequest("分片为空");
+            if (!IsSafeUploadGuid(request.Guid)) return BadRequest("无效的上传标识");
+            if (request.ChunkIndex < 0) return BadRequest("无效的分片索引");
 
             var tempRoot = Path.Combine(_env.ContentRootPath, "Temp");
             var tempPath = Path.Combine(tempRoot, request.Guid);
@@ -350,10 +352,40 @@ namespace PanSystem.Controllers
             return Ok("分片上传成功");
         }
 
+        [HttpPost("upload-status")]
+        public IActionResult GetChunkUploadStatus([FromBody] ChunkStatusRequest request)
+        {
+            if (request == null || !IsSafeUploadGuid(request.Guid)) return BadRequest("无效的上传标识");
+
+            var tempRoot = Path.Combine(_env.ContentRootPath, "Temp");
+            var tempPath = Path.Combine(tempRoot, request.Guid);
+            if (!Directory.Exists(tempPath))
+            {
+                return Ok(new { Guid = request.Guid, UploadedChunks = Array.Empty<int>(), UploadedBytes = 0L });
+            }
+
+            var chunkFiles = Directory.GetFiles(tempPath)
+                .Select(path =>
+                {
+                    var fileName = Path.GetFileName(path);
+                    if (!int.TryParse(fileName, out var chunkIndex)) return (Valid: false, Index: -1, Size: 0L);
+                    var fileInfo = new FileInfo(path);
+                    return (Valid: true, Index: chunkIndex, Size: fileInfo.Length);
+                })
+                .Where(item => item.Valid)
+                .OrderBy(item => item.Index)
+                .ToList();
+
+            var uploadedChunks = chunkFiles.Select(item => item.Index).ToArray();
+            var uploadedBytes = chunkFiles.Sum(item => item.Size);
+            return Ok(new { Guid = request.Guid, UploadedChunks = uploadedChunks, UploadedBytes = uploadedBytes });
+        }
+
         [HttpPost("merge-chunks")]
         public async Task<IActionResult> MergeChunks(MergeChunksRequest request)
         {
             var userId = GetUserId();
+            if (!IsSafeUploadGuid(request.Guid)) return BadRequest("无效的上传标识");
             var tempRoot = Path.Combine(_env.ContentRootPath, "Temp");
             var tempPath = Path.Combine(tempRoot, request.Guid);
 
@@ -474,6 +506,12 @@ namespace PanSystem.Controllers
             await _auditService.LogAsync(userId, User.Identity!.Name!, "合并上传", $"文件名: {storageItem.Name}, 大小: {storageItem.FileSize}", Request.HttpContext.Connection.RemoteIpAddress?.ToString() ?? "");
 
             return Ok(new { Message = "上传成功", ItemId = storageItem.Id });
+        }
+
+        private static bool IsSafeUploadGuid(string? guid)
+        {
+            if (string.IsNullOrWhiteSpace(guid)) return false;
+            return Guid.TryParse(guid, out _);
         }
 
         private static string FormatSize(long bytes)

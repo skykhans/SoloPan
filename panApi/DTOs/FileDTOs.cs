@@ -8,7 +8,7 @@ namespace PanSystem.DTOs
         /// <summary>
         /// 文件夹名称。
         /// </summary>
-        public string Name { get; set; }
+        public string Name { get; set; } = string.Empty;
 
         /// <summary>
         /// 父目录ID，null 表示根目录。
@@ -29,7 +29,7 @@ namespace PanSystem.DTOs
         /// <summary>
         /// 新名称。
         /// </summary>
-        public string NewName { get; set; }
+        public string NewName { get; set; } = string.Empty;
     }
 
     /// <summary>
@@ -40,7 +40,7 @@ namespace PanSystem.DTOs
         /// <summary>
         /// 需要移动的项目ID集合。
         /// </summary>
-        public List<int> Ids { get; set; }
+        public List<int> Ids { get; set; } = new();
 
         /// <summary>
         /// 目标父目录ID，null 表示根目录。
@@ -56,7 +56,7 @@ namespace PanSystem.DTOs
         /// <summary>
         /// 项目ID集合。
         /// </summary>
-        public List<int> Ids { get; set; }
+        public List<int> Ids { get; set; } = new();
     }
 
     /// <summary>
@@ -67,12 +67,12 @@ namespace PanSystem.DTOs
         /// <summary>
         /// 文件MD5。
         /// </summary>
-        public string Md5 { get; set; }
+        public string Md5 { get; set; } = string.Empty;
 
         /// <summary>
         /// 文件名。
         /// </summary>
-        public string FileName { get; set; }
+        public string FileName { get; set; } = string.Empty;
 
         /// <summary>
         /// 文件大小(byte)。
@@ -103,7 +103,7 @@ namespace PanSystem.DTOs
         /// <summary>
         /// 名称。
         /// </summary>
-        public string Name { get; set; }
+        public string Name { get; set; } = string.Empty;
 
         /// <summary>
         /// 是否文件夹。
@@ -164,7 +164,7 @@ namespace PanSystem.DTOs
         /// <summary>
         /// 上传任务标识。
         /// </summary>
-        public string Guid { get; set; }
+        public string Guid { get; set; } = string.Empty;
 
         /// <summary>
         /// 分片索引。
@@ -180,12 +180,12 @@ namespace PanSystem.DTOs
         /// <summary>
         /// 上传任务标识。
         /// </summary>
-        public string Guid { get; set; }
+        public string Guid { get; set; } = string.Empty;
 
         /// <summary>
         /// 文件名。
         /// </summary>
-        public string FileName { get; set; }
+        public string FileName { get; set; } = string.Empty;
 
         /// <summary>
         /// 文件总大小(byte)。
@@ -200,12 +200,23 @@ namespace PanSystem.DTOs
         /// <summary>
         /// 文件MD5。
         /// </summary>
-        public string Md5 { get; set; }
+        public string Md5 { get; set; } = string.Empty;
 
         /// <summary>
         /// 文件夹路径（批量上传场景）。
         /// </summary>
         public string? FolderPath { get; set; }
+    }
+
+    /// <summary>
+    /// 查询分片上传状态请求。
+    /// </summary>
+    public class ChunkStatusRequest
+    {
+        /// <summary>
+        /// 上传任务标识。
+        /// </summary>
+        public string Guid { get; set; } = string.Empty;
     }
 
     /// <summary>
@@ -216,7 +227,7 @@ namespace PanSystem.DTOs
         /// <summary>
         /// 下载链接。
         /// </summary>
-        public string Url { get; set; }
+        public string Url { get; set; } = string.Empty;
 
         /// <summary>
         /// 目标父目录ID。

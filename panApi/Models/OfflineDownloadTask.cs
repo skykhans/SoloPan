@@ -15,13 +15,13 @@ namespace PanSystem.Models
         public int UserId { get; set; }
 
         [SugarColumn(ColumnDescription = "下载链接", Length = 2048)]
-        public string Url { get; set; }
+        public string Url { get; set; } = string.Empty;
 
         [SugarColumn(ColumnDescription = "目标父目录ID", IsNullable = true)]
         public int? ParentId { get; set; }
 
         [SugarColumn(ColumnDescription = "任务状态", Length = 50)]
-        public string Status { get; set; }
+        public string Status { get; set; } = string.Empty;
 
         [SugarColumn(ColumnDescription = "进度(0-100)")]
         public int Progress { get; set; }

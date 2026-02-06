@@ -12,10 +12,10 @@ namespace PanSystem.Models
         public int Id { get; set; }
 
         [SugarColumn(ColumnDescription = "用户名", Length = 50)]
-        public string UserName { get; set; }
+        public string UserName { get; set; } = string.Empty;
 
         [SugarColumn(ColumnDescription = "密码", Length = 100)]
-        public string Password { get; set; }
+        public string Password { get; set; } = string.Empty;
 
         [SugarColumn(ColumnDescription = "邮箱", Length = 100, IsNullable = true)]
         public string? Email { get; set; }

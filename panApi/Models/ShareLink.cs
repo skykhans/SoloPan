@@ -18,10 +18,10 @@ namespace PanSystem.Models
         public int StorageItemId { get; set; }
 
         [SugarColumn(ColumnDescription = "提取码", Length = 20)]
-        public string ShareCode { get; set; } // 提取码
+        public string ShareCode { get; set; } = string.Empty; // 提取码
 
         [SugarColumn(ColumnDescription = "分享令牌", Length = 100)]
-        public string ShareToken { get; set; } // 唯一标识
+        public string ShareToken { get; set; } = string.Empty; // 唯一标识
 
         [SugarColumn(ColumnDescription = "创建时间")]
         public DateTime CreateTime { get; set; }

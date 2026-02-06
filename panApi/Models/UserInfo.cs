@@ -2,10 +2,13 @@ using SqlSugar;
 
 namespace PanSystem.Models
 {
+    /// <summary>
+    /// 用户信息表实体。
+    /// </summary>
     [SugarTable("UserInfo")]
     public class UserInfo
     {
-        [SugarColumn(IsPrimaryKey = true, IsIdentity = true)]
+        [SugarColumn(IsPrimaryKey = true, IsIdentity = true, ColumnDescription = "主键ID")]
         public int Id { get; set; }
 
         [SugarColumn(ColumnDescription = "用户名", Length = 50)]
@@ -35,6 +38,9 @@ namespace PanSystem.Models
         [SugarColumn(ColumnDescription = "是否管理员")]
         public bool IsAdmin { get; set; } = false;
 
+        [SugarColumn(ColumnDescription = "是否启用")]
+        public bool IsEnabled { get; set; } = true;
+
         [SugarColumn(ColumnDescription = "创建时间")]
         public DateTime CreateTime { get; set; } = DateTime.Now;
 
@@ -43,5 +49,8 @@ namespace PanSystem.Models
 
         [SugarColumn(ColumnDescription = "登录时间", IsNullable = true)]
         public DateTime? LastLoginTime { get; set; }
+
+        [SugarColumn(ColumnDescription = "登录IP", Length = 64, IsNullable = true)]
+        public string? LastLoginIp { get; set; }
     }
 }

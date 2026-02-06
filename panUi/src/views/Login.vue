@@ -50,6 +50,7 @@
             <el-input v-model="form.verifyCode" placeholder="验证码 *" :prefix-icon="Checked" size="large" autocomplete="off" />
             <el-button 
               :disabled="!!countDown" 
+              :icon="Message"
               @click="sendRegisterCode" 
               size="large"
               class="verify-btn"
@@ -58,7 +59,7 @@
             </el-button>
           </div>
         </el-form-item>
-        <el-button type="primary" class="submit-btn" :loading="loading" @click="handleSubmit" size="large">
+        <el-button type="primary" class="submit-btn" :icon="isLogin ? User : Plus" :loading="loading" @click="handleSubmit" size="large">
           {{ isLogin ? '登录' : '立即注册' }}
         </el-button>
         <div class="form-actions">
@@ -81,6 +82,7 @@
             <el-input v-model="forgotForm.code" placeholder="验证码" :prefix-icon="Checked" size="large" autocomplete="off" />
             <el-button 
               :disabled="!!countDown" 
+              :icon="Message"
               @click="sendVerifyCode" 
               size="large"
               class="verify-btn"
@@ -101,8 +103,25 @@
           />
           <div class="input-tip">密码至少8位，需包含字母和数字</div>
         </el-form-item>
-        <el-button type="primary" class="submit-btn" style="width: 100%" :loading="loading" @click="handleResetPassword" size="large">
+        <el-button type="primary" class="submit-btn" style="width: 100%" :icon="Check" :loading="loading" @click="handleResetPassword" size="large">
           确认重置
+        </el-button>
+      </el-form>
+    </el-dialog>
+
+    <el-dialog v-model="showDeviceVerifyDialog" title="新设备登录验证" width="400px" append-to-body class="forgot-dialog">
+      <el-form label-width="0" style="padding: 10px 10px">
+        <div class="input-tip" style="margin-bottom: 10px">{{ deviceVerifyHint || '检测到新设备登录，请输入邮箱验证码' }}</div>
+        <el-form-item>
+          <div class="verify-code-row">
+            <el-input v-model="deviceVerifyCode" placeholder="请输入验证码" :prefix-icon="Checked" size="large" autocomplete="off" />
+            <el-button :disabled="!!deviceVerifyCountDown" :icon="Message" @click="sendDeviceVerifyCode" size="large" class="verify-btn">
+              {{ deviceVerifyCountDown ? `${deviceVerifyCountDown}s` : '重新发送' }}
+            </el-button>
+          </div>
+        </el-form-item>
+        <el-button type="primary" class="submit-btn" style="width: 100%" :icon="Check" :loading="loading" @click="confirmDeviceVerifyLogin" size="large">
+          验证并登录
         </el-button>
       </el-form>
     </el-dialog>
@@ -120,7 +139,7 @@
 <script setup lang="ts">
 import { ref, reactive } from 'vue'
 import { useRouter } from 'vue-router'
-import { User, Lock, Message, Checked, Iphone } from '@element-plus/icons-vue'
+import { User, Lock, Message, Checked, Iphone, Plus, Check } from '@element-plus/icons-vue'
 import request from '../utils/request'
 import { ElMessage } from 'element-plus'
 
@@ -128,8 +147,13 @@ const router = useRouter()
 const isLogin = ref(true)
 const loading = ref(false)
 const showForgotDialog = ref(false)
+const showDeviceVerifyDialog = ref(false)
 const countDown = ref(0)
+const deviceVerifyCountDown = ref(0)
 let timer: any = null
+let deviceVerifyTimer: any = null
+const deviceVerifyCode = ref('')
+const deviceVerifyHint = ref('')
 
 const form = reactive({
   username: '',
@@ -144,6 +168,22 @@ const forgotForm = reactive({
   code: '',
   newPassword: ''
 })
+
+const getOrCreateDeviceId = () => {
+  const key = 'pan_device_id'
+  let id = localStorage.getItem(key)
+  if (!id) {
+    id = (globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`)
+    localStorage.setItem(key, id)
+  }
+  return id
+}
+
+const getDeviceName = () => {
+  const ua = navigator.userAgent || ''
+  if (/android|iphone|ipad|mobile/i.test(ua)) return 'Mobile Browser'
+  return 'Desktop Browser'
+}
 
 // 校验工具函数
 const validateEmail = (email: string) => /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(email)
@@ -272,6 +312,84 @@ const startTimer = () => {
   }, 1000)
 }
 
+const startDeviceVerifyTimer = () => {
+  deviceVerifyCountDown.value = 60
+  if (deviceVerifyTimer) clearInterval(deviceVerifyTimer)
+  deviceVerifyTimer = setInterval(() => {
+    deviceVerifyCountDown.value--
+    if (deviceVerifyCountDown.value <= 0) {
+      clearInterval(deviceVerifyTimer)
+      deviceVerifyTimer = null
+    }
+  }, 1000)
+}
+
+const performLogin = async (verifyCode?: string) => {
+  const res: any = await request.post('/user/login', {
+    username: form.username,
+    password: form.password,
+    deviceId: getOrCreateDeviceId(),
+    deviceName: getDeviceName(),
+    verifyCode: verifyCode || undefined
+  })
+
+  if (res?.requireEmailVerify) {
+    deviceVerifyHint.value = res?.message || '检测到新设备登录，请输入邮箱验证码'
+    if (res?.code) {
+      ElMessage.success(`验证码已发送（测试用）：${res.code}`)
+    } else {
+      ElMessage.success('验证码已发送到绑定邮箱')
+    }
+    showDeviceVerifyDialog.value = true
+    startDeviceVerifyTimer()
+    return null
+  }
+
+  return res
+}
+
+const sendDeviceVerifyCode = async () => {
+  if (!form.username || !form.password) {
+    ElMessage.warning('请先输入账号和密码')
+    return
+  }
+  try {
+    const res = await performLogin()
+    if (res?.token) {
+      ElMessage.success('登录成功')
+      localStorage.setItem('token', res.token)
+      localStorage.setItem('username', res.username)
+      showDeviceVerifyDialog.value = false
+      router.push('/files')
+    }
+  } catch (error) {
+    console.error(error)
+  }
+}
+
+const confirmDeviceVerifyLogin = async () => {
+  if (!deviceVerifyCode.value.trim()) {
+    ElMessage.warning('请输入验证码')
+    return
+  }
+  loading.value = true
+  try {
+    const res = await performLogin(deviceVerifyCode.value.trim())
+    if (res?.token) {
+      localStorage.setItem('token', res.token)
+      localStorage.setItem('username', res.username)
+      ElMessage.success('登录成功')
+      showDeviceVerifyDialog.value = false
+      deviceVerifyCode.value = ''
+      router.push('/files')
+    }
+  } catch (error) {
+    console.error(error)
+  } finally {
+    loading.value = false
+  }
+}
+
 const handleResetPassword = async () => {
   if (!forgotForm.target || !forgotForm.code || !forgotForm.newPassword) {
     ElMessage.warning('请填写完整信息')
@@ -320,10 +438,8 @@ const handleSubmit = async () => {
   loading.value = true
   try {
     if (isLogin.value) {
-      const res: any = await request.post('/user/login', {
-        username: form.username,
-        password: form.password
-      })
+      const res: any = await performLogin()
+      if (!res?.token) return
       localStorage.setItem('token', res.token)
       localStorage.setItem('username', res.username)
       ElMessage.success('登录成功')

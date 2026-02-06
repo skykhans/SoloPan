@@ -100,7 +100,7 @@
       <el-table 
         :data="fileList" 
         style="width: 100%" 
-        height="100%"
+        :height="enablePagination ? 'calc(100% - 52px)' : '100%'"
         @selection-change="handleSelectionChange"
         @sort-change="handleSortChange"
         v-loading="loading"
@@ -163,6 +163,12 @@
           </template>
         </el-table-column>
 
+        <el-table-column v-if="category === 'recycle-bin'" label="剩余天数" width="110" prop="remainingDays" align="center" header-align="center">
+          <template #default="{ row }">
+            <span class="mono">{{ row.remainingDays ?? 30 }} 天</span>
+          </template>
+        </el-table-column>
+
         <el-table-column v-if="category === 'favorites'" label="收藏时间" width="200" prop="favoriteTime" sortable="custom">
           <template #default="{ row }">
             <span class="mono">{{ formatDate(row.favoriteTime) }}</span>
@@ -213,77 +219,89 @@
           </template>
         </el-table-column>
       </el-table>
+      <div v-if="enablePagination" class="table-pagination">
+        <el-pagination
+          v-model:current-page="pageNum"
+          v-model:page-size="pageSize"
+          :page-sizes="[20, 50, 100]"
+          :total="total"
+          layout="total, sizes, prev, pager, next, jumper"
+          @current-change="handlePageChange"
+          @size-change="handlePageSizeChange"
+        />
+      </div>
     </div>
 
     <!-- 缩略图模式 -->
-    <div class="grid-view" v-show="viewMode === 'grid'" v-loading="loading">
-      <div class="empty-tip" v-if="fileList.length === 0">
-        <el-empty description="暂无文件" />
-      </div>
-      <div 
-        v-for="file in fileList" 
-        :key="file.id" 
-        class="grid-item"
-        @click="handleRowClick(file)"
-        draggable="true"
-        @dragstart="handleDragStart($event, file)"
-        @dragover="handleDragOver($event, file)"
-        @dragleave="handleDragLeave($event)"
-        @drop="handleDrop($event, file)"
-      >
-        <div class="grid-item-inner">
-          <div class="grid-preview">
-            <el-image 
-              v-if="!file.isFolder && isImage(file.name)"
-              :src="getThumbnailUrl(file.id)"
-              fit="cover"
-              class="grid-thumbnail"
-            />
-            <el-icon v-else :size="44" :class="file.isFolder ? 'folder-icon' : 'file-icon'">
-              <FolderOpened v-if="file.isFolder" />
-              <component :is="getFileIcon(file.name)" v-else />
-            </el-icon>
-          </div>
-          <div class="grid-name" :title="file.name">{{ file.name }}</div>
-          
-          <!-- 悬浮操作栏 -->
-          <div class="grid-actions" @click.stop>
-             <el-button circle size="small" :icon="file.isFavorite ? StarFilled : Star" :type="file.isFavorite ? 'warning' : ''" @click="handleToggleFavorite(file)" />
-             <el-button circle size="small" :icon="Download" v-if="!file.isFolder" @click="handleDownload(file)" />
-             <el-dropdown trigger="click">
-                <el-button circle size="small" :icon="More" />
-                <template #dropdown>
-                  <el-dropdown-menu>
-                    <el-dropdown-item :icon="Edit" @click="handleRename(file)">重命名</el-dropdown-item>
-                    <el-dropdown-item :icon="Rank" @click="handleMove(file)">移动到</el-dropdown-item>
-                    <el-dropdown-item :icon="Share" @click="handleShare(file)">分享</el-dropdown-item>
-                    <el-dropdown-item divided type="danger" :icon="Delete" @click="handleDelete(file)">删除</el-dropdown-item>
-                  </el-dropdown-menu>
-                </template>
-              </el-dropdown>
+    <div class="grid-container pan-card" v-show="viewMode === 'grid'">
+      <div class="grid-view" v-loading="loading">
+        <div class="empty-tip" v-if="fileList.length === 0">
+          <el-empty description="暂无文件" />
+        </div>
+        <div 
+          v-for="file in fileList" 
+          :key="file.id" 
+          class="grid-item"
+          @click="handleRowClick(file)"
+          draggable="true"
+          @dragstart="handleDragStart($event, file)"
+          @dragover="handleDragOver($event, file)"
+          @dragleave="handleDragLeave($event)"
+          @drop="handleDrop($event, file)"
+        >
+          <div class="grid-item-inner">
+            <div class="grid-preview">
+              <el-image 
+                v-if="!file.isFolder && isImage(file.name)"
+                :src="getThumbnailUrl(file.id)"
+                fit="cover"
+                class="grid-thumbnail"
+              />
+              <el-icon v-else :size="44" :class="file.isFolder ? 'folder-icon' : 'file-icon'">
+                <FolderOpened v-if="file.isFolder" />
+                <component :is="getFileIcon(file.name)" v-else />
+              </el-icon>
+            </div>
+            <div class="grid-name" :title="file.name">{{ file.name }}</div>
+            
+            <!-- 悬浮操作栏 -->
+            <div class="grid-actions" @click.stop>
+               <el-button circle size="small" :icon="file.isFavorite ? StarFilled : Star" :type="file.isFavorite ? 'warning' : ''" @click="handleToggleFavorite(file)" />
+               <el-button circle size="small" :icon="Download" v-if="!file.isFolder" @click="handleDownload(file)" />
+               <el-dropdown trigger="click">
+                  <el-button circle size="small" :icon="More" />
+                  <template #dropdown>
+                    <el-dropdown-menu>
+                      <el-dropdown-item :icon="Edit" @click="handleRename(file)">重命名</el-dropdown-item>
+                      <el-dropdown-item :icon="Rank" @click="handleMove(file)">移动到</el-dropdown-item>
+                      <el-dropdown-item :icon="Share" @click="handleShare(file)">分享</el-dropdown-item>
+                      <el-dropdown-item divided type="danger" :icon="Delete" @click="handleDelete(file)">删除</el-dropdown-item>
+                    </el-dropdown-menu>
+                  </template>
+                </el-dropdown>
+            </div>
           </div>
         </div>
       </div>
-    </div>
-
-    <div v-if="enablePagination" class="pagination-wrapper pan-card">
-      <el-pagination
-        v-model:current-page="pageNum"
-        v-model:page-size="pageSize"
-        :page-sizes="[20, 50, 100]"
-        :total="total"
-        layout="total, sizes, prev, pager, next, jumper"
-        @current-change="handlePageChange"
-        @size-change="handlePageSizeChange"
-      />
+      <div v-if="enablePagination" class="table-pagination">
+        <el-pagination
+          v-model:current-page="pageNum"
+          v-model:page-size="pageSize"
+          :page-sizes="[20, 50, 100]"
+          :total="total"
+          layout="total, sizes, prev, pager, next, jumper"
+          @current-change="handlePageChange"
+          @size-change="handlePageSizeChange"
+        />
+      </div>
     </div>
 
     <!-- 新建文件夹弹窗 -->
     <el-dialog v-model="showCreateFolder" title="新建文件夹" width="400px">
       <el-input v-model="newFolderName" placeholder="请输入文件夹名称" />
       <template #footer>
-        <el-button @click="showCreateFolder = false">取消</el-button>
-        <el-button type="primary" class="pan-button-primary" @click="confirmCreateFolder">确定</el-button>
+        <el-button :icon="Close" @click="showCreateFolder = false">取消</el-button>
+        <el-button :icon="Check" type="primary" class="pan-button-primary" @click="confirmCreateFolder">确定</el-button>
       </template>
     </el-dialog>
 
@@ -348,8 +366,8 @@
             目标位置: <span class="path-text">{{ currentMovePathText }}</span>
           </span>
           <div class="footer-btns">
-            <el-button @click="showMoveDialog = false">取消</el-button>
-            <el-button type="primary" class="pan-button-primary" @click="confirmMove">移动到此处</el-button>
+            <el-button :icon="Close" @click="showMoveDialog = false">取消</el-button>
+            <el-button :icon="Rank" type="primary" class="pan-button-primary" @click="confirmMove">移动到此处</el-button>
           </div>
         </div>
       </template>
@@ -379,8 +397,8 @@
       </el-form>
       <template #footer>
         <div class="dialog-footer">
-          <el-button @click="showShareSettingsDialog = false">取消</el-button>
-          <el-button type="primary" class="pan-button-primary" @click="confirmShareCreate">确定分享</el-button>
+          <el-button :icon="Close" @click="showShareSettingsDialog = false">取消</el-button>
+          <el-button :icon="Share" type="primary" class="pan-button-primary" @click="confirmShareCreate">确定分享</el-button>
         </div>
       </template>
     </el-dialog>
@@ -395,7 +413,7 @@
                 <span class="label">分享链接</span>
                 <el-input :value="'http://localhost:5173/share/' + shareInfo.shareToken" readonly>
                   <template #append>
-                    <el-button @click="copyText('http://localhost:5173/share/' + shareInfo.shareToken)">复制</el-button>
+                    <el-button :icon="CopyDocument" @click="copyText('http://localhost:5173/share/' + shareInfo.shareToken)">复制</el-button>
                   </template>
                 </el-input>
               </div>
@@ -403,7 +421,7 @@
                 <span class="label">提取码</span>
                 <el-input :value="shareInfo.shareCode" readonly>
                   <template #append>
-                    <el-button @click="copyText(shareInfo.shareCode)">复制</el-button>
+                    <el-button :icon="CopyDocument" @click="copyText(shareInfo.shareCode)">复制</el-button>
                   </template>
                 </el-input>
               </div>
@@ -526,7 +544,7 @@ import {
   Upload, FolderAdd, FolderOpened, Document, 
   Star, StarFilled, Download, More, Edit, Rank, Share, Delete, Folder, RefreshLeft,
   Menu, Grid, Picture, VideoPlay, Notebook, Box, Headset,
-  ArrowRight, FullScreen, Aim, Close, Search
+  ArrowRight, FullScreen, Aim, Close, Search, Check, CopyDocument
 } from '@element-plus/icons-vue'
 import request from '../utils/request'
 import { ElMessage, ElMessageBox } from 'element-plus'
@@ -849,7 +867,7 @@ const previewState = ref({
   visible: false,
   fileId: 0,
   fileName: '',
-  fileType: 'unknown' as 'docx' | 'pdf' | 'excel' | 'image' | 'ppt' | 'unknown'
+  fileType: 'unknown' as 'docx' | 'pdf' | 'excel' | 'image' | 'ppt' | 'markdown' | 'unknown'
 })
 
 const toggleViewMode = () => {
@@ -1113,6 +1131,8 @@ const handleRowClick = (row: any) => {
     handlePreviewImage(row)
   } else if (isVideo(row.name)) {
     handlePlayVideo(row)
+  } else if (isMarkdown(row.name)) {
+    handlePreview(row, 'markdown')
   } else if (isText(row.name)) {
     handlePreviewText(row)
   } else if (isPdf(row.name)) {
@@ -1485,7 +1505,12 @@ const isVideo = (name: string) => {
 
 const isText = (name: string) => {
   const ext = name.split('.').pop()?.toLowerCase()
-  return ['txt', 'md', 'json', 'xml', 'css', 'js', 'html', 'log', 'ini', 'conf'].includes(ext || '')
+  return ['txt', 'json', 'xml', 'css', 'js', 'html', 'log', 'ini', 'conf'].includes(ext || '')
+}
+
+const isMarkdown = (name: string) => {
+  const ext = name.split('.').pop()?.toLowerCase()
+  return ext === 'md' || ext === 'markdown'
 }
 
 const isPdf = (name: string) => {
@@ -1514,7 +1539,7 @@ const getFileIcon = (name: string) => {
   if (isPdf(name)) return Document
   if (isDocx(name)) return Document
   if (isExcel(name)) return Grid
-  if (isText(name)) return Notebook
+  if (isMarkdown(name) || isText(name)) return Notebook
   
   const ext = name.split('.').pop()?.toLowerCase()
   if (['mp3', 'wav', 'flac'].includes(ext || '')) return Headset
@@ -1740,6 +1765,18 @@ onMounted(() => {
   overflow: hidden;
 }
 
+.table-pagination {
+  position: sticky;
+  bottom: 0;
+  z-index: 4;
+  margin-top: 8px;
+  padding: 8px 12px 6px;
+  display: flex;
+  justify-content: flex-end;
+  border-top: 1px solid var(--pan-border);
+  background: var(--pan-surface-elevated);
+}
+
 .file-name-cell {
   display: flex;
   align-items: center;
@@ -1782,19 +1819,28 @@ onMounted(() => {
   .row-actions { visibility: visible; }
 }
 
+.grid-container {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--pan-surface-elevated);
+  border: 1px solid var(--pan-border);
+  border-radius: var(--pan-radius-lg);
+  padding: 8px;
+  overflow: hidden;
+}
+
 .grid-view {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-  padding: 16px;
+  padding: 8px;
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
   column-gap: 16px;
   row-gap: 10px;
   align-content: start;
-  background: var(--pan-surface-elevated);
-  border: 1px solid var(--pan-border);
-  border-radius: var(--pan-radius-lg);
 
   .grid-item {
     .grid-item-inner {
@@ -1895,13 +1941,6 @@ onMounted(() => {
       background: rgba(16, 185, 129, 0.12);
     }
   }
-}
-
-.pagination-wrapper {
-  margin-top: 10px;
-  padding: 10px 12px;
-  display: flex;
-  justify-content: flex-end;
 }
 
 .move-path-nav {

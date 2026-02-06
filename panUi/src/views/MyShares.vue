@@ -12,6 +12,7 @@
         <el-button
           type="danger"
           class="pan-button-danger"
+          :icon="Delete"
           :disabled="selectedShareIds.length === 0"
           @click="handleBatchCancel"
         >

@@ -67,14 +67,14 @@
         <el-form-item label="保存到目录">
           <div class="folder-picker-row">
             <el-input v-model="createParentLabel" disabled />
-            <el-button @click="openPicker('create')">选择目录</el-button>
-            <el-button @click="setParent(null, '根目录')">根目录</el-button>
+            <el-button :icon="FolderOpened" @click="openPicker('create')">选择目录</el-button>
+            <el-button :icon="HomeFilled" @click="setParent(null, '根目录')">根目录</el-button>
           </div>
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="showCreate = false">取消</el-button>
-        <el-button type="primary" class="pan-button-primary" @click="createTask" :loading="saving">提交</el-button>
+        <el-button :icon="Close" @click="showCreate = false">取消</el-button>
+        <el-button :icon="Plus" type="primary" class="pan-button-primary" @click="createTask" :loading="saving">提交</el-button>
       </template>
     </el-dialog>
 
@@ -86,14 +86,14 @@
         <el-form-item label="保存到目录">
           <div class="folder-picker-row">
             <el-input v-model="editParentLabel" disabled />
-            <el-button @click="openPicker('edit')">选择目录</el-button>
-            <el-button @click="setParent(null, '根目录')">根目录</el-button>
+            <el-button :icon="FolderOpened" @click="openPicker('edit')">选择目录</el-button>
+            <el-button :icon="HomeFilled" @click="setParent(null, '根目录')">根目录</el-button>
           </div>
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="showEdit = false">取消</el-button>
-        <el-button type="primary" class="pan-button-primary" @click="updateTask" :loading="saving">保存并重试</el-button>
+        <el-button :icon="Close" @click="showEdit = false">取消</el-button>
+        <el-button :icon="Refresh" type="primary" class="pan-button-primary" @click="updateTask" :loading="saving">保存并重试</el-button>
       </template>
     </el-dialog>
 
@@ -118,7 +118,7 @@
           class="picker-item"
         >
           <span class="name" @click="enterPickerFolder(folder)">{{ folder.name }}</span>
-          <el-button link @click="setParent(folder.id, folder.name); pickerVisible = false">选择</el-button>
+          <el-button link :icon="Check" @click="setParent(folder.id, folder.name); pickerVisible = false">选择</el-button>
         </div>
         <div v-if="pickerFolders.length === 0" class="empty-tip">暂无子文件夹</div>
       </div>
@@ -129,7 +129,7 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, computed } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Plus, Refresh, Edit, Delete } from '@element-plus/icons-vue'
+import { Plus, Refresh, Edit, Delete, FolderOpened, HomeFilled, Close, Check } from '@element-plus/icons-vue'
 import request from '../utils/request'
 
 const tasks = ref<any[]>([])
@@ -358,7 +358,7 @@ onUnmounted(() => {
   height: 100%;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 0;
   background-color: var(--pan-bg);
 }
 

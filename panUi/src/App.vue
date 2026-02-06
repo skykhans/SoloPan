@@ -99,7 +99,7 @@
               :before-upload="beforeAvatarUpload"
               :http-request="handleAvatarUpload"
             >
-              <el-button size="small" :loading="uploadingAvatar">上传头像</el-button>
+              <el-button size="small" :icon="Upload" :loading="uploadingAvatar">上传头像</el-button>
             </el-upload>
             <p class="avatar-tip">支持 jpg/png/webp/gif，大小不超过 2MB</p>
           </div>
@@ -116,8 +116,8 @@
       </el-form>
       <template #footer>
         <div class="dialog-footer">
-          <el-button @click="showProfileDialog = false">取消</el-button>
-          <el-button type="primary" @click="updateProfile" :loading="updating">保存修改</el-button>
+          <el-button :icon="Close" @click="showProfileDialog = false">取消</el-button>
+          <el-button type="primary" :icon="Check" @click="updateProfile" :loading="updating">保存修改</el-button>
         </div>
       </template>
     </el-dialog>
@@ -138,8 +138,8 @@
       </el-form>
       <template #footer>
         <div class="dialog-footer">
-          <el-button @click="showPasswordDialog = false">取消</el-button>
-          <el-button type="primary" @click="changePassword" :loading="updating">确认修改</el-button>
+          <el-button :icon="Close" @click="showPasswordDialog = false">取消</el-button>
+          <el-button type="primary" :icon="Check" @click="changePassword" :loading="updating">确认修改</el-button>
         </div>
       </template>
     </el-dialog>
@@ -160,7 +160,10 @@ import {
   Monitor,
   ArrowDown,
   Expand,
-  Fold
+  Fold,
+  Upload,
+  Close,
+  Check
 } from '@element-plus/icons-vue'
 
 const route = useRoute()

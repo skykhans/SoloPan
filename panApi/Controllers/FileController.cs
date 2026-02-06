@@ -718,6 +718,19 @@ namespace PanSystem.Controllers
                 })
                 .ToListAsync();
 
+            var now = DateTime.Now;
+            foreach (var item in items)
+            {
+                if (item.DeleteTime == null)
+                {
+                    item.RemainingDays = 30;
+                    continue;
+                }
+
+                var expireAt = item.DeleteTime.Value.AddDays(30);
+                item.RemainingDays = Math.Max(0, (int)Math.Ceiling((expireAt - now).TotalDays));
+            }
+
             return Ok(new
             {
                 Items = items,

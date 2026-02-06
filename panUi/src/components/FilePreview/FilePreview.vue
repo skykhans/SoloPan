@@ -69,6 +69,11 @@
         />
       </div>
 
+      <!-- Markdown Preview -->
+      <div v-if="fileType === 'markdown'" class="markdown-container">
+        <div class="markdown-content" v-html="markdownHtml"></div>
+      </div>
+
       <!-- PPT Preview -->
       <div 
         v-if="['ppt', 'pptx'].includes(fileType)"
@@ -88,7 +93,7 @@
         class="fallback-container"
       >
         <el-empty description="该文件类型暂不支持在线预览">
-           <el-button type="primary" @click="handleDownload">下载文件</el-button>
+           <el-button type="primary" :icon="Download" @click="handleDownload">下载文件</el-button>
         </el-empty>
       </div>
     </div>
@@ -104,11 +109,12 @@ import VueOfficePptx from '@vue-office/pptx'
 import { ZoomIn, ZoomOut, Download, Printer } from '@element-plus/icons-vue'
 import request from '../../utils/request'
 import { ElMessage } from 'element-plus'
+import MarkdownIt from 'markdown-it'
 
 const props = defineProps<{
   fileId: number
   fileName: string
-  fileType: 'docx' | 'pdf' | 'excel' | 'image' | 'ppt' | 'unknown'
+  fileType: 'docx' | 'pdf' | 'excel' | 'image' | 'ppt' | 'markdown' | 'unknown'
 }>()
 
 const loading = ref(false)
@@ -123,6 +129,13 @@ const excelWorkbook = ref<any>(null)
 const activeSheet = ref('')
 const renderError = ref(false)
 const excelContainerRef = ref<HTMLElement | null>(null)
+const markdownHtml = ref('')
+
+const markdown = new MarkdownIt({
+  html: false,
+  linkify: true,
+  typographer: true
+})
 
 // Computed
 const showZoom = computed(() => ['docx', 'excel', 'image'].includes(props.fileType))
@@ -276,6 +289,8 @@ const handlePrint = () => {
     content = docxContainer.value.innerHTML
   } else if (props.fileType === 'excel') {
     content = excelHtml.value
+  } else if (props.fileType === 'markdown') {
+    content = markdownHtml.value
   }
 
   if (content) {
@@ -313,6 +328,9 @@ const handlePrint = () => {
 const loadContent = async () => {
   loading.value = true
   renderError.value = false
+  if (props.fileType !== 'markdown') {
+    markdownHtml.value = ''
+  }
   try {
     if (props.fileType === 'docx') {
       const res = await request.get(`/file/download/${props.fileId}`, { responseType: 'blob' })
@@ -352,6 +370,12 @@ const loadContent = async () => {
       const res = await request.get(`/file/download/${props.fileId}`, { responseType: 'blob' })
       if (imageUrl.value) URL.revokeObjectURL(imageUrl.value)
       imageUrl.value = URL.createObjectURL(res as unknown as Blob)
+    } else if (props.fileType === 'markdown') {
+      const res = await request.get(`/file/download/${props.fileId}`, {
+        params: { preview: true },
+        responseType: 'text'
+      })
+      markdownHtml.value = markdown.render((res as unknown as string) || '')
     }
     // PDF handled by src binding (iframe usually handles cookies/auth differently, or via query param)
   } catch (error) {
@@ -452,6 +476,91 @@ onMounted(loadContent)
     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
     border-radius: 4px;
     transition: transform 0.2s;
+  }
+}
+
+.markdown-container {
+  width: 100%;
+  height: 100%;
+  overflow: auto;
+  padding: 24px;
+  background: #0c0d0d;
+  display: flex;
+  justify-content: center;
+}
+
+.markdown-content {
+  width: min(960px, 100%);
+  background: #101112;
+  border: 1px solid var(--pan-border);
+  border-radius: var(--pan-radius-md);
+  padding: 20px 24px;
+  color: var(--pan-text-body);
+  line-height: 1.7;
+  font-size: 14px;
+
+  :deep(h1, h2, h3, h4, h5, h6) {
+    color: var(--pan-text-main);
+    margin: 18px 0 10px;
+    font-weight: 700;
+  }
+
+  :deep(p) {
+    margin: 10px 0;
+  }
+
+  :deep(a) {
+    color: var(--pan-primary);
+    text-decoration: none;
+  }
+
+  :deep(code) {
+    background: rgba(255, 255, 255, 0.06);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-family: var(--font-mono);
+  }
+
+  :deep(pre) {
+    background: #0b0c0c;
+    border: 1px solid var(--pan-border);
+    border-radius: 6px;
+    padding: 12px;
+    overflow: auto;
+  }
+
+  :deep(pre code) {
+    background: transparent;
+    padding: 0;
+  }
+
+  :deep(blockquote) {
+    border-left: 3px solid var(--pan-primary);
+    margin: 12px 0;
+    padding-left: 12px;
+    color: var(--pan-text-muted);
+  }
+
+  :deep(ul, ol) {
+    padding-left: 20px;
+    margin: 10px 0;
+  }
+
+  :deep(table) {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 12px 0;
+  }
+
+  :deep(th, td) {
+    border: 1px solid var(--pan-border);
+    padding: 8px 10px;
+  }
+
+  :deep(th) {
+    background: rgba(255, 255, 255, 0.04);
+    font-weight: 600;
+    color: var(--pan-text-main);
   }
 }
 

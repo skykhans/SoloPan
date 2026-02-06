@@ -6,6 +6,7 @@ using PanSystem.Services;
 using PanSystem.Utils;
 using PanSystem.Models;
 using SqlSugar;
+using System.Security.Claims;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -95,6 +96,22 @@ builder.Services.AddAuthentication(x =>
                 context.Token = accessToken;
             }
             return Task.CompletedTask;
+        },
+        OnTokenValidated = async context =>
+        {
+            var userIdStr = context.Principal?.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (!int.TryParse(userIdStr, out var userId))
+            {
+                context.Fail("无效用户");
+                return;
+            }
+
+            var db = context.HttpContext.RequestServices.GetRequiredService<ISqlSugarClient>();
+            var user = await db.Queryable<UserInfo>().InSingleAsync(userId);
+            if (user == null || !user.IsEnabled)
+            {
+                context.Fail("账号已被禁用");
+            }
         }
     };
 });
@@ -195,9 +212,19 @@ using (var scope = app.Services.CreateScope())
                 db.Ado.ExecuteCommand("ALTER TABLE UserInfo ADD UpdateTime DATETIME NULL;");
             }
 
+            if (!ColumnExists("UserInfo", "LastLoginIp"))
+            {
+                db.Ado.ExecuteCommand("ALTER TABLE UserInfo ADD LastLoginIp NVARCHAR(64) NULL;");
+            }
+
             if (!ColumnExists("UserInfo", "MaxUploadFileSize"))
             {
                 db.Ado.ExecuteCommand("ALTER TABLE UserInfo ADD MaxUploadFileSize BIGINT NULL;");
+            }
+
+            if (!ColumnExists("UserInfo", "IsEnabled"))
+            {
+                db.Ado.ExecuteCommand("ALTER TABLE UserInfo ADD IsEnabled BIT NULL;");
             }
 
             if (ColumnExists("UserInfo", "CreateTime"))
@@ -222,6 +249,11 @@ using (var scope = app.Services.CreateScope())
                 db.Ado.ExecuteCommand("UPDATE UserInfo SET MaxUploadFileSize = ISNULL(MaxUploadFileSize, 104857600) WHERE MaxUploadFileSize IS NULL OR MaxUploadFileSize <= 0;");
             }
 
+            if (ColumnExists("UserInfo", "IsEnabled"))
+            {
+                db.Ado.ExecuteCommand("UPDATE UserInfo SET IsEnabled = ISNULL(IsEnabled, 1) WHERE IsEnabled IS NULL;");
+            }
+
             if (ColumnExists("UserInfo", "CreateTime") && IsNullableColumn("UserInfo", "CreateTime"))
             {
                 db.Ado.ExecuteCommand("ALTER TABLE UserInfo ALTER COLUMN CreateTime DATETIME NOT NULL;");
@@ -236,6 +268,11 @@ using (var scope = app.Services.CreateScope())
             {
                 db.Ado.ExecuteCommand("ALTER TABLE UserInfo ALTER COLUMN MaxUploadFileSize BIGINT NOT NULL;");
             }
+
+            if (ColumnExists("UserInfo", "IsEnabled") && IsNullableColumn("UserInfo", "IsEnabled"))
+            {
+                db.Ado.ExecuteCommand("ALTER TABLE UserInfo ALTER COLUMN IsEnabled BIT NOT NULL;");
+            }
         }
     }
     catch (Exception ex)
@@ -247,7 +284,10 @@ using (var scope = app.Services.CreateScope())
         typeof(PanSystem.Models.UserInfo),
         typeof(PanSystem.Models.StorageItem),
         typeof(PanSystem.Models.ShareLink),
-        typeof(PanSystem.Models.AuditLog)
+        typeof(PanSystem.Models.AuditLog),
+        typeof(PanSystem.Models.LoginIpRule),
+        typeof(PanSystem.Models.AdminLoginIpRule),
+        typeof(PanSystem.Models.UserLoginDevice)
     );
 
     // 强制检查并补全列 (针对已存在的表)
@@ -266,6 +306,8 @@ using (var scope = app.Services.CreateScope())
             END
             IF COL_LENGTH('UserInfo', 'LastLoginTime') IS NULL
             ALTER TABLE UserInfo ADD LastLoginTime DATETIME NULL;
+            IF COL_LENGTH('UserInfo', 'LastLoginIp') IS NULL
+            ALTER TABLE UserInfo ADD LastLoginIp NVARCHAR(64) NULL;
             IF COL_LENGTH('UserInfo', 'MaxUploadFileSize') IS NULL
             BEGIN
                 ALTER TABLE UserInfo ADD MaxUploadFileSize BIGINT NULL;
@@ -275,6 +317,16 @@ using (var scope = app.Services.CreateScope())
             ELSE
             BEGIN
                 UPDATE UserInfo SET MaxUploadFileSize = 104857600 WHERE MaxUploadFileSize IS NULL OR MaxUploadFileSize <= 0;
+            END
+            IF COL_LENGTH('UserInfo', 'IsEnabled') IS NULL
+            BEGIN
+                ALTER TABLE UserInfo ADD IsEnabled BIT NULL;
+                UPDATE UserInfo SET IsEnabled = 1 WHERE IsEnabled IS NULL;
+                ALTER TABLE UserInfo ALTER COLUMN IsEnabled BIT NOT NULL;
+            END
+            ELSE
+            BEGIN
+                UPDATE UserInfo SET IsEnabled = 1 WHERE IsEnabled IS NULL;
             END
             IF COL_LENGTH('ShareLink', 'ExpireTime') IS NULL
             BEGIN
@@ -311,13 +363,64 @@ using (var scope = app.Services.CreateScope())
         Console.WriteLine($"数据库维护错误: {ex.Message}");
     }
 
+    // 同步表注释到 SQL Server 扩展属性（Navicat“注释”列读取这里）
+    try
+    {
+        var tableComments = new Dictionary<string, string>
+        {
+            ["UserInfo"] = "用户信息表",
+            ["StorageItem"] = "文件与文件夹存储表",
+            ["ShareLink"] = "文件分享链接表",
+            ["AuditLog"] = "系统审计日志表",
+            ["OfflineDownloadTask"] = "离线下载任务表",
+            ["LoginIpRule"] = "登录IP限制规则表",
+            ["AdminLoginIpRule"] = "管理员登录IP白名单规则表",
+            ["UserLoginDevice"] = "用户常用登录设备表"
+        };
+
+        foreach (var (tableName, comment) in tableComments)
+        {
+            var escapedComment = comment.Replace("'", "''");
+            db.Ado.ExecuteCommand($@"
+                IF EXISTS (
+                    SELECT 1
+                    FROM sys.extended_properties ep
+                    INNER JOIN sys.tables t ON ep.major_id = t.object_id
+                    WHERE ep.name = 'MS_Description' AND ep.minor_id = 0 AND t.name = '{tableName}'
+                )
+                BEGIN
+                    EXEC sp_updateextendedproperty
+                        @name = N'MS_Description',
+                        @value = N'{escapedComment}',
+                        @level0type = N'SCHEMA', @level0name = N'dbo',
+                        @level1type = N'TABLE',  @level1name = N'{tableName}';
+                END
+                ELSE
+                BEGIN
+                    EXEC sp_addextendedproperty
+                        @name = N'MS_Description',
+                        @value = N'{escapedComment}',
+                        @level0type = N'SCHEMA', @level0name = N'dbo',
+                        @level1type = N'TABLE',  @level1name = N'{tableName}';
+                END
+            ");
+        }
+
+        Console.WriteLine("数据库表注释同步完成");
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"数据库表注释同步错误: {ex.Message}");
+    }
+
     if (!db.Queryable<UserInfo>().Any(u => u.UserName == "admin"))
     {
         var adminUser = new UserInfo
         {
             UserName = "admin",
-            Password = HashHelper.ComputeMd5("123456"),
+            Password = PasswordHelper.HashPassword("123456"),
             IsAdmin = true,
+            IsEnabled = true,
             CreateTime = DateTime.Now,
             UpdateTime = DateTime.Now,
             MaxUploadFileSize = 100L * 1024 * 1024,

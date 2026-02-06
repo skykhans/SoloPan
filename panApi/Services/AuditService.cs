@@ -1,4 +1,5 @@
 using PanSystem.Models;
+using PanSystem.Utils;
 using SqlSugar;
 
 namespace PanSystem.Services
@@ -25,7 +26,7 @@ namespace PanSystem.Services
                 UserName = userName,
                 Action = action,
                 Detail = detail,
-                IpAddress = ipAddress,
+                IpAddress = IpRuleParser.NormalizeIpForDisplay(ipAddress),
                 CreateTime = DateTime.Now
             };
 

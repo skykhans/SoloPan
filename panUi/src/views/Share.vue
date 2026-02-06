@@ -14,7 +14,7 @@
       <div class="user-actions">
          <template v-if="!isLoggedIn">
            <span class="login-tip">登录后可保存文件</span>
-           <el-button type="primary" link @click="goToLogin">登录 / 注册</el-button>
+           <el-button type="primary" link :icon="User" @click="goToLogin">登录 / 注册</el-button>
          </template>
          <template v-else>
            <span class="username">{{ username }}</span>
@@ -31,7 +31,7 @@
         <h2>请输入提取码</h2>
         <div class="input-area">
           <el-input v-model="shareCode" placeholder="请输入4位提取码" maxlength="4" style="width: 200px" />
-          <el-button type="primary" @click="checkCode" :loading="loading">提取文件</el-button>
+          <el-button type="primary" :icon="Search" @click="checkCode" :loading="loading">提取文件</el-button>
         </div>
       </template>
     </div>
@@ -56,10 +56,10 @@
       <div class="actions">
         <template v-if="!fileInfo.isFolder">
           <el-button type="primary" size="large" :icon="Download" @click="handleDownload()">下载文件</el-button>
-          <el-button size="large" @click="saveToDrive">保存到我的网盘</el-button>
+          <el-button size="large" :icon="FolderAdd" @click="saveToDrive">保存到我的网盘</el-button>
         </template>
         <template v-else>
-           <el-button type="primary" size="large" @click="saveToDrive">保存整站到网盘</el-button>
+           <el-button type="primary" size="large" :icon="FolderAdd" @click="saveToDrive">保存整站到网盘</el-button>
         </template>
       </div>
 
@@ -112,7 +112,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { Document, Download, FolderOpened } from '@element-plus/icons-vue'
+import { Document, Download, FolderOpened, User, Search, FolderAdd } from '@element-plus/icons-vue'
 import request from '../utils/request'
 import { ElMessage, ElMessageBox } from 'element-plus'
 

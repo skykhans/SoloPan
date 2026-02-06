@@ -1,6 +1,7 @@
 # .NET
 **/bin/
 **/obj/
+**/_build_verify/
 *.user
 *.suo
 *.sln.docstates
@@ -14,6 +15,7 @@
 
 # Databases
 panApi/pan.db
+panApi/uploads/
 
 # Node.js
 **/node_modules/

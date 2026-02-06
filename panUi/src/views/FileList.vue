@@ -867,7 +867,7 @@ const previewState = ref({
   visible: false,
   fileId: 0,
   fileName: '',
-  fileType: 'unknown' as 'docx' | 'pdf' | 'excel' | 'image' | 'ppt' | 'markdown' | 'unknown'
+  fileType: 'unknown' as 'doc' | 'docx' | 'pdf' | 'excel' | 'image' | 'ppt' | 'markdown' | 'unknown'
 })
 
 const toggleViewMode = () => {
@@ -1137,6 +1137,8 @@ const handleRowClick = (row: any) => {
     handlePreviewText(row)
   } else if (isPdf(row.name)) {
     handlePreviewPdf(row)
+  } else if (isDoc(row.name)) {
+    handlePreview(row, 'doc')
   } else if (isDocx(row.name)) {
     handlePreviewDocx(row)
   } else if (isExcel(row.name)) {
@@ -1523,6 +1525,11 @@ const isDocx = (name: string) => {
   return ext === 'docx'
 }
 
+const isDoc = (name: string) => {
+  const ext = name.split('.').pop()?.toLowerCase()
+  return ext === 'doc'
+}
+
 const isExcel = (name: string) => {
   const ext = name.split('.').pop()?.toLowerCase()
   return ['xls', 'xlsx', 'csv'].includes(ext || '')
@@ -1537,6 +1544,7 @@ const getFileIcon = (name: string) => {
   if (isImage(name)) return Picture
   if (isVideo(name)) return VideoPlay
   if (isPdf(name)) return Document
+  if (isDoc(name)) return Document
   if (isDocx(name)) return Document
   if (isExcel(name)) return Grid
   if (isMarkdown(name) || isText(name)) return Notebook

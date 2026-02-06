@@ -101,7 +101,7 @@
             >
               <el-button size="small" :icon="Upload" :loading="uploadingAvatar">上传头像</el-button>
             </el-upload>
-            <p class="avatar-tip">支持 jpg/png/webp/gif，大小不超过 2MB</p>
+            <p class="avatar-tip">支持jpg/png/webp/gif，大小≤2MB</p>
           </div>
         </el-form-item>
         <el-form-item label="用户名">
@@ -627,7 +627,13 @@ onMounted(() => {
     border-radius: inherit;
     display: block;
   }
-  .avatar-tip { font-size: 12px; color: var(--pan-text-muted); }
+  .avatar-tip {
+    margin-top: 10px;
+    font-size: 12px;
+    color: var(--pan-text-muted);
+    white-space: nowrap;
+    line-height: 1.2;
+  }
 }
 
 .dialog-footer { display: flex; justify-content: flex-end; gap: 12px; }

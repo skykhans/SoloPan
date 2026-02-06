@@ -18,7 +18,7 @@
     <div 
       class="preview-content-wrapper" 
       ref="wrapperRef" 
-      :class="{ 'full-height': fileType === 'pdf', 'is-image': fileType === 'image' }"
+      :class="{ 'full-height': fileType === 'pdf', 'is-image': fileType === 'image', 'is-markdown': fileType === 'markdown', 'is-docx': fileType === 'docx' }"
     >
       <!-- Docx Preview -->
       <div 
@@ -92,7 +92,7 @@
         v-if="shouldShowFallback" 
         class="fallback-container"
       >
-        <el-empty description="该文件类型暂不支持在线预览">
+        <el-empty :description="fallbackDescription">
            <el-button type="primary" :icon="Download" @click="handleDownload">下载文件</el-button>
         </el-empty>
       </div>
@@ -114,7 +114,7 @@ import MarkdownIt from 'markdown-it'
 const props = defineProps<{
   fileId: number
   fileName: string
-  fileType: 'docx' | 'pdf' | 'excel' | 'image' | 'ppt' | 'markdown' | 'unknown'
+  fileType: 'doc' | 'docx' | 'pdf' | 'excel' | 'image' | 'ppt' | 'markdown' | 'unknown'
 }>()
 
 const loading = ref(false)
@@ -122,6 +122,7 @@ const scale = ref(1.0)
 
 // Docx refs
 const docxContainer = ref<HTMLElement | null>(null)
+const wrapperRef = ref<HTMLElement | null>(null)
 
 // Excel refs
 const excelHtml = ref('')
@@ -143,8 +144,13 @@ const showZoom = computed(() => ['docx', 'excel', 'image'].includes(props.fileTy
 const shouldShowFallback = computed(() => {
   if (loading.value) return false
   if (renderError.value) return true
-  if (['unknown'].includes(props.fileType)) return true
+  if (['doc', 'unknown'].includes(props.fileType)) return true
   return false
+})
+
+const fallbackDescription = computed(() => {
+  if (props.fileType === 'doc') return 'DOC 暂不支持在线预览，请下载后查看'
+  return '该文件类型暂不支持在线预览'
 })
 
 const pptSrc = computed(() => {
@@ -337,16 +343,40 @@ const loadContent = async () => {
       await nextTick()
       if (docxContainer.value) {
         docxContainer.value.innerHTML = ''
-        // Add a class to hide container during render to prevent flicker
         docxContainer.value.style.opacity = '0'
-        await renderAsync(res as unknown as Blob, docxContainer.value, docxContainer.value, {
-          className: 'docx-content',
-          inWrapper: true,
-          ignoreWidth: false,
-          ignoreHeight: false,
-          experimental: true,
-          useBase64URL: true
-        })
+        let rendered = false
+        try {
+          await renderAsync(res as unknown as Blob, docxContainer.value, docxContainer.value, {
+            className: 'docx-content',
+            inWrapper: true,
+            ignoreWidth: false,
+            ignoreHeight: true,
+            experimental: false,
+            useBase64URL: false
+          })
+          rendered = true
+        } catch (firstError) {
+          console.warn('docx first pass failed, retrying with compatibility mode', firstError)
+          docxContainer.value.innerHTML = ''
+          await renderAsync(res as unknown as Blob, docxContainer.value, docxContainer.value, {
+            className: 'docx-content',
+            inWrapper: true,
+            ignoreWidth: false,
+            ignoreHeight: true,
+            experimental: true,
+            useBase64URL: true
+          })
+          rendered = true
+        }
+        if (rendered) {
+          await nextTick()
+          if (wrapperRef.value) {
+            wrapperRef.value.scrollTop = 0
+            wrapperRef.value.scrollLeft = 0
+          }
+          docxContainer.value.scrollTop = 0
+          docxContainer.value.scrollLeft = 0
+        }
         docxContainer.value.style.opacity = '1'
       }
     } else if (props.fileType === 'excel') {
@@ -459,6 +489,19 @@ onMounted(loadContent)
     background: transparent;
     justify-content: flex-start;
   }
+
+  &.is-markdown {
+    background: transparent;
+    align-items: stretch;
+    justify-content: flex-start;
+  }
+
+  &.is-docx {
+    align-items: center;
+    justify-content: flex-start;
+    overflow: auto;
+    background: transparent;
+  }
 }
 
 .image-container {
@@ -483,26 +526,35 @@ onMounted(loadContent)
   width: 100%;
   height: 100%;
   overflow: auto;
-  padding: 24px;
-  background: #0c0d0d;
+  padding: 0;
+  background: transparent !important;
   display: flex;
   justify-content: center;
 }
 
 .markdown-content {
   width: min(960px, 100%);
-  background: #101112;
-  border: 1px solid var(--pan-border);
-  border-radius: var(--pan-radius-md);
-  padding: 20px 24px;
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  padding: 0;
   color: var(--pan-text-body);
   line-height: 1.7;
   font-size: 14px;
 
   :deep(h1, h2, h3, h4, h5, h6) {
     color: var(--pan-text-main);
-    margin: 18px 0 10px;
+    margin: 14px 0 8px;
     font-weight: 700;
+    line-height: 1.35;
+  }
+
+  :deep(h1:first-child, h2:first-child, h3:first-child, h4:first-child, h5:first-child, h6:first-child) {
+    margin-top: 0;
+  }
+
+  :deep(hr) {
+    display: none;
   }
 
   :deep(p) {
@@ -522,8 +574,8 @@ onMounted(loadContent)
   }
 
   :deep(pre) {
-    background: #0b0c0c;
-    border: 1px solid var(--pan-border);
+    background: rgba(255, 255, 255, 0.03);
+    border: none;
     border-radius: 6px;
     padding: 12px;
     overflow: auto;
@@ -535,9 +587,9 @@ onMounted(loadContent)
   }
 
   :deep(blockquote) {
-    border-left: 3px solid var(--pan-primary);
+    border-left: none;
     margin: 12px 0;
-    padding-left: 12px;
+    padding-left: 0;
     color: var(--pan-text-muted);
   }
 

@@ -9,15 +9,26 @@ namespace PanSystem.Services
     {
         private readonly OfflineDownloadQueue _queue;
         private readonly IServiceScopeFactory _scopeFactory;
+        private readonly ILogger<OfflineDownloadWorker> _logger;
 
-        public OfflineDownloadWorker(OfflineDownloadQueue queue, IServiceScopeFactory scopeFactory)
+        public OfflineDownloadWorker(OfflineDownloadQueue queue, IServiceScopeFactory scopeFactory, ILogger<OfflineDownloadWorker> logger)
         {
             _queue = queue;
             _scopeFactory = scopeFactory;
+            _logger = logger;
         }
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
+            try
+            {
+                await RequeuePendingTasksAsync(stoppingToken);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "离线下载启动补偿入队失败");
+            }
+
             while (!stoppingToken.IsCancellationRequested)
             {
                 OfflineDownloadJob job;
@@ -30,7 +41,39 @@ namespace PanSystem.Services
                     break;
                 }
 
-                await ProcessJobAsync(job, stoppingToken);
+                try
+                {
+                    await ProcessJobAsync(job, stoppingToken);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "离线下载任务处理异常，TaskId={TaskId}", job.TaskId);
+                }
+            }
+        }
+
+        private async Task RequeuePendingTasksAsync(CancellationToken stoppingToken)
+        {
+            using var scope = _scopeFactory.CreateScope();
+            var db = scope.ServiceProvider.GetRequiredService<ISqlSugarClient>();
+
+            var pendingTasks = await db.Queryable<OfflineDownloadTask>()
+                .Where(t => t.Status == "queued" || t.Status == "downloading" || t.Status == "importing")
+                .OrderBy(t => t.CreateTime, OrderByType.Asc)
+                .ToListAsync();
+
+            if (!pendingTasks.Any()) return;
+
+            foreach (var task in pendingTasks)
+            {
+                if (stoppingToken.IsCancellationRequested) break;
+
+                if (task.Status != "queued")
+                {
+                    await UpdateTaskAsync(db, task.Id, "queued", 0, "服务重启，任务已重新入队");
+                }
+
+                await _queue.EnqueueAsync(new OfflineDownloadJob(task.Id));
             }
         }
 
@@ -69,7 +112,14 @@ namespace PanSystem.Services
             }
             catch (Exception ex)
             {
-                await UpdateTaskAsync(db, task.Id, "failed", task.Progress, ex.Message);
+                try
+                {
+                    await UpdateTaskAsync(db, task.Id, "failed", task.Progress, ex.Message);
+                }
+                catch (Exception updateEx)
+                {
+                    _logger.LogError(updateEx, "离线下载任务状态回写失败，TaskId={TaskId}", task.Id);
+                }
             }
         }
 
@@ -77,6 +127,10 @@ namespace PanSystem.Services
         {
             var client = httpClientFactory.CreateClient();
             client.Timeout = TimeSpan.FromMinutes(10);
+            if (!client.DefaultRequestHeaders.UserAgent.Any())
+            {
+                client.DefaultRequestHeaders.UserAgent.ParseAdd("PanSystemOfflineDownloader/1.0");
+            }
 
             var response = await client.GetAsync(task.Url, HttpCompletionOption.ResponseHeadersRead, ct);
             if (!response.IsSuccessStatusCode)
@@ -153,7 +207,7 @@ namespace PanSystem.Services
 
         private async Task HandleP2pAsync(ISqlSugarClient db, IStorageService storageService, IAuditService auditService, IWebHostEnvironment env, IConfiguration config, OfflineDownloadTask task, UserInfo user, CancellationToken ct)
         {
-            var aria2Path = ResolveAria2Path(config);
+            var aria2Path = ResolveAria2Path(config, env);
             if (string.IsNullOrWhiteSpace(aria2Path))
             {
                 await UpdateTaskAsync(db, task.Id, "failed", task.Progress, "未找到 aria2c，请安装后在配置中设置 Aria2:Path 或加入 PATH");
@@ -316,12 +370,30 @@ namespace PanSystem.Services
                 || filePath.EndsWith(".torrent", StringComparison.OrdinalIgnoreCase);
         }
 
-        private static string ResolveAria2Path(IConfiguration config)
+        private static string ResolveAria2Path(IConfiguration config, IWebHostEnvironment env)
         {
             var configured = config["Aria2:Path"];
             if (!string.IsNullOrWhiteSpace(configured))
             {
-                return configured;
+                if (File.Exists(configured))
+                {
+                    var fileName = Path.GetFileName(configured);
+                    if (fileName.Equals("aria2.exe", StringComparison.OrdinalIgnoreCase))
+                    {
+                        var siblingAria2c = Path.Combine(Path.GetDirectoryName(configured) ?? "", "aria2c.exe");
+                        if (File.Exists(siblingAria2c))
+                        {
+                            return siblingAria2c;
+                        }
+                    }
+                    return configured;
+                }
+            }
+
+            var bundledAria2c = Path.Combine(env.ContentRootPath, "Data", "Aria2", "aria2c.exe");
+            if (File.Exists(bundledAria2c))
+            {
+                return bundledAria2c;
             }
 
             return "aria2c";

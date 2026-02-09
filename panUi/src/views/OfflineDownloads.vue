@@ -102,13 +102,16 @@
         <span
           v-for="(item, idx) in pickerPathStack"
           :key="item.id ?? 'root'"
-          class="crumb"
-          @click="backPickerTo(idx)"
+          :class="['crumb', { current: idx === pickerPathStack.length - 1 }]"
+          @click="idx < pickerPathStack.length - 1 && backPickerTo(idx)"
         >
           {{ item.name }}
         </span>
       </div>
       <div class="picker-list">
+        <div v-if="pickerPathStack.length > 1" class="picker-item back-item" @click="goBackOne">
+          <span>返回上一级</span>
+        </div>
         <div class="picker-item root-item" @click="setParent(null, '根目录'); pickerVisible = false">
           <span>根目录</span>
         </div>
@@ -250,6 +253,11 @@ const backPickerTo = async (index: number) => {
   pickerPathStack.value = pickerPathStack.value.slice(0, index + 1)
   pickerParentId.value = target.id
   await fetchPickerFolders(target.id)
+}
+
+const goBackOne = async () => {
+  if (pickerPathStack.value.length <= 1) return
+  await backPickerTo(pickerPathStack.value.length - 2)
 }
 
 const fetchTasks = async () => {
@@ -445,6 +453,19 @@ onUnmounted(() => {
   color: var(--pan-text-muted);
   .crumb {
     cursor: pointer;
+    &::after {
+      content: '/';
+      margin-left: 8px;
+      color: var(--pan-text-dim);
+    }
+    &.current {
+      cursor: default;
+      color: var(--pan-text-main);
+    }
+    &.current::after {
+      content: '';
+      margin-left: 0;
+    }
     &:hover { color: var(--pan-primary); }
   }
 }
@@ -470,6 +491,11 @@ onUnmounted(() => {
 
 .picker-item.root-item {
   color: var(--pan-primary);
+  font-weight: 600;
+}
+
+.picker-item.back-item {
+  color: var(--pan-text-main);
   font-weight: 600;
 }
 

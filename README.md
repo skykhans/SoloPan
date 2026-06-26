@@ -29,7 +29,8 @@
   - 我的分享支持分享时间/过期时间/浏览/下载排序
   - 收藏时间记录
 - 预览能力
-  - 图片、PDF、Word、Excel、PPT
+  - 图片、PDF、Word、PPT
+  - Excel 文件请下载后查看
   - 文本文件预览
   - Markdown 渲染预览（`.md` / `.markdown`）
 - 系统管理
@@ -66,6 +67,15 @@
   - JWT 标识信息
 - `Storage:UploadPath`
   - 上传根目录（默认 `uploads`）
+
+本地开发建议使用 user-secrets 保存敏感配置：
+
+```bash
+cd panApi
+dotnet user-secrets set "ConnectionStrings:DefaultConnection" "Server=localhost\\SQLEXPRESS;Database=PanSystem;User Id=sa;Password=your_password;TrustServerCertificate=True;Connect Timeout=30;"
+dotnet user-secrets set "Jwt:Key" "your-32-chars-or-longer-dev-secret"
+dotnet user-secrets set "BootstrapAdmin:Password" "123456"
+```
 
 前端 API 地址：`panUi/src/utils/request.ts`
 
@@ -185,7 +195,7 @@ server {
 ### 7.6 上线检查清单
 
 1. 前端可打开并成功登录。
-2. 上传、下载、分享、预览正常。
+2. 上传、下载、分享、图片/PDF/Word/PPT/Markdown 预览正常。
 3. 后端 `/swagger` 在生产建议关闭或受控访问。
 4. 上传目录有写权限，数据库连接正常。
 5. JWT 密钥已替换，默认管理员密码已修改。
@@ -249,7 +259,7 @@ aria2c --version
 默认管理员：
 
 - 用户名：`admin`
-- 密码：`123456`（首次登录后请立即修改）
+- 密码：读取 `BootstrapAdmin:Password` 配置；本地示例为 `123456`，首次登录后请立即修改
 
 ## 10. 核心接口分组
 
@@ -282,7 +292,7 @@ aria2c --version
 - 数据库（账号、目录结构、分享、审计、任务）
 - 文件目录（`UploadPath` 指向的物理文件）
 
-### 10.1 备份策略
+### 12.1 备份策略
 
 - 每日全量数据库备份
 - 每日文件目录增量备份，至少每周一次全量
@@ -292,7 +302,7 @@ aria2c --version
   - 月备份保留 6-12 个月
 - 每月至少做一次恢复演练
 
-### 10.2 SQL Server 备份示例
+### 12.2 SQL Server 备份示例
 
 ```sql
 BACKUP DATABASE [PanSystem]
@@ -300,16 +310,16 @@ TO DISK = N'D:\backup\PanSystem_full.bak'
 WITH INIT, COMPRESSION, STATS = 5;
 ```
 
-### 10.3 文件目录备份示例（Windows）
+### 12.3 文件目录备份示例（Windows）
 
 ```powershell
-robocopy "C:\test\PanSystem\panApi\uploads" "D:\backup\pan_uploads" /MIR /R:2 /W:2
+robocopy "C:\Test\SoloPan\panApi\uploads" "D:\backup\pan_uploads" /MIR /R:2 /W:2
 ```
 
 说明：
 - `/MIR` 为镜像同步，执行前请确认目标目录专用于备份。
 
-### 10.4 恢复流程（建议）
+### 12.4 恢复流程（建议）
 
 1. 停止后端服务，冻结写入。
 2. 恢复数据库到目标实例。

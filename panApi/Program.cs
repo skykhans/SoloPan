@@ -67,7 +67,25 @@ builder.Services.AddScoped<IStorageService, LocalStorageService>();
 builder.Services.AddScoped<IAuditService, AuditService>();
 
 // Configure JWT Authentication
-var key = Encoding.ASCII.GetBytes(builder.Configuration["Jwt:Key"]!);
+var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+if (string.IsNullOrWhiteSpace(connectionString))
+{
+    throw new InvalidOperationException("缺少数据库连接串 ConnectionStrings:DefaultConnection");
+}
+
+var jwtKey = builder.Configuration["Jwt:Key"];
+if (string.IsNullOrWhiteSpace(jwtKey) || jwtKey.Length < 32)
+{
+    throw new InvalidOperationException("Jwt:Key 长度不能小于 32 位");
+}
+if (!builder.Environment.IsDevelopment() && jwtKey.Contains("DevelopmentOnly", StringComparison.OrdinalIgnoreCase))
+{
+    throw new InvalidOperationException("生产环境必须替换 Jwt:Key");
+}
+
+var jwtIssuer = builder.Configuration["Jwt:Issuer"] ?? "PanSystem";
+var jwtAudience = builder.Configuration["Jwt:Audience"] ?? "PanSystemUser";
+var key = Encoding.ASCII.GetBytes(jwtKey);
 builder.Services.AddAuthentication(x =>
 {
     x.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
@@ -75,14 +93,16 @@ builder.Services.AddAuthentication(x =>
 })
 .AddJwtBearer(x =>
 {
-    x.RequireHttpsMetadata = false;
+    x.RequireHttpsMetadata = !builder.Environment.IsDevelopment();
     x.SaveToken = true;
     x.TokenValidationParameters = new TokenValidationParameters
     {
         ValidateIssuerSigningKey = true,
         IssuerSigningKey = new SymmetricSecurityKey(key),
-        ValidateIssuer = false,
-        ValidateAudience = false
+        ValidateIssuer = true,
+        ValidIssuer = jwtIssuer,
+        ValidateAudience = true,
+        ValidAudience = jwtAudience
     };
     x.Events = new JwtBearerEvents
     {
@@ -117,13 +137,18 @@ builder.Services.AddAuthentication(x =>
 });
 
 // Configure CORS
+var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? Array.Empty<string>();
+if (!allowedOrigins.Any())
+{
+    throw new InvalidOperationException("缺少 CORS 配置 Cors:AllowedOrigins");
+}
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("AllowAll",
+    options.AddPolicy("ConfiguredOrigins",
         builder =>
         {
             builder
-            .AllowAnyOrigin()
+            .WithOrigins(allowedOrigins)
             .AllowAnyMethod()
             .AllowAnyHeader();
         });
@@ -148,7 +173,7 @@ using (var scope = app.Services.CreateScope())
                      AND name = 'Id'
                      AND is_identity = 0
                )
-            DROP TABLE OfflineDownloadTask;
+            THROW 51000, N'OfflineDownloadTask.Id 不是 IDENTITY，请手工迁移该表后再启动', 1;
 
             IF OBJECT_ID('OfflineDownloadTask', 'U') IS NULL
             CREATE TABLE OfflineDownloadTask (
@@ -415,10 +440,16 @@ using (var scope = app.Services.CreateScope())
 
     if (!db.Queryable<UserInfo>().Any(u => u.UserName == "admin"))
     {
+        var adminPassword = builder.Configuration["BootstrapAdmin:Password"];
+        if (string.IsNullOrWhiteSpace(adminPassword))
+        {
+            throw new InvalidOperationException("缺少默认管理员密码 BootstrapAdmin:Password");
+        }
+
         var adminUser = new UserInfo
         {
             UserName = "admin",
-            Password = PasswordHelper.HashPassword("123456"),
+            Password = PasswordHelper.HashPassword(adminPassword),
             IsAdmin = true,
             IsEnabled = true,
             CreateTime = DateTime.Now,
@@ -437,10 +468,14 @@ if (app.Environment.IsDevelopment())
     app.UseSwagger();
     app.UseSwaggerUI();
 }
-
-app.UseCors("AllowAll");
+else
+{
+    app.UseHsts();
+}
 
 app.UseHttpsRedirection();
+
+app.UseCors("ConfiguredOrigins");
 
 app.UseAuthentication();
 app.UseAuthorization();

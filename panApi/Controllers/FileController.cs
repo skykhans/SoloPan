@@ -132,6 +132,7 @@ namespace PanSystem.Controllers
         public async Task<IActionResult> CheckMd5(Md5CheckRequest request)
         {
             var userId = GetUserId();
+            if (!await IsOwnedFolder(request.ParentId, userId)) return BadRequest("目标目录不存在");
 
             // 如果有文件夹路径，先创建/获取文件夹结构
             var effectiveParentId = await GetOrCreateFolderPath(request.FolderPath, request.ParentId, userId);
@@ -200,6 +201,7 @@ namespace PanSystem.Controllers
         public async Task<IActionResult> CreateFolder(CreateFolderRequest request)
         {
             var userId = GetUserId();
+            if (!await IsOwnedFolder(request.ParentId, userId)) return BadRequest("目标目录不存在");
 
             // 检查同名
             var isExist = await _db.Queryable<StorageItem>()
@@ -224,6 +226,7 @@ namespace PanSystem.Controllers
         public async Task<IActionResult> BatchCreateFolders(BatchCreateFoldersRequest request)
         {
             var userId = GetUserId();
+            if (!await IsOwnedFolder(request.ParentId, userId)) return BadRequest("目标目录不存在");
 
             if (request.FolderPaths == null || !request.FolderPaths.Any())
             {
@@ -266,6 +269,7 @@ namespace PanSystem.Controllers
                 if (file == null || file.Length == 0) return BadRequest("文件为空");
 
                 var userId = GetUserId();
+                if (!await IsOwnedFolder(parentId, userId)) return BadRequest("目标目录不存在");
 
                 // 处理文件名冲突
                 var uniqueName = await GetUniqueName(file.FileName, parentId, userId);
@@ -386,6 +390,7 @@ namespace PanSystem.Controllers
         {
             var userId = GetUserId();
             if (!IsSafeUploadGuid(request.Guid)) return BadRequest("无效的上传标识");
+            if (!await IsOwnedFolder(request.ParentId, userId)) return BadRequest("目标目录不存在");
             var tempRoot = Path.Combine(_env.ContentRootPath, "Temp");
             var tempPath = Path.Combine(tempRoot, request.Guid);
 
@@ -1017,6 +1022,7 @@ namespace PanSystem.Controllers
             var user = await _db.Queryable<UserInfo>().InSingleAsync(userId);
             if (user == null) return NotFound("用户不存在");
             if (string.IsNullOrWhiteSpace(request.Url)) return BadRequest("下载链接不能为空");
+            if (!await IsOwnedFolder(request.ParentId, userId)) return BadRequest("目标目录不存在");
 
             var task = new OfflineDownloadTask
             {
@@ -1078,6 +1084,7 @@ namespace PanSystem.Controllers
                 task.Url = request.Url.Trim();
             }
 
+            if (!await IsOwnedFolder(request.ParentId, userId)) return BadRequest("目标目录不存在");
             task.ParentId = request.ParentId;
             task.Status = "queued";
             task.Progress = 0;
@@ -1330,6 +1337,13 @@ namespace PanSystem.Controllers
             } while (existingNames.Contains(newName));
 
             return newName;
+        }
+
+        private async Task<bool> IsOwnedFolder(int? parentId, int userId)
+        {
+            if (!parentId.HasValue) return true;
+            return await _db.Queryable<StorageItem>()
+                .AnyAsync(f => f.Id == parentId.Value && f.UserId == userId && f.IsFolder && !f.IsDeleted);
         }
 
         private async Task<int?> GetOrCreateFolderPath(string? folderPath, int? parentId, int userId)

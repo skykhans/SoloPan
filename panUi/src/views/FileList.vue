@@ -411,9 +411,9 @@
             <div class="share-details">
               <div class="detail-item">
                 <span class="label">分享链接</span>
-                <el-input :value="'http://localhost:5173/share/' + shareInfo.shareToken" readonly>
+                <el-input :value="shareUrl" readonly>
                   <template #append>
-                    <el-button :icon="CopyDocument" @click="copyText('http://localhost:5173/share/' + shareInfo.shareToken)">复制</el-button>
+                    <el-button :icon="CopyDocument" @click="copyText(shareUrl)">复制</el-button>
                   </template>
                 </el-input>
               </div>
@@ -549,7 +549,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, watch, computed } from 'vue'
+import { ref, onMounted, watch, computed, defineAsyncComponent } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { 
   Upload, FolderAdd, FolderOpened, Document, 
@@ -559,8 +559,9 @@ import {
 } from '@element-plus/icons-vue'
 import request from '../utils/request'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import FilePreview from '../components/FilePreview/FilePreview.vue'
 import SparkMD5 from 'spark-md5'
+
+const FilePreview = defineAsyncComponent(() => import('../components/FilePreview/FilePreview.vue'))
 
 const props = defineProps<{
   category?: string
@@ -604,6 +605,7 @@ const folderTree = ref<any[]>([])
 const showShareDialog = ref(false)
 const showShareSettingsDialog = ref(false)
 const shareInfo = ref<any>(null)
+const shareUrl = computed(() => shareInfo.value ? `${window.location.origin}/share/${shareInfo.value.shareToken}` : '')
 const shareExpireMode = ref<'1d' | '7d' | '30d' | 'never' | 'custom'>('7d')
 const shareCustomExpireTime = ref('')
 const sharingRow = ref<any>(null)

@@ -1,7 +1,4 @@
 import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router'
-import FileList from '../views/FileList.vue'
-import Login from '../views/Login.vue'
-import OfflineDownloads from '../views/OfflineDownloads.vue'
 
 const routes: Array<RouteRecordRaw> = [
   {
@@ -11,24 +8,24 @@ const routes: Array<RouteRecordRaw> = [
   {
     path: '/login',
     name: 'Login',
-    component: Login
+    component: () => import('../views/Login.vue')
   },
   {
     path: '/files',
     name: 'Files',
-    component: FileList,
+    component: () => import('../views/FileList.vue'),
     props: { category: 'files' }
   },
   {
     path: '/favorites',
     name: 'Favorites',
-    component: FileList,
+    component: () => import('../views/FileList.vue'),
     props: { category: 'favorites' }
   },
   {
     path: '/recycle-bin',
     name: 'RecycleBin',
-    component: FileList,
+    component: () => import('../views/FileList.vue'),
     props: { category: 'recycle-bin' }
   },
   {
@@ -39,7 +36,7 @@ const routes: Array<RouteRecordRaw> = [
   {
     path: '/offline-downloads',
     name: 'OfflineDownloads',
-    component: OfflineDownloads
+    component: () => import('../views/OfflineDownloads.vue')
   },
   {
     path: '/share/:token',

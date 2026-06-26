@@ -13,6 +13,7 @@ using System.Text.RegularExpressions;
 using Microsoft.AspNetCore.StaticFiles;
 using System.Linq;
 using System.Collections.Concurrent;
+using System.Security.Cryptography;
 
 namespace PanSystem.Controllers
 {
@@ -128,13 +129,13 @@ namespace PanSystem.Controllers
                 var codeInput = (request.VerifyCode ?? string.Empty).Trim();
                 if (string.IsNullOrWhiteSpace(codeInput))
                 {
-                    var code = new Random().Next(100000, 999999).ToString();
+                    var code = RandomNumberGenerator.GetInt32(100000, 1000000).ToString();
                     _deviceVerifyCodes[verifyKey] = (code, DateTime.Now.AddMinutes(5));
+                    Console.WriteLine($"设备验证码 {MaskEmail(user.Email)}: {code}");
                     return Ok(new
                     {
                         requireEmailVerify = true,
                         message = $"新设备登录，请输入发送到邮箱 {MaskEmail(user.Email)} 的验证码",
-                        code, // 演示环境返回验证码，生产环境请移除
                         expireSeconds = 300
                     });
                 }
@@ -296,8 +297,6 @@ namespace PanSystem.Controllers
         [HttpPost("register")]
         public async Task<IActionResult> Register([FromBody] RegisterRequest request)
         {
-            Console.WriteLine($"[Debug] 注册请求: Phone='{request.Phone}', Email='{request.Email}'");
-
             if (!IsValidUsername(request.Username))
                 return BadRequest("用户名需以字母开头，仅包含字母和数字");
 
@@ -326,7 +325,7 @@ namespace PanSystem.Controllers
             var verifyTarget = !string.IsNullOrEmpty(request.Phone) ? request.Phone : request.Email;
             if (string.IsNullOrEmpty(verifyTarget)) return BadRequest("手机号或邮箱不能为空");
 
-            if (!_verificationCodes.ContainsKey(verifyTarget) || _verificationCodes[verifyTarget] != request.VerifyCode)
+            if (!TryConsumeVerificationCode(verifyTarget, request.VerifyCode))
             {
                 return BadRequest("验证码错误或已过期");
             }
@@ -345,9 +344,7 @@ namespace PanSystem.Controllers
             };
 
             await _db.Insertable(user).ExecuteCommandAsync();
-            _verificationCodes.Remove(verifyTarget);
 
-            Console.WriteLine($"[Success] 用户 {request.Username} 注册成功, 手机: {request.Phone}, 邮箱: {request.Email}");
             return Ok("注册成功");
         }
 
@@ -428,70 +425,85 @@ namespace PanSystem.Controllers
             return Ok("密码修改成功");
         }
 
-        // 验证码内存存储 (仅用于演示找回密码逻辑)
-        private static readonly Dictionary<string, string> _verificationCodes = new();
+        private static readonly ConcurrentDictionary<string, (string Code, DateTime ExpireAt)> _verificationCodes = new();
 
         [AllowAnonymous]
         [HttpPost("send-code")]
         public async Task<IActionResult> SendCode([FromBody] SendCodeRequest request)
         {
+            var target = request.Target?.Trim() ?? "";
+            var type = request.Type?.Trim().ToLowerInvariant() ?? "";
+            var scenario = request.Scenario?.Trim().ToLowerInvariant() ?? "";
+            if (scenario != "register" && scenario != "reset") return BadRequest("验证码场景错误");
+
             bool userExists = false;
-            if (request.Type == "email")
+            if (type == "email")
             {
-                if (!IsValidEmail(request.Target)) return BadRequest("无效的邮箱格式");
-                userExists = await _db.Queryable<UserInfo>().AnyAsync(u => u.Email == request.Target);
+                if (!IsValidEmail(target)) return BadRequest("无效的邮箱格式");
+                userExists = await _db.Queryable<UserInfo>().AnyAsync(u => u.Email == target);
             }
-            else if (request.Type == "phone")
+            else if (type == "phone")
             {
-                if (!IsValidPhone(request.Target)) return BadRequest("无效的手机号格式");
-                userExists = await _db.Queryable<UserInfo>().AnyAsync(u => u.Phone == request.Target);
+                if (!IsValidPhone(target)) return BadRequest("无效的手机号格式");
+                userExists = await _db.Queryable<UserInfo>().AnyAsync(u => u.Phone == target);
             }
+            else return BadRequest("验证码类型错误");
 
             // 根据场景校验
-            if (request.Scenario == "register")
+            if (scenario == "register")
             {
                 if (userExists)
                 {
-                    if (request.Type == "email") return BadRequest("邮箱已注册");
-                    if (request.Type == "phone") return BadRequest("手机号已注册");
+                    if (type == "email") return BadRequest("邮箱已注册");
+                    if (type == "phone") return BadRequest("手机号已注册");
                     return BadRequest("账号已注册");
                 }
             }
-            else if (request.Scenario == "reset")
+            else if (scenario == "reset")
             {
                 if (!userExists) return BadRequest("该账号未绑定任何用户");
             }
 
-            // 简单生成一个 6 位验证码
-            var code = new Random().Next(100000, 999999).ToString();
-            _verificationCodes[request.Target] = code;
+            var code = RandomNumberGenerator.GetInt32(100000, 1000000).ToString();
+            _verificationCodes[target] = (code, DateTime.UtcNow.AddMinutes(5));
+            Console.WriteLine($"验证码 {target}: {code}");
 
-            return Ok(new { Message = $"验证码已发送至 {request.Target}", Code = code });
+            return Ok(new { Message = $"验证码已发送至 {target}", ExpireSeconds = 300 });
         }
 
         [AllowAnonymous]
         [HttpPost("reset-password")]
         public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordRequest request)
         {
-            if (!_verificationCodes.ContainsKey(request.Target) || _verificationCodes[request.Target] != request.Code)
-            {
-                return BadRequest("验证码错误或已过期");
-            }
-
+            var target = request.Target?.Trim() ?? "";
             var pwdError = ValidatePasswordStrength(request.NewPassword);
             if (pwdError != null) return BadRequest(pwdError);
 
             var user = await _db.Queryable<UserInfo>()
-                .FirstAsync(u => u.Email == request.Target || u.Phone == request.Target);
+                .FirstAsync(u => u.Email == target || u.Phone == target);
 
             if (user == null) return BadRequest("在该邮箱或手机号下未找到用户");
+            if (!TryConsumeVerificationCode(target, request.Code))
+            {
+                return BadRequest("验证码错误或已过期");
+            }
 
             user.Password = PasswordHelper.HashPassword(request.NewPassword);
             user.UpdateTime = DateTime.Now;
             await _db.Updateable(user).UpdateColumns(u => new { u.Password, u.UpdateTime }).ExecuteCommandAsync();
 
-            _verificationCodes.Remove(request.Target); // 使用后移除
             return Ok("密码重置成功");
+        }
+
+        private static bool TryConsumeVerificationCode(string target, string code)
+        {
+            if (!_verificationCodes.TryGetValue(target, out var data)) return false;
+            if (data.ExpireAt < DateTime.UtcNow)
+            {
+                _verificationCodes.TryRemove(target, out _);
+                return false;
+            }
+            return data.Code == code && _verificationCodes.TryRemove(target, out _);
         }
 
         private string GenerateJwtToken(UserInfo user)
@@ -505,6 +517,8 @@ namespace PanSystem.Controllers
                     new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
                     new Claim(ClaimTypes.Name, user.UserName)
                 }),
+                Issuer = _configuration["Jwt:Issuer"] ?? "PanSystem",
+                Audience = _configuration["Jwt:Audience"] ?? "PanSystemUser",
                 Expires = DateTime.UtcNow.AddDays(7),
                 SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(key), SecurityAlgorithms.HmacSha256Signature)
             };

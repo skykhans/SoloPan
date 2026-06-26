@@ -35,28 +35,6 @@
         class="pdf-frame"
       ></iframe>
 
-      <!-- Excel Preview -->
-      <div 
-        v-if="fileType === 'excel'" 
-        class="excel-wrapper"
-      >
-        <el-tabs 
-          v-if="excelWorkbook && excelWorkbook.SheetNames.length > 1" 
-          v-model="activeSheet" 
-          class="excel-tabs"
-        >
-          <el-tab-pane 
-            v-for="sheet in excelWorkbook.SheetNames" 
-            :key="sheet" 
-            :label="sheet" 
-            :name="sheet" 
-          />
-        </el-tabs>
-        <div class="excel-container" ref="excelContainerRef">
-          <div :style="excelStyle" v-html="excelHtml" class="excel-content"></div>
-        </div>
-      </div>
-
       <!-- Image Preview -->
       <div 
         v-if="fileType === 'image'" 
@@ -101,15 +79,13 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, watch, computed, nextTick } from 'vue'
-import { renderAsync } from 'docx-preview'
-import * as XLSX from 'xlsx'
-import VueOfficePptx from '@vue-office/pptx'
+import { ref, onMounted, watch, computed, nextTick, defineAsyncComponent } from 'vue'
 // import '@vue-office/pptx/lib/index.css'
 import { ZoomIn, ZoomOut, Download, Printer } from '@element-plus/icons-vue'
 import request from '../../utils/request'
 import { ElMessage } from 'element-plus'
-import MarkdownIt from 'markdown-it'
+
+const VueOfficePptx = defineAsyncComponent(() => import('@vue-office/pptx'))
 
 const props = defineProps<{
   fileId: number
@@ -124,32 +100,23 @@ const scale = ref(1.0)
 const docxContainer = ref<HTMLElement | null>(null)
 const wrapperRef = ref<HTMLElement | null>(null)
 
-// Excel refs
-const excelHtml = ref('')
-const excelWorkbook = ref<any>(null)
-const activeSheet = ref('')
 const renderError = ref(false)
-const excelContainerRef = ref<HTMLElement | null>(null)
 const markdownHtml = ref('')
-
-const markdown = new MarkdownIt({
-  html: false,
-  linkify: true,
-  typographer: true
-})
+let markdown: { render: (source: string) => string } | null = null
 
 // Computed
-const showZoom = computed(() => ['docx', 'excel', 'image'].includes(props.fileType))
+const showZoom = computed(() => ['docx', 'image'].includes(props.fileType))
 
 const shouldShowFallback = computed(() => {
   if (loading.value) return false
   if (renderError.value) return true
-  if (['doc', 'unknown'].includes(props.fileType)) return true
+  if (['doc', 'excel', 'unknown'].includes(props.fileType)) return true
   return false
 })
 
 const fallbackDescription = computed(() => {
   if (props.fileType === 'doc') return 'DOC 暂不支持在线预览，请下载后查看'
+  if (props.fileType === 'excel') return 'Excel 暂不支持在线预览，请下载后查看'
   return '该文件类型暂不支持在线预览'
 })
 
@@ -165,14 +132,6 @@ const docxStyle = computed(() => ({
   width: '100%',
   maxWidth: '1000px', // More like web document
   margin: '0 auto'
-}))
-
-const excelStyle = computed(() => ({
-  // Use zoom for Excel as it handles scroll area much better than transform:scale for tables
-  // Zoom is non-standard but widely supported in Chromium-based browsers (which most use)
-  zoom: scale.value,
-  display: 'inline-block',
-  minWidth: '100%'
 }))
 
 const scaleStyle = computed(() => ({
@@ -207,31 +166,6 @@ const onPptError = (e: any) => {
   renderError.value = true
   loading.value = false
 }
-
-const renderExcelSheet = (sheetName: string) => {
-  if (!excelWorkbook.value || !sheetName) return
-  const worksheet = excelWorkbook.value.Sheets[sheetName]
-  
-  // Check if worksheet exists and has data
-  // Empty worksheets exist but have no !ref (range) property
-  if (!worksheet || !worksheet['!ref']) {
-    excelHtml.value = '<div class="empty-sheet">此工作表没有内容</div>'
-    return
-  }
-  
-  // Convert to HTML
-  excelHtml.value = XLSX.utils.sheet_to_html(worksheet)
-}
-
-watch(activeSheet, async (newSheet) => {
-  if (newSheet) {
-    renderExcelSheet(newSheet)
-    await nextTick()
-    if (excelContainerRef.value) {
-      excelContainerRef.value.scrollTo(0, 0)
-    }
-  }
-})
 
 const handleDownload = () => {
   const link = document.createElement('a')
@@ -289,12 +223,10 @@ const handlePrint = () => {
     return
   }
 
-  // Docx and Excel (HTML print)
+  // Docx and Markdown (HTML print)
   let content = ''
   if (props.fileType === 'docx' && docxContainer.value) {
     content = docxContainer.value.innerHTML
-  } else if (props.fileType === 'excel') {
-    content = excelHtml.value
   } else if (props.fileType === 'markdown') {
     content = markdownHtml.value
   }
@@ -339,6 +271,7 @@ const loadContent = async () => {
   }
   try {
     if (props.fileType === 'docx') {
+      const { renderAsync } = await import('docx-preview')
       const res = await request.get(`/file/download/${props.fileId}`, { responseType: 'blob' })
       await nextTick()
       if (docxContainer.value) {
@@ -379,28 +312,20 @@ const loadContent = async () => {
         }
         docxContainer.value.style.opacity = '1'
       }
-    } else if (props.fileType === 'excel') {
-      const res = await request.get(`/file/download/${props.fileId}`, { responseType: 'arraybuffer' })
-      const data = new Uint8Array(res as unknown as ArrayBuffer)
-      const workbook = XLSX.read(data, { type: 'array' })
-      excelWorkbook.value = workbook
-      if (workbook.SheetNames.length > 0) {
-        const firstSheet = workbook.SheetNames[0]
-        if (firstSheet) {
-          const isSameSheet = activeSheet.value === firstSheet
-          activeSheet.value = firstSheet
-          // If name is same, watcher won't fire, so we force render
-          if (isSameSheet) {
-            renderExcelSheet(firstSheet)
-          }
-        }
-      }
     } else if (props.fileType === 'image') {
       // Explicitly fetch image to handle auth headers and catch errors
       const res = await request.get(`/file/download/${props.fileId}`, { responseType: 'blob' })
       if (imageUrl.value) URL.revokeObjectURL(imageUrl.value)
       imageUrl.value = URL.createObjectURL(res as unknown as Blob)
     } else if (props.fileType === 'markdown') {
+      if (!markdown) {
+        const MarkdownIt = (await import('markdown-it')).default
+        markdown = new MarkdownIt({
+          html: false,
+          linkify: true,
+          typographer: true
+        })
+      }
       const res = await request.get(`/file/download/${props.fileId}`, {
         params: { preview: true },
         responseType: 'text'
@@ -663,65 +588,6 @@ onMounted(loadContent)
   height: 100%;
   border: none;
   background: white;
-}
-
-.excel-wrapper {
-  width: 100%;
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-  background: white;
-  border-radius: var(--pan-radius-md);
-  overflow: hidden;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
-}
-
-.excel-tabs {
-  background-color: #f8f9fa;
-  border-bottom: 1px solid #dee2e6;
-  padding: 0 16px;
-  :deep(.el-tabs__header) { margin: 0; }
-  :deep(.el-tabs__item) {
-    color: #6b7280;
-    font-weight: 600;
-  }
-  :deep(.el-tabs__item.is-active) {
-    color: #10b981;
-    font-weight: 700;
-  }
-  :deep(.el-tabs__active-bar) {
-    background-color: #10b981;
-    height: 2px;
-  }
-}
-
-.excel-container {
-  flex: 1;
-  overflow: auto;
-  padding: 16px;
-  
-  :deep(table) {
-    border-collapse: collapse;
-    font-size: 13px;
-    color: #333;
-    background: white;
-    
-    td, th {
-      border: 1px solid #dee2e6;
-      padding: 8px 12px;
-      min-width: 80px;
-    }
-
-    th {
-      background-color: #f8f9fa;
-      font-weight: 700;
-      position: sticky;
-      top: 0;
-      z-index: 1;
-    }
-
-    tr:hover td { background-color: rgba(16, 185, 129, 0.05); }
-  }
 }
 
 .ppt-container {

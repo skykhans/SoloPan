@@ -1,0 +1,25 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: panUi/package-lock.json
+      - run: dotnet build panApi/pan.sln --configuration Release
+      - run: dotnet run --project panApi/PanSystem.Checks/PanSystem.Checks.csproj --configuration Release
+      - run: npm ci
+        working-directory: panUi
+      - run: npm run build
+        working-directory: panUi

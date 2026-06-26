@@ -338,8 +338,29 @@ namespace PanSystem.Controllers
             var sourceItem = await _db.Queryable<StorageItem>().InSingleAsync(share.StorageItemId);
             if (sourceItem == null) return NotFound("源文件不存在");
 
-            // 开始递归保存
-            await SaveItemRecursive(sourceItem, request.TargetParentId, userId);
+            if (request.TargetParentId.HasValue)
+            {
+                var targetFolderExists = await _db.Queryable<StorageItem>()
+                    .AnyAsync(f => f.Id == request.TargetParentId.Value && f.UserId == userId && f.IsFolder && !f.IsDeleted);
+                if (!targetFolderExists) return BadRequest("目标目录不存在");
+            }
+
+            var saveSize = await GetItemTotalSize(sourceItem);
+            var user = await _db.Queryable<UserInfo>().InSingleAsync(userId);
+            if (user == null) return NotFound("用户不存在");
+            if (user.UsedSpace + saveSize > user.TotalSpace) return BadRequest("存储空间不足");
+
+            _db.Ado.BeginTran();
+            try
+            {
+                await SaveItemRecursive(sourceItem, request.TargetParentId, userId);
+                _db.Ado.CommitTran();
+            }
+            catch
+            {
+                _db.Ado.RollbackTran();
+                throw;
+            }
 
             return Ok("保存成功");
         }
@@ -349,7 +370,7 @@ namespace PanSystem.Controllers
             // 1. 保存当前节点
             var newItem = new StorageItem
             {
-                Name = sourceItem.Name,
+                Name = await GetUniqueName(sourceItem.Name, targetParentId, currentUserId),
                 ParentId = targetParentId,
                 UserId = currentUserId,
                 IsFolder = sourceItem.IsFolder,
@@ -384,6 +405,49 @@ namespace PanSystem.Controllers
                     await SaveItemRecursive(child, newId, currentUserId);
                 }
             }
+        }
+
+        private async Task<long> GetItemTotalSize(StorageItem item)
+        {
+            if (!item.IsFolder) return item.FileSize;
+
+            long total = 0;
+            var currentIds = new List<int> { item.Id };
+            while (currentIds.Any())
+            {
+                var children = await _db.Queryable<StorageItem>()
+                    .Where(f => f.ParentId != null && currentIds.Contains((int)f.ParentId) && f.UserId == item.UserId && !f.IsDeleted)
+                    .ToListAsync();
+                total += children.Where(f => !f.IsFolder).Sum(f => f.FileSize);
+                currentIds = children.Where(f => f.IsFolder).Select(f => f.Id).ToList();
+            }
+            return total;
+        }
+
+        private async Task<string> GetUniqueName(string name, int? parentId, int userId)
+        {
+            var existingNames = await _db.Queryable<StorageItem>()
+                .Where(f => f.UserId == userId && !f.IsDeleted)
+                .WhereIF(parentId == null, f => f.ParentId == null)
+                .WhereIF(parentId != null, f => f.ParentId == parentId)
+                .Select(f => f.Name)
+                .ToListAsync();
+
+            if (!existingNames.Contains(name)) return name;
+
+            var extension = Path.GetExtension(name);
+            var nameWithoutExtension = Path.GetFileNameWithoutExtension(name);
+            var count = 1;
+            string newName;
+            do
+            {
+                newName = string.IsNullOrEmpty(extension)
+                    ? $"{nameWithoutExtension} ({count})"
+                    : $"{nameWithoutExtension} ({count}){extension}";
+                count++;
+            } while (existingNames.Contains(newName));
+
+            return newName;
         }
     }
 }

@@ -256,13 +256,13 @@ const sendVerifyCode = async () => {
   }
 
   try {
-    const res: any = await request.post('/user/send-code', {
+    await request.post('/user/send-code', {
       target: forgotForm.target,
       type: isEmail ? 'email' : 'phone',
       scenario: 'reset'
     })
     
-    ElMessage.success(`验证码已发送（测试用）：${res.code}`)
+    ElMessage.success('验证码已发送')
     startTimer()
   } catch (error) {
     console.error(error)
@@ -287,13 +287,13 @@ const sendRegisterCode = async () => {
   }
 
   try {
-    const res: any = await request.post('/user/send-code', {
+    await request.post('/user/send-code', {
       target,
       type,
       scenario: 'register'
     })
     
-    ElMessage.success(`验证码已发送（测试用）：${res.code}`)
+    ElMessage.success('验证码已发送')
     startTimer()
   } catch (error) {
     console.error(error)
@@ -335,11 +335,7 @@ const performLogin = async (verifyCode?: string) => {
 
   if (res?.requireEmailVerify) {
     deviceVerifyHint.value = res?.message || '检测到新设备登录，请输入邮箱验证码'
-    if (res?.code) {
-      ElMessage.success(`验证码已发送（测试用）：${res.code}`)
-    } else {
-      ElMessage.success('验证码已发送到绑定邮箱')
-    }
+    ElMessage.success('验证码已发送到绑定邮箱')
     showDeviceVerifyDialog.value = true
     startDeviceVerifyTimer()
     return null

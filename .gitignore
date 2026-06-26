@@ -2,6 +2,7 @@
 **/bin/
 **/obj/
 **/_build_verify/
+**/build_verify_admin_files/
 *.user
 *.suo
 *.sln.docstates
@@ -27,6 +28,7 @@ panApi/uploads/
 # Logs
 *.log
 logs/
+.codex-run/
 
 # OS files
 .DS_Store
